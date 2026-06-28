@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+*.pyo
+.env
+porta_voz.db
+audio_chunks/
+clips/
+logs/
+*.log
+.DS_Store

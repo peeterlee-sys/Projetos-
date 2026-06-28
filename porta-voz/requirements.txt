@@ -1,0 +1,36 @@
+# Core
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+pydantic==2.10.3
+pydantic-settings==2.6.1
+
+# Database
+sqlalchemy[asyncio]==2.0.36
+aiosqlite==0.20.0
+alembic==1.14.0
+
+# OpenAI (Whisper)
+openai==1.57.2
+
+# Anthropic (Claude)
+anthropic==0.40.0
+
+# HTTP client
+httpx==0.27.2
+
+# Scheduling
+apscheduler==3.10.4
+
+# Audio / streaming
+yt-dlp==2024.11.18
+
+# Logging
+structlog==24.4.0
+rich==13.9.4
+
+# Utilities
+python-dotenv==1.0.1
+python-multipart==0.0.18
+pytz==2024.2
+watchdog==6.0.0
+aiofiles==24.1.0
