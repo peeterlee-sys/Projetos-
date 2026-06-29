@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Optional
 
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.config import settings
@@ -245,19 +246,15 @@ class MonitorJob:
     async def _load_session(self, db: AsyncSession) -> Optional[MonitoringSession]:
         result = await db.execute(
             select(MonitoringSession)
+            .options(
+                selectinload(MonitoringSession.program).selectinload(Program.station)
+            )
             .where(MonitoringSession.id == self.session_id)
         )
         session = result.scalar_one_or_none()
 
         if not session:
             logger.error("monitor_job.session_not_found", session_id=self.session_id)
-            return None
-
-        # Eager load relationships
-        if not session.program:
-            await db.refresh(session, ["program"])
-        if session.program and not session.program.station:
-            await db.refresh(session.program, ["station"])
 
         return session
 
@@ -330,7 +327,11 @@ class MonitorJob:
         """Encerra sessão e gera relatório."""
         async with AsyncSessionLocal() as db:
             result = await db.execute(
-                select(MonitoringSession).where(MonitoringSession.id == self.session_id)
+                select(MonitoringSession)
+                .options(
+                    selectinload(MonitoringSession.program).selectinload(Program.station)
+                )
+                .where(MonitoringSession.id == self.session_id)
             )
             session = result.scalar_one_or_none()
             if not session:
