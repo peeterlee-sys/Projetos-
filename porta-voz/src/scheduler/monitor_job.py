@@ -1,6 +1,7 @@
 """
 Orquestrador principal de monitoramento.
 Coordena captura → transcrição → filtro → análise → alerta para um programa de rádio.
+Suporta múltiplos clientes monitorando a mesma rádio simultaneamente.
 """
 import asyncio
 from datetime import datetime
@@ -16,7 +17,7 @@ from src.core.database import AsyncSessionLocal
 from src.core.models import (
     MonitoringSession, Program, RadioStation, Transcription,
     Analysis, Alert, AlertStatus, SessionStatus, Sentiment,
-    Urgency, ContentType, AlertRecipient,
+    Urgency, ContentType, AlertRecipient, StationSubscription,
 )
 from src.capture.stream_capture import StreamCapture, AudioChunk
 from src.capture.youtube import resolve_stream_url
@@ -31,14 +32,13 @@ from src.core.logging_config import get_logger
 
 logger = get_logger(__name__)
 
-# Urgências que sempre disparam alerta imediato
 ALERT_URGENCIES = {"critical", "high", "medium"}
 
 
 class MonitorJob:
     """
     Gerencia o ciclo completo de monitoramento de um programa de rádio.
-    Instanciado e controlado pelo JobManager.
+    Processa cada chunk para todos os clientes (orgs) assinantes da rádio.
     """
 
     def __init__(self, program_id: str, session_id: str):
@@ -48,7 +48,6 @@ class MonitorJob:
         self._running = False
 
     async def run(self) -> None:
-        """Ponto de entrada principal. Roda até o programa terminar ou erro."""
         async with AsyncSessionLocal() as db:
             session = await self._load_session(db)
             if not session:
@@ -91,7 +90,6 @@ class MonitorJob:
             await self._finalize()
 
     async def stop(self) -> None:
-        """Para o monitoramento graciosamente."""
         self._running = False
         if self._capture:
             await self._capture.stop()
@@ -100,8 +98,8 @@ class MonitorJob:
 
     async def _handle_chunk(self, chunk: AudioChunk) -> None:
         """
-        Processa um chunk de áudio:
-        transcreve → filtra → analisa → dedup → alerta.
+        Processa um chunk de áudio para TODOS os clientes assinantes da rádio.
+        transcreve (1x) → para cada org: filtra → analisa → dedup → alerta
         """
         async with AsyncSessionLocal() as db:
             session = await self._load_session(db)
@@ -112,7 +110,7 @@ class MonitorJob:
             station: RadioStation = program.station
             chunk_time = chunk.started_at.strftime("%H:%M:%S")
 
-            # 1. Transcrição
+            # 1. Transcrição única para todos os clientes
             transcription_result = await transcribe_audio(
                 audio_path=chunk.file_path,
                 chunk_index=chunk.index,
@@ -125,18 +123,27 @@ class MonitorJob:
 
             text = transcription_result.text
 
-            # 2. Filtro por palavras-chave
-            keywords_db = await self._load_keywords(db, program.station.org_id, program.id)
-            has_match, matched = check_keywords(text, custom_keywords=keywords_db)
+            # 2. Coleta todos os orgs que devem processar este chunk
+            org_ids = await self._get_subscriber_org_ids(db, station.id, station.org_id)
 
+            # 3. Verifica se ALGUM org tem match de keyword
+            any_match = False
+            for org_id in org_ids:
+                keywords_db = await self._load_keywords(db, org_id, program.id)
+                has_match, _ = check_keywords(text, custom_keywords=keywords_db)
+                if has_match:
+                    any_match = True
+                    break
+
+            # 4. Salva transcrição uma vez (compartilhada)
             transcription_row = Transcription(
                 session_id=self.session_id,
                 chunk_index=chunk.index,
                 chunk_started_at=chunk.started_at,
                 duration_seconds=chunk.duration_seconds,
                 raw_text=text,
-                has_keywords=has_match,
-                matched_keywords=matched,
+                has_keywords=any_match,
+                matched_keywords=[],
                 audio_file_path=str(chunk.file_path),
                 whisper_duration_ms=transcription_result.duration_ms,
             )
@@ -144,26 +151,67 @@ class MonitorJob:
             await db.flush()
 
             session.total_chunks += 1
+            await db.commit()
 
-            if not has_match:
-                await db.commit()
+            if not any_match:
                 return
 
-            # 3. Análise Claude
+            # 5. Processa para cada org independentemente
+            for org_id in org_ids:
+                try:
+                    await self._process_for_org(
+                        org_id=org_id,
+                        transcription_id=transcription_row.id,
+                        session_id=self.session_id,
+                        text=text,
+                        station=station,
+                        program=program,
+                        chunk_time=chunk_time,
+                        program_id=program.id,
+                    )
+                except Exception as e:
+                    logger.error("monitor_job.org_processing_error", org_id=org_id, error=str(e))
+
+    # ─── Per-org processing ───────────────────────────────────────────────────
+
+    async def _process_for_org(
+        self,
+        org_id: str,
+        transcription_id: str,
+        session_id: str,
+        text: str,
+        station: RadioStation,
+        program: Program,
+        chunk_time: str,
+        program_id: str,
+    ) -> None:
+        """Executa o pipeline completo (filtro → análise → alerta) para um cliente específico."""
+        async with AsyncSessionLocal() as db:
+            city_filter = await self._get_city_filter(db, station.id, org_id)
+
+            # 1. Filtro por palavras-chave do cliente
+            keywords_db = await self._load_keywords(db, org_id, program_id)
+            has_match, matched = check_keywords(text, custom_keywords=keywords_db)
+
+            if not has_match:
+                return
+
+            # 2. Análise Claude com contexto do cliente
+            station_label = f"{station.name} ({city_filter})" if city_filter else station.name
             analysis_result: Optional[AnalysisResult] = await analyze_transcription(
                 text=text,
-                station_name=station.name,
+                station_name=station_label,
                 program_name=program.name,
                 chunk_time=chunk_time,
                 matched_keywords=matched,
             )
 
             if not analysis_result:
-                await db.commit()
                 return
 
             analysis_row = Analysis(
-                transcription_id=transcription_row.id,
+                transcription_id=transcription_id,
+                org_id=org_id,
                 is_relevant=analysis_result.is_relevant,
                 theme=analysis_result.theme,
                 sentiment=Sentiment(analysis_result.sentiment) if analysis_result.sentiment in Sentiment._value2member_map_ else Sentiment.neutral,
@@ -184,20 +232,14 @@ class MonitorJob:
                 await db.commit()
                 return
 
-            session.relevant_chunks += 1
+            # 3. Deduplicação por org (cada cliente tem seu próprio controle)
+            dedup_hash = f"{org_id}:{build_dedup_hash(analysis_result.theme, analysis_result.content_type, station.name)}"
 
-            # 4. Deduplicação
-            dedup_hash = build_dedup_hash(
-                theme=analysis_result.theme,
-                content_type=analysis_result.content_type,
-                station_name=station.name,
-            )
-
-            if await is_duplicate(db, self.session_id, dedup_hash):
-                # Cria alerta suprimido para rastreio
+            if await is_duplicate(db, session_id, dedup_hash):
                 alert_row = Alert(
-                    session_id=self.session_id,
+                    session_id=session_id,
                     analysis_id=analysis_row.id,
+                    org_id=org_id,
                     status=AlertStatus.suppressed,
                     dedup_hash=dedup_hash,
                     message_text="[SUPRIMIDO - DEDUPLICADO]",
@@ -207,12 +249,12 @@ class MonitorJob:
                 await db.commit()
                 return
 
-            # 5. Verifica urgência mínima para alerta
+            # 4. Verifica urgência mínima
             if analysis_result.urgency not in ALERT_URGENCIES:
                 await db.commit()
                 return
 
-            # 6. Formata e envia alertas
+            # 5. Formata e envia alerta
             message = format_alert_message(
                 analysis=analysis_result,
                 station_name=station.name,
@@ -220,11 +262,12 @@ class MonitorJob:
                 chunk_time=chunk_time,
             )
 
-            recipients = await self._get_recipients(db, station.org_id, program, analysis_result.urgency)
+            recipients = await self._get_recipients(db, org_id, program, analysis_result.urgency)
 
             alert_row = Alert(
-                session_id=self.session_id,
+                session_id=session_id,
                 analysis_id=analysis_row.id,
+                org_id=org_id,
                 status=AlertStatus.pending,
                 dedup_hash=dedup_hash,
                 message_text=message,
@@ -233,15 +276,50 @@ class MonitorJob:
             db.add(alert_row)
             await db.flush()
 
-            # Envia de forma assíncrona (não bloqueia o loop principal)
             asyncio.create_task(
                 self._send_alert(alert_row.id, recipients, message)
             )
 
-            session.total_alerts_sent += 1
             await db.commit()
 
+            logger.info(
+                "monitor_job.alert_triggered",
+                org_id=org_id,
+                theme=analysis_result.theme,
+                urgency=analysis_result.urgency,
+            )
+
     # ─── Helpers ──────────────────────────────────────────────────────────────
+
+    async def _get_subscriber_org_ids(
+        self, db: AsyncSession, station_id: str, owner_org_id: str
+    ) -> list[str]:
+        """Retorna o org dono + todos orgs assinantes ativos desta rádio."""
+        result = await db.execute(
+            select(StationSubscription.org_id).where(
+                StationSubscription.station_id == station_id,
+                StationSubscription.is_active == True,
+            )
+        )
+        subscriber_ids = [row[0] for row in result.all()]
+
+        all_org_ids = [owner_org_id]
+        for org_id in subscriber_ids:
+            if org_id != owner_org_id:
+                all_org_ids.append(org_id)
+
+        return all_org_ids
+
+    async def _get_city_filter(
+        self, db: AsyncSession, station_id: str, org_id: str
+    ) -> Optional[str]:
+        result = await db.execute(
+            select(StationSubscription.city_filter).where(
+                StationSubscription.station_id == station_id,
+                StationSubscription.org_id == org_id,
+            )
+        )
+        return result.scalar_one_or_none()
 
     async def _load_session(self, db: AsyncSession) -> Optional[MonitoringSession]:
         result = await db.execute(
@@ -252,10 +330,8 @@ class MonitorJob:
             .where(MonitoringSession.id == self.session_id)
         )
         session = result.scalar_one_or_none()
-
         if not session:
             logger.error("monitor_job.session_not_found", session_id=self.session_id)
-
         return session
 
     async def _load_keywords(self, db: AsyncSession, org_id: str, program_id: str) -> list:
@@ -275,11 +351,9 @@ class MonitorJob:
         program: Program,
         urgency: str,
     ) -> list:
-        # Destinatários específicos do programa têm prioridade
         if program.alert_recipients:
             return program.alert_recipients
 
-        # Senão, usa destinatários da organização filtrados por urgência
         result = await db.execute(
             select(AlertRecipient).where(
                 AlertRecipient.org_id == org_id,
@@ -295,14 +369,12 @@ class MonitorJob:
 
         filtered = filter_by_urgency(recipient_dicts, urgency)
 
-        # Fallback para variável de ambiente
         if not filtered:
             filtered = settings.alert_recipients_list
 
         return filtered
 
     async def _send_alert(self, alert_id: str, recipients: list, message: str) -> None:
-        """Envia alerta e atualiza status no banco."""
         results = await send_to_recipients(recipients, message)
         any_success = any(results.values())
 
@@ -324,7 +396,6 @@ class MonitorJob:
         logger.error("monitor_job.failed", session_id=self.session_id, reason=reason)
 
     async def _finalize(self) -> None:
-        """Encerra sessão e gera relatório."""
         async with AsyncSessionLocal() as db:
             result = await db.execute(
                 select(MonitoringSession)
@@ -342,13 +413,11 @@ class MonitorJob:
             await db.commit()
             await db.refresh(session)
 
-            # Gera relatório consolidado
             report = await generate_session_report(db, session)
 
             if report and report.total_mentions > 0:
                 await self._send_report(session, report)
 
-            # Limpa chunks temporários
             if self._capture:
                 self._capture.cleanup_chunks()
 

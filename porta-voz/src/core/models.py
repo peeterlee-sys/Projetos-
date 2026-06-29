@@ -86,6 +86,7 @@ class Organization(Base):
     radio_stations = relationship("RadioStation", back_populates="organization")
     keywords = relationship("Keyword", back_populates="organization")
     alert_recipients = relationship("AlertRecipient", back_populates="organization")
+    subscriptions = relationship("StationSubscription", back_populates="organization")
 
 
 class AlertRecipient(Base):
@@ -123,6 +124,7 @@ class RadioStation(Base):
 
     organization = relationship("Organization", back_populates="radio_stations")
     programs = relationship("Program", back_populates="station")
+    subscriptions = relationship("StationSubscription", back_populates="station")
 
 
 class Program(Base):
@@ -215,7 +217,8 @@ class Analysis(Base):
     __tablename__ = "analyses"
 
     id = Column(String, primary_key=True, default=gen_uuid)
-    transcription_id = Column(String, ForeignKey("transcriptions.id"), unique=True, nullable=False)
+    transcription_id = Column(String, ForeignKey("transcriptions.id"), nullable=False)
+    org_id = Column(String, ForeignKey("organizations.id"), nullable=True)
     is_relevant = Column(Boolean, nullable=False)
     theme = Column(String(200))
     sentiment = Column(SAEnum(Sentiment))
@@ -233,6 +236,10 @@ class Analysis(Base):
     transcription = relationship("Transcription", back_populates="analysis")
     alert = relationship("Alert", back_populates="analysis", uselist=False)
 
+    __table_args__ = (
+        Index("ix_analyses_transcription_org", "transcription_id", "org_id", unique=True),
+    )
+
 
 class Alert(Base):
     """Alerta disparado via WhatsApp."""
@@ -241,6 +248,7 @@ class Alert(Base):
     id = Column(String, primary_key=True, default=gen_uuid)
     session_id = Column(String, ForeignKey("monitoring_sessions.id"), nullable=False)
     analysis_id = Column(String, ForeignKey("analyses.id"), nullable=True)
+    org_id = Column(String, ForeignKey("organizations.id"), nullable=True)
     status = Column(SAEnum(AlertStatus), default=AlertStatus.pending)
     recipients = Column(JSON, default=list)   # lista de phones que receberam
     message_text = Column(Text)
@@ -253,6 +261,26 @@ class Alert(Base):
     analysis = relationship("Analysis", back_populates="alert")
 
     __table_args__ = (Index("ix_alerts_session_dedup", "session_id", "dedup_hash"),)
+
+
+class StationSubscription(Base):
+    """Permite que múltiplos clientes monitorem a mesma rádio simultaneamente."""
+    __tablename__ = "station_subscriptions"
+
+    id = Column(String, primary_key=True, default=gen_uuid)
+    station_id = Column(String, ForeignKey("radio_stations.id"), nullable=False)
+    org_id = Column(String, ForeignKey("organizations.id"), nullable=False)
+    city_filter = Column(String(100))  # ex: "Itapema" — contexto de cidade para o Claude
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    station = relationship("RadioStation", back_populates="subscriptions")
+    organization = relationship("Organization", back_populates="subscriptions")
+
+    __table_args__ = (
+        Index("ix_subscriptions_station", "station_id", "is_active"),
+        Index("ix_subscriptions_station_org", "station_id", "org_id", unique=True),
+    )
 
 
 class Report(Base):

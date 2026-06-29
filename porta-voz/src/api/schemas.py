@@ -231,6 +231,25 @@ class MonitorStatusOut(BaseModel):
     session_id: Optional[str] = None
 
 
+# ─── Station Subscription ────────────────────────────────────────────────────
+
+class SubscriptionCreate(BaseModel):
+    station_id: str
+    org_id: str
+    city_filter: Optional[str] = None
+
+
+class SubscriptionOut(BaseModel):
+    id: str
+    station_id: str
+    org_id: str
+    city_filter: Optional[str]
+    is_active: bool
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
 # ─── Generic ──────────────────────────────────────────────────────────────────
 
 class MessageOut(BaseModel):
