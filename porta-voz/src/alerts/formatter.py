@@ -118,6 +118,7 @@ def format_report_message(
     timeline: list,
     recommendations: list,
     overall_sentiment: Optional[str] = None,
+    general_summary: Optional[str] = None,
 ) -> str:
     """Formata mensagem de relatório de fim de programa."""
     sentiment_label = _SENTIMENT_LABEL.get(overall_sentiment or "neutral", "➖ Neutro")
@@ -128,16 +129,29 @@ def format_report_message(
         f"📻 *{station_name}* — {program_name}",
         f"⏱ Duração monitorada: {duration_minutes} min",
         "",
+    ]
+
+    if general_summary:
+        lines += [
+            "🗞 *O que foi ao ar hoje:*",
+            general_summary,
+            "",
+        ]
+
+    lines += [
         "─" * 30,
         "",
-        f"📈 *Resumo:*",
+        "📈 *Monitoramento:*",
         f"• Trechos analisados: {total_chunks}",
-        f"• Trechos relevantes: {relevant_count}",
+        f"• Menções relevantes: {relevant_count}",
         f"• Alertas enviados: {alert_count}",
         f"• Alta urgência: {high_urgency_count}",
-        f"• Tom geral: {sentiment_label}",
-        "",
     ]
+
+    if relevant_count > 0:
+        lines.append(f"• Tom geral: {sentiment_label}")
+
+    lines.append("")
 
     if key_topics:
         lines.append("🏷 *Principais temas:*")

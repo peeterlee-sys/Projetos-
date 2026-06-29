@@ -290,6 +290,7 @@ class Report(Base):
     id = Column(String, primary_key=True, default=gen_uuid)
     session_id = Column(String, ForeignKey("monitoring_sessions.id"), unique=True, nullable=False)
     summary_text = Column(Text)
+    general_summary = Column(Text)  # resumo geral do programa gerado pelo Claude
     key_topics = Column(JSON, default=list)
     overall_sentiment = Column(SAEnum(Sentiment))
     total_mentions = Column(Integer, default=0)

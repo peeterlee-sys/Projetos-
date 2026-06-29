@@ -101,6 +101,61 @@ class AnalysisResult:
     raw_response: dict
 
 
+SUMMARY_SYSTEM_PROMPT = """Você é um assistente que resume programas de rádio de forma objetiva e concisa.
+Responda sempre em português, em 3 a 5 frases diretas. Não use bullet points, apenas texto corrido.
+Foque nos temas abordados, não em detalhes técnicos da transcrição."""
+
+SUMMARY_USER_TEMPLATE = """Abaixo está a transcrição (parcial) de um programa de rádio:
+
+RÁDIO: {station_name}
+PROGRAMA: {program_name}
+DURAÇÃO MONITORADA: {duration_min} minutos
+
+TRANSCRIÇÃO:
+{text}
+
+Escreva um resumo geral do que foi discutido neste programa hoje. Mencione os principais assuntos abordados, \
+entrevistados ou temas relevantes para o ouvinte, sem julgamentos. Máximo de 5 frases."""
+
+
+async def summarize_program(
+    texts: list[str],
+    station_name: str,
+    program_name: str,
+    duration_min: int,
+) -> Optional[str]:
+    """
+    Gera um resumo geral do programa com base em amostras das transcrições.
+    Limita a ~5000 caracteres para controlar custo.
+    """
+    if not texts:
+        return None
+
+    combined = " ".join(texts)
+    if len(combined) > 5000:
+        combined = combined[:5000] + "..."
+
+    user_message = SUMMARY_USER_TEMPLATE.format(
+        station_name=station_name,
+        program_name=program_name,
+        duration_min=duration_min,
+        text=combined,
+    )
+
+    try:
+        client = get_client()
+        response = await client.messages.create(
+            model=settings.CLAUDE_MODEL,
+            max_tokens=512,
+            system=SUMMARY_SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": user_message}],
+        )
+        return response.content[0].text.strip()
+    except Exception as e:
+        logger.error("analyzer.summarize_error", error=str(e))
+        return None
+
+
 async def analyze_transcription(
     text: str,
     station_name: str,

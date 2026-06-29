@@ -415,7 +415,7 @@ class MonitorJob:
 
             report = await generate_session_report(db, session)
 
-            if report and report.total_mentions > 0:
+            if report:
                 await self._send_report(session, report)
 
             if self._capture:
@@ -451,6 +451,7 @@ class MonitorJob:
             timeline=report.timeline or [],
             recommendations=report.recommendations or [],
             overall_sentiment=report.overall_sentiment.value if report.overall_sentiment else None,
+            general_summary=report.general_summary,
         )
 
         async with AsyncSessionLocal() as db:

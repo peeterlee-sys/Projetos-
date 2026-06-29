@@ -13,6 +13,7 @@ from src.core.models import (
     MonitoringSession, Transcription, Analysis, Report,
     Sentiment, AlertStatus, Alert,
 )
+from src.analyzer.claude_analyzer import summarize_program
 from src.core.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -27,6 +28,14 @@ async def generate_session_report(
     Salva no banco e retorna o Report.
     """
     try:
+        # Busca todas as transcrições da sessão para o resumo geral
+        all_trans_result = await db.execute(
+            select(Transcription)
+            .where(Transcription.session_id == session.id)
+            .order_by(Transcription.chunk_started_at)
+        )
+        all_transcriptions = all_trans_result.scalars().all()
+
         # Busca todas as análises relevantes da sessão
         result = await db.execute(
             select(Analysis)
@@ -79,14 +88,30 @@ async def generate_session_report(
         # Recomendações consolidadas
         recommendations = _build_recommendations(analyses, alert_count, high_urgency_count)
 
-        # Texto do resumo
+        # Texto do resumo estatístico
         summary_text = _build_summary_text(
             session, total_relevant, alert_count, high_urgency_count, key_topics, overall_sentiment
+        )
+
+        # Resumo geral do programa gerado pelo Claude (todas as transcrições, não só as relevantes)
+        program = session.program
+        station = program.station if program else None
+        duration_min = 0
+        if session.started_at and session.ended_at:
+            duration_min = int((session.ended_at - session.started_at).total_seconds() / 60)
+
+        all_texts = [t.raw_text for t in all_transcriptions if t.raw_text and t.raw_text.strip()]
+        general_summary = await summarize_program(
+            texts=all_texts,
+            station_name=station.name if station else "Rádio",
+            program_name=program.name if program else "Programa",
+            duration_min=duration_min,
         )
 
         report = Report(
             session_id=session.id,
             summary_text=summary_text,
+            general_summary=general_summary,
             key_topics=key_topics,
             overall_sentiment=Sentiment(overall_sentiment),
             total_mentions=total_relevant,
