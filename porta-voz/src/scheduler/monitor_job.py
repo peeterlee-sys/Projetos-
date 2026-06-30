@@ -87,6 +87,8 @@ class MonitorJob:
             pass
         finally:
             self._running = False
+            if self._capture:
+                await self._capture.stop()
             await self._finalize()
 
     async def stop(self) -> None:

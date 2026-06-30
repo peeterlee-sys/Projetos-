@@ -2,6 +2,7 @@
 Análise contextual usando Claude API.
 Classifica relevância, tema, tom, urgência e tipo de conteúdo.
 """
+import asyncio
 import json
 import time
 from typing import Optional
@@ -135,13 +136,19 @@ async def summarize_program(
 
     try:
         client = get_client()
-        response = await client.messages.create(
-            model=settings.CLAUDE_MODEL,
-            max_tokens=512,
-            system=SUMMARY_SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": user_message}],
+        response = await asyncio.wait_for(
+            client.messages.create(
+                model=settings.CLAUDE_MODEL,
+                max_tokens=512,
+                system=SUMMARY_SYSTEM_PROMPT,
+                messages=[{"role": "user", "content": user_message}],
+            ),
+            timeout=60.0,
         )
         return response.content[0].text.strip()
+    except asyncio.TimeoutError:
+        logger.warning("analyzer.summarize_timeout")
+        return None
     except Exception as e:
         logger.error("analyzer.summarize_error", error=str(e))
         return None

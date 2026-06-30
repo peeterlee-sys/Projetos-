@@ -38,7 +38,8 @@ class JobManager:
 
     def __init__(self):
         self._scheduler = AsyncIOScheduler()
-        self._active_jobs: Dict[str, asyncio.Task] = {}  # program_id → Task
+        self._active_jobs: Dict[str, asyncio.Task] = {}    # program_id → Task
+        self._active_monitors: Dict[str, "MonitorJob"] = {}  # program_id → MonitorJob
 
     def start(self) -> None:
         self._scheduler.start()
@@ -48,6 +49,7 @@ class JobManager:
         self._scheduler.shutdown(wait=False)
         for task in self._active_jobs.values():
             task.cancel()
+        self._active_monitors.clear()
         logger.info("job_manager.stopped")
 
     async def load_programs(self) -> None:
@@ -161,22 +163,32 @@ class JobManager:
         job = MonitorJob(program_id=program_id, session_id=session_id)
         task = asyncio.create_task(job.run(), name=f"monitor_{program_id}")
         self._active_jobs[program_id] = task
+        self._active_monitors[program_id] = job
 
-        task.add_done_callback(lambda t: self._active_jobs.pop(program_id, None))
+        def _cleanup(t):
+            self._active_jobs.pop(program_id, None)
+            self._active_monitors.pop(program_id, None)
+        task.add_done_callback(_cleanup)
 
         logger.info("job_manager.monitoring_started", program_id=program_id, session_id=session_id)
         return session_id
 
     async def _stop_monitoring(self, program_id: str) -> None:
+        job = self._active_monitors.get(program_id)
         task = self._active_jobs.get(program_id)
+
+        if job:
+            await job.stop()  # para captura + ffmpeg + watcher
+
         if task and not task.done():
             task.cancel()
             try:
-                await asyncio.wait_for(asyncio.shield(task), timeout=10.0)
+                await asyncio.wait_for(asyncio.shield(task), timeout=90.0)
             except (asyncio.CancelledError, asyncio.TimeoutError):
                 pass
 
         self._active_jobs.pop(program_id, None)
+        self._active_monitors.pop(program_id, None)
         logger.info("job_manager.monitoring_stopped", program_id=program_id)
 
 

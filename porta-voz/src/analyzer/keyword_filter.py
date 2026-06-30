@@ -12,7 +12,18 @@ logger = get_logger(__name__)
 
 # Palavras-chave globais padrão (Itapema, mas expansível para qualquer município)
 DEFAULT_KEYWORDS = [
-    # Entidade principal
+    # Entidade principal — palavras nuas (mais comuns no áudio real)
+    "prefeitura",
+    "prefeito",
+    "prefeita",
+    "vice-prefeito",
+    "vice-prefeita",
+    "vereador",
+    "vereadora",
+    "secretário",
+    "secretária",
+
+    # Frases compostas específicas de Itapema (mantidas por precisão)
     "prefeitura de itapema",
     "prefeitura municipal",
     "prefeito de itapema",
@@ -20,7 +31,8 @@ DEFAULT_KEYWORDS = [
     "alexandre xepa",
     "xepa",
     "eurico osmari",
-    "vice-prefeito",
+    "câmara de itapema",
+    "câmara municipal",
 
     # Secretarias
     "secretaria de saúde",
@@ -32,19 +44,9 @@ DEFAULT_KEYWORDS = [
     "secretaria de finanças",
     "secretaria de comunicação",
     "secretaria municipal",
-    "secretário",
-    "secretária",
-
-    # Temas municipais
-    "câmara de itapema",
-    "câmara municipal",
-    "vereador",
-    "vereadora",
 
     # Saúde
     "upa",
-    "upa de itapema",
-    "fila de espera",
     "posto de saúde",
     "unidade básica",
     "pronto-socorro",
@@ -60,26 +62,20 @@ DEFAULT_KEYWORDS = [
     "buraco na rua",
     "buraco na via",
     "pavimentação",
-    "calçada",
     "obra pública",
     "licitação",
-    "contrato",
 
-    # Segurança e trânsito
+    # Segurança
     "guarda municipal",
     "segurança pública",
-    "trânsito",
-    "mobilidade urbana",
-    "fiscalização",
 
     # Reclamações e denúncias
     "denúncia",
     "reclamação",
     "irregularidade",
-    "desvio",
     "corrupção",
 
-    # Localidade
+    # Localidade Itapema
     "itapema",
     "meia praia",
     "sertão do trombudo",
