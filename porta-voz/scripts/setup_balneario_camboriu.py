@@ -12,10 +12,7 @@ BASE = "http://localhost:8000/api/v1"
 
 # ─── Dados de Balneário Camboriú ─────────────────────────────────────────────
 
-# ATENÇÃO: esta URL pode ser a página do player, não o stream direto.
-# Se der erro de captura, abra https://portalmenina.com.br/streaming/ no Chrome,
-# pressione F12 → Network → filtre por "audio" ou ".mp3" ou ".aac" para achar o stream real.
-STREAM_URL = "https://portalmenina.com.br/streaming/"
+STREAM_URL = "https://painel.sintonizar.tv.br/stream/meninacam"
 
 YOUTUBE_URL = ""
 
