@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.database import get_db
 from src.core.models import (
     Alert, AlertStatus, Analysis, Transcription,
-    MonitoringSession, SessionStatus, Program,
+    MonitoringSession, SessionStatus, Program, Organization,
 )
 from src.api.schemas import AlertDetailOut, SessionDetailOut
 
@@ -45,18 +45,22 @@ async def serve_audio(transcription_id: str, db: AsyncSession = Depends(get_db))
 @router.get("/dashboard/sessions", response_model=List[SessionDetailOut])
 async def dashboard_sessions(
     limit: int = 30,
+    org_id: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
 ):
-    """Sessões recentes enriquecidas com programa e rádio."""
-    result = await db.execute(
+    """Sessões recentes enriquecidas com programa, rádio e org."""
+    q = (
         select(MonitoringSession)
-        .options(
-            selectinload(MonitoringSession.program).selectinload(Program.station)
-        )
+        .options(selectinload(MonitoringSession.program).selectinload(Program.station))
         .order_by(desc(MonitoringSession.created_at))
         .limit(limit)
     )
+    result = await db.execute(q)
     sessions = result.scalars().all()
+
+    # Carrega orgs para enriquecer o nome
+    orgs_result = await db.execute(select(Organization))
+    orgs_map = {o.id: o for o in orgs_result.scalars().all()}
 
     # Corrige sessões presas como "running" há mais de 6 horas
     stale_cutoff = datetime.utcnow() - timedelta(hours=6)
@@ -71,6 +75,13 @@ async def dashboard_sessions(
     for s in sessions:
         program = s.program
         station = program.station if program else None
+        s_org_id = station.org_id if station else None
+
+        # Filtra por org se solicitado
+        if org_id and s_org_id != org_id:
+            continue
+
+        org = orgs_map.get(s_org_id) if s_org_id else None
         out.append(SessionDetailOut(
             id=s.id,
             status=s.status.value if s.status else "unknown",
@@ -83,6 +94,8 @@ async def dashboard_sessions(
             program_name=program.name if program else None,
             station_name=station.name if station else None,
             station_city=station.city if station else None,
+            org_id=s_org_id,
+            org_name=org.name if org else None,
         ))
     return out
 

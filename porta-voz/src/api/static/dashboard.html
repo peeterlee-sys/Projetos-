@@ -5,269 +5,406 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PORTA VOZ — Dashboard</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    .fade-in { animation: fadeIn 0.2s ease; }
+    * { font-family: 'Inter', system-ui, sans-serif; }
+    .fade-in { animation: fadeIn 0.25s ease; }
     @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(-5px); }
+      from { opacity: 0; transform: translateY(-6px); }
       to   { opacity: 1; transform: translateY(0); }
     }
-    .urgency-critical { border-left-color: #ef4444; }
-    .urgency-high     { border-left-color: #f97316; }
-    .urgency-medium   { border-left-color: #eab308; }
-    .urgency-low      { border-left-color: #22c55e; }
-    audio { width: 100%; accent-color: #14b8a6; }
+    .pulse-dot { position: relative; padding-left: 14px; }
+    .pulse-dot::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 50%;
+      transform: translateY(-50%);
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: #2dd4bf;
+      animation: pulseDot 1.5s ease-in-out infinite;
+    }
+    @keyframes pulseDot {
+      0%, 100% { opacity: 1; transform: translateY(-50%) scale(1); }
+      50%       { opacity: .4; transform: translateY(-50%) scale(.75); }
+    }
+    .urgency-critical { border-left-color: #ef4444 !important; }
+    .urgency-high     { border-left-color: #f97316 !important; }
+    .urgency-medium   { border-left-color: #eab308 !important; }
+    .urgency-low      { border-left-color: #22c55e !important; }
+    audio { width: 100%; accent-color: #14b8a6; height: 32px; }
+    .tab-btn { transition: all .15s ease; }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 2px; }
   </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen font-sans antialiased">
+<body class="bg-slate-950 text-slate-100 min-h-screen antialiased">
 
   <!-- Header -->
-  <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-20">
-    <div class="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <span class="text-xl">📻</span>
+  <header class="bg-slate-900/80 backdrop-blur border-b border-slate-800/70 sticky top-0 z-20">
+    <div class="max-w-5xl mx-auto px-6 py-3 flex items-center gap-6">
+
+      <!-- Logo -->
+      <div class="flex items-center gap-2.5 shrink-0">
+        <div class="w-8 h-8 rounded-lg bg-teal-500/15 border border-teal-500/20 flex items-center justify-center">
+          <span class="text-sm">📻</span>
+        </div>
         <div>
-          <h1 class="font-bold text-teal-400 tracking-wide text-lg leading-none">PORTA VOZ</h1>
-          <p class="text-xs text-slate-500 mt-0.5">Monitoramento de Rádio Municipal</p>
+          <h1 class="font-bold text-teal-400 tracking-widest text-xs leading-none">PORTA VOZ</h1>
+          <p class="text-[10px] text-slate-600 mt-0.5 leading-none">Monitoramento Municipal</p>
         </div>
       </div>
-      <button onclick="loadAll()" class="text-xs text-slate-400 hover:text-teal-400 transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 hover:border-teal-700">
-        ↻ Atualizar
-      </button>
+
+      <!-- City tabs -->
+      <div id="city-tabs" class="flex items-center gap-1.5 flex-1">
+        <div class="h-7 w-40 bg-slate-800 rounded-lg animate-pulse opacity-50"></div>
+      </div>
+
+      <!-- Right -->
+      <div class="flex items-center gap-3 shrink-0">
+        <span id="last-update" class="text-[10px] text-slate-600 hidden"></span>
+        <button onclick="loadAll()"
+          class="flex items-center gap-1.5 text-xs text-slate-500 hover:text-teal-400 transition-colors px-2.5 py-1.5 rounded-lg border border-slate-800 hover:border-slate-700 bg-slate-900">
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+          </svg>
+          Atualizar
+        </button>
+      </div>
     </div>
   </header>
 
-  <div class="max-w-4xl mx-auto px-6 py-8">
+  <div class="max-w-5xl mx-auto px-6 py-7">
 
     <!-- Stats -->
-    <div id="stats" class="grid grid-cols-3 gap-4 mb-8">
-      <div class="bg-slate-900 rounded-xl border border-slate-800 p-5 animate-pulse">
-        <div class="h-3 bg-slate-800 rounded w-24 mb-3"></div>
-        <div class="h-8 bg-slate-800 rounded w-12"></div>
+    <div id="stats" class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-7">
+      <div class="bg-slate-900 rounded-xl border border-slate-800/70 p-4 animate-pulse">
+        <div class="h-2.5 bg-slate-800 rounded w-20 mb-3"></div>
+        <div class="h-7 bg-slate-800 rounded w-10"></div>
       </div>
-      <div class="bg-slate-900 rounded-xl border border-slate-800 p-5 animate-pulse">
-        <div class="h-3 bg-slate-800 rounded w-24 mb-3"></div>
-        <div class="h-8 bg-slate-800 rounded w-12"></div>
+      <div class="bg-slate-900 rounded-xl border border-slate-800/70 p-4 animate-pulse">
+        <div class="h-2.5 bg-slate-800 rounded w-20 mb-3"></div>
+        <div class="h-7 bg-slate-800 rounded w-10"></div>
       </div>
-      <div class="bg-slate-900 rounded-xl border border-slate-800 p-5 animate-pulse">
-        <div class="h-3 bg-slate-800 rounded w-24 mb-3"></div>
-        <div class="h-8 bg-slate-800 rounded w-20"></div>
+      <div class="bg-slate-900 rounded-xl border border-slate-800/70 p-4 animate-pulse">
+        <div class="h-2.5 bg-slate-800 rounded w-20 mb-3"></div>
+        <div class="h-7 bg-slate-800 rounded w-10"></div>
+      </div>
+      <div class="bg-slate-900 rounded-xl border border-slate-800/70 p-4 animate-pulse">
+        <div class="h-2.5 bg-slate-800 rounded w-20 mb-3"></div>
+        <div class="h-7 bg-slate-800 rounded w-14"></div>
       </div>
     </div>
 
-    <!-- Sessions -->
-    <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-4">Sessões Recentes</h2>
-    <div id="sessions" class="space-y-3">
-      <div class="text-slate-500 text-sm">Carregando...</div>
+    <!-- Sessions header -->
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-[10px] font-semibold text-slate-600 uppercase tracking-[.12em]">Sessões Recentes</h2>
+      <span id="session-count" class="text-[10px] text-slate-700"></span>
+    </div>
+
+    <div id="sessions" class="space-y-2.5">
+      <div class="text-slate-600 text-sm text-center py-10">Carregando...</div>
     </div>
 
   </div>
 
   <script>
+    // ─── State ────────────────────────────────────────────────────────────────
+    let orgs = [];
+    let allSessions = [];
+    let activeOrgId = null;
+
+    // ─── Lookups ──────────────────────────────────────────────────────────────
     const URGENCY = {
-      critical: { emoji: '🔴', label: 'CRÍTICO',  cls: 'text-red-400 bg-red-950 border border-red-900' },
-      high:     { emoji: '🟠', label: 'ALTA',      cls: 'text-orange-400 bg-orange-950 border border-orange-900' },
-      medium:   { emoji: '🟡', label: 'MÉDIA',     cls: 'text-yellow-400 bg-yellow-950 border border-yellow-900' },
-      low:      { emoji: '🟢', label: 'BAIXA',     cls: 'text-green-400 bg-green-950 border border-green-900' },
+      critical: { label:'CRÍTICO', badge:'text-red-400 bg-red-950/50 border border-red-900/50',    dot:'🔴' },
+      high:     { label:'ALTO',    badge:'text-orange-400 bg-orange-950/50 border border-orange-900/50', dot:'🟠' },
+      medium:   { label:'MÉDIO',   badge:'text-yellow-400 bg-yellow-950/50 border border-yellow-900/50', dot:'🟡' },
+      low:      { label:'BAIXO',   badge:'text-green-400 bg-green-950/50 border border-green-900/50',  dot:'🟢' },
     };
     const SENTIMENT = {
-      positive: { label: '✅ Positivo', cls: 'text-green-400' },
-      negative: { label: '⚠️ Negativo', cls: 'text-red-400' },
-      neutral:  { label: '➖ Neutro',   cls: 'text-slate-400' },
+      positive: { label:'Positivo', cls:'text-emerald-400', icon:'↑' },
+      negative: { label:'Negativo', cls:'text-red-400',     icon:'↓' },
+      neutral:  { label:'Neutro',   cls:'text-slate-500',   icon:'—' },
     };
-    const CONTENT_TYPE = {
-      complaint:     'Reclamação',
-      denouncement:  'Denúncia',
-      praise:        'Elogio',
-      interview:     'Entrevista',
-      criticism:     'Crítica',
-      institutional: 'Institucional',
-      political:     'Político',
-      other:         'Outro',
+    const CONTENT_LABEL = {
+      complaint:'Reclamação', denouncement:'Denúncia', praise:'Elogio',
+      interview:'Entrevista', criticism:'Crítica', institutional:'Institucional',
+      political:'Político', other:'Outro',
     };
-    const STATUS_LABEL = {
-      completed: 'Concluída',
-      running:   '● Ao vivo',
-      failed:    'Falhou',
-      pending:   'Pendente',
+    const STATUS = {
+      completed:{ label:'Concluída', cls:'text-slate-500' },
+      running:  { label:'Ao vivo',   cls:'text-teal-400 pulse-dot' },
+      failed:   { label:'Falhou',    cls:'text-red-400' },
+      pending:  { label:'Pendente',  cls:'text-slate-600' },
     };
-    const STATUS_CLS = {
-      completed: 'text-green-400',
-      running:   'text-teal-400',
-      failed:    'text-red-400',
-      pending:   'text-slate-400',
-    };
+
+    // Per-city accents
+    const CITY_COLORS = [
+      { test: s => s?.toLowerCase().includes('itapema'),
+        dot: 'bg-teal-400', accent: 'text-teal-400', ring: 'border-teal-500/30', bg: 'bg-teal-500/10' },
+      { test: s => s?.toLowerCase().includes('balne') || s?.toLowerCase().includes('cambori'),
+        dot: 'bg-violet-400', accent: 'text-violet-400', ring: 'border-violet-500/30', bg: 'bg-violet-500/10' },
+    ];
+    const DEFAULT_COLOR = { dot:'bg-slate-500', accent:'text-slate-400', ring:'border-slate-700', bg:'bg-slate-800/50' };
+
+    function cityColor(city) {
+      return CITY_COLORS.find(c => c.test(city)) || DEFAULT_COLOR;
+    }
 
     function fmt(dt) {
       if (!dt) return '—';
       return new Date(dt).toLocaleString('pt-BR', {
-        day: '2-digit', month: '2-digit',
-        hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo',
+        day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit', timeZone:'America/Sao_Paulo'
       });
     }
-    function durMin(start, end) {
-      if (!start || !end) return null;
-      return Math.round((new Date(end) - new Date(start)) / 60000);
+    function fmtDate(dt) {
+      if (!dt) return '—';
+      return new Date(dt).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', timeZone:'America/Sao_Paulo' });
+    }
+    function fmtTime(dt) {
+      if (!dt) return '—';
+      return new Date(dt).toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit', timeZone:'America/Sao_Paulo' });
+    }
+    function durMin(s, e) {
+      if (!s || !e) return null;
+      return Math.round((new Date(e) - new Date(s)) / 60000);
+    }
+    function esc(s) {
+      if (!s) return '';
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 
+    // ─── Bootstrap ────────────────────────────────────────────────────────────
     async function loadAll() {
-      loadStats();
-      loadSessions();
+      await Promise.all([loadOrgs(), loadSessions()]);
     }
 
-    async function loadStats() {
+    async function loadOrgs() {
       try {
-        const [sr, ar] = await Promise.all([
-          fetch('/api/v1/sessions/?limit=200'),
-          fetch('/api/v1/alerts/?limit=1000&status=sent'),
-        ]);
-        const sessions = await sr.json();
-        const alerts   = await ar.json();
-        const latest   = sessions[0];
-
-        document.getElementById('stats').innerHTML = `
-          <div class="bg-slate-900 rounded-xl border border-slate-800 p-5">
-            <p class="text-xs text-slate-400 mb-2">Sessões monitoradas</p>
-            <p class="text-3xl font-bold text-teal-400">${sessions.length}</p>
-            <p class="text-xs text-slate-500 mt-1">${sessions.filter(s=>s.status==='completed').length} concluídas</p>
-          </div>
-          <div class="bg-slate-900 rounded-xl border border-slate-800 p-5">
-            <p class="text-xs text-slate-400 mb-2">Alertas enviados</p>
-            <p class="text-3xl font-bold text-orange-400">${alerts.length}</p>
-            <p class="text-xs text-slate-500 mt-1">via WhatsApp</p>
-          </div>
-          <div class="bg-slate-900 rounded-xl border border-slate-800 p-5">
-            <p class="text-xs text-slate-400 mb-2">Última sessão</p>
-            <p class="text-base font-semibold text-slate-200 leading-tight">${latest ? fmt(latest.started_at || latest.created_at) : '—'}</p>
-            <p class="text-xs text-slate-500 mt-1">${latest ? (STATUS_LABEL[latest.status] || latest.status) : ''}</p>
-          </div>
-        `;
-      } catch(e) { console.error('stats', e); }
+        const r = await fetch('/api/v1/organizations/');
+        orgs = (await r.json()).filter(o => o.is_active);
+        renderTabs();
+      } catch(e) { console.error(e); }
     }
 
+    function renderTabs() {
+      const tabs = [
+        { id: null, label: 'Todas', city: null },
+        ...orgs.map(o => ({ id: o.id, label: o.city || o.name, city: o.city }))
+      ];
+      document.getElementById('city-tabs').innerHTML = tabs.map(t => {
+        const active = t.id === activeOrgId;
+        const cc = cityColor(t.city);
+        return `
+          <button onclick="selectOrg(${JSON.stringify(t.id)})"
+            class="tab-btn flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium
+              ${active
+                ? `${cc.bg} ${cc.accent} ${cc.ring}`
+                : 'bg-transparent text-slate-600 border-slate-800 hover:text-slate-400 hover:border-slate-700'
+              }">
+            ${t.city
+              ? `<span class="w-1.5 h-1.5 rounded-full ${cc.dot} shrink-0"></span>`
+              : `<span class="opacity-50">◎</span>`}
+            ${esc(t.label)}
+          </button>`;
+      }).join('');
+    }
+
+    function selectOrg(id) {
+      activeOrgId = id;
+      renderTabs();
+      renderSessions();
+      renderStats();
+    }
+
+    // ─── Sessions ─────────────────────────────────────────────────────────────
     async function loadSessions() {
-      const el = document.getElementById('sessions');
       try {
-        const res = await fetch('/api/v1/dashboard/sessions?limit=30');
-        const sessions = await res.json();
-        if (!sessions.length) {
-          el.innerHTML = '<p class="text-slate-500 text-sm">Nenhuma sessão encontrada.</p>';
-          return;
-        }
-        el.innerHTML = sessions.map(renderSessionCard).join('');
+        const r = await fetch('/api/v1/dashboard/sessions?limit=60');
+        allSessions = await r.json();
+        renderSessions();
+        renderStats();
+        const el = document.getElementById('last-update');
+        el.textContent = `Atualizado às ${fmtTime(new Date())}`;
+        el.classList.remove('hidden');
       } catch(e) {
-        el.innerHTML = '<p class="text-red-400 text-sm">Erro ao carregar sessões.</p>';
+        document.getElementById('sessions').innerHTML =
+          '<p class="text-red-400 text-sm text-center py-10">Erro ao carregar.</p>';
       }
     }
 
-    function renderSessionCard(s) {
+    function filtered() {
+      if (!activeOrgId) return allSessions;
+      return allSessions.filter(s => s.org_id === activeOrgId);
+    }
+
+    function renderStats() {
+      const s = filtered();
+      const total   = s.length;
+      const done    = s.filter(x => x.status === 'completed').length;
+      const alerts  = s.reduce((a, x) => a + (x.total_alerts_sent || 0), 0);
+      const chunks  = s.reduce((a, x) => a + (x.total_chunks || 0), 0);
+      const relev   = s.reduce((a, x) => a + (x.relevant_chunks || 0), 0);
+      const rate    = chunks > 0 ? Math.round(relev / chunks * 100) : 0;
+      const latest  = s[0];
+      const st      = STATUS[latest?.status] || { label:'', cls:'text-slate-600' };
+
+      document.getElementById('stats').innerHTML = `
+        <div class="bg-slate-900 rounded-xl border border-slate-800/70 p-4">
+          <p class="text-[11px] text-slate-500 mb-2 font-medium">Sessões</p>
+          <p class="text-2xl font-bold text-slate-100">${total}</p>
+          <p class="text-[11px] text-slate-600 mt-1">${done} concluídas</p>
+        </div>
+        <div class="bg-slate-900 rounded-xl border border-slate-800/70 p-4">
+          <p class="text-[11px] text-slate-500 mb-2 font-medium">Alertas</p>
+          <p class="text-2xl font-bold text-orange-400">${alerts}</p>
+          <p class="text-[11px] text-slate-600 mt-1">via WhatsApp</p>
+        </div>
+        <div class="bg-slate-900 rounded-xl border border-slate-800/70 p-4">
+          <p class="text-[11px] text-slate-500 mb-2 font-medium">Taxa relevante</p>
+          <p class="text-2xl font-bold text-teal-400">${rate}%</p>
+          <p class="text-[11px] text-slate-600 mt-1">${relev} de ${chunks} trechos</p>
+        </div>
+        <div class="bg-slate-900 rounded-xl border border-slate-800/70 p-4">
+          <p class="text-[11px] text-slate-500 mb-2 font-medium">Última sessão</p>
+          <p class="text-sm font-semibold text-slate-200 leading-snug truncate">${latest ? fmt(latest.started_at || latest.created_at) : '—'}</p>
+          <p class="text-[11px] mt-1 ${st.cls}">${latest ? st.label : ''}</p>
+        </div>`;
+    }
+
+    function renderSessions() {
+      const el = document.getElementById('sessions');
+      const s = filtered();
+      document.getElementById('session-count').textContent = s.length ? `${s.length} sessões` : '';
+      if (!s.length) {
+        el.innerHTML = '<p class="text-slate-600 text-sm text-center py-10">Nenhuma sessão encontrada.</p>';
+        return;
+      }
+      el.innerHTML = s.map(renderCard).join('');
+    }
+
+    function renderCard(s) {
+      const st  = STATUS[s.status] || { label: s.status, cls: 'text-slate-500' };
+      const cc  = cityColor(s.station_city);
       const dur = durMin(s.started_at, s.ended_at);
+      const rate = s.total_chunks > 0 ? Math.round(s.relevant_chunks / s.total_chunks * 100) : 0;
+
       return `
-        <div class="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
-          <button onclick="toggleAlerts('${s.id}', this)"
-            class="w-full text-left px-5 py-4 hover:bg-slate-800/40 transition-colors group">
+        <div class="bg-slate-900 rounded-xl border border-slate-800/70 overflow-hidden hover:border-slate-700/70 transition-colors">
+          <button onclick="toggleAlerts('${s.id}', this)" class="w-full text-left px-5 py-4 group">
             <div class="flex items-start justify-between gap-4">
-              <div class="min-w-0">
-                <div class="flex items-center gap-2 flex-wrap mb-1">
-                  <span class="text-sm font-semibold text-slate-100 truncate">${esc(s.program_name || 'Programa')}</span>
-                  <span class="text-xs ${STATUS_CLS[s.status] || 'text-slate-400'} shrink-0">${STATUS_LABEL[s.status] || s.status}</span>
+              <div class="flex items-start gap-3 min-w-0">
+                <div class="w-8 h-8 rounded-lg ${cc.bg} border ${cc.ring} flex items-center justify-center shrink-0 mt-0.5 text-sm">📻</div>
+                <div class="min-w-0">
+                  <div class="flex items-center gap-2 mb-1 flex-wrap">
+                    <span class="text-sm font-semibold text-slate-100 truncate">${esc(s.program_name || 'Programa')}</span>
+                    <span class="text-xs ${st.cls}">${st.label}</span>
+                  </div>
+                  <div class="flex items-center gap-1.5 text-[11px]">
+                    <span class="w-1.5 h-1.5 rounded-full ${cc.dot} shrink-0"></span>
+                    <span class="${cc.accent} font-medium">${esc(s.station_city || '')}</span>
+                    ${s.station_name ? `<span class="text-slate-700">·</span><span class="text-slate-500">${esc(s.station_name)}</span>` : ''}
+                  </div>
                 </div>
-                <p class="text-xs text-slate-400">${esc(s.station_name || '')}${s.station_city ? ' · ' + esc(s.station_city) : ''}</p>
               </div>
               <div class="text-right shrink-0">
-                <p class="text-xs text-slate-300">${fmt(s.started_at || s.created_at)}</p>
-                ${dur !== null ? `<p class="text-xs text-slate-500">${dur} min</p>` : ''}
+                <p class="text-xs font-medium text-slate-300">${fmtTime(s.started_at || s.created_at)}</p>
+                <p class="text-[11px] text-slate-600 mt-0.5">${fmtDate(s.started_at || s.created_at)}</p>
+                ${dur !== null ? `<p class="text-[11px] text-slate-700">${dur}min</p>` : ''}
               </div>
             </div>
-            <div class="flex gap-4 mt-3 text-xs text-slate-500">
-              <span>📦 ${s.total_chunks} trechos</span>
-              <span>⚡ ${s.relevant_chunks} relevantes</span>
-              <span>🔔 ${s.total_alerts_sent} alertas</span>
-              <span class="ml-auto text-slate-600 group-hover:text-slate-400 transition-colors" id="arrow-${s.id}">▼ ver alertas</span>
+
+            <div class="flex items-center gap-5 mt-3 pt-3 border-t border-slate-800/50 text-[11px] text-slate-600">
+              <span>${s.total_chunks} trechos</span>
+              <span class="${s.relevant_chunks > 0 ? 'text-teal-500' : ''}">
+                ${s.relevant_chunks} relevantes${s.total_chunks > 0 ? ` <span class="text-slate-700">${rate}%</span>` : ''}
+              </span>
+              <span class="${s.total_alerts_sent > 0 ? 'text-orange-400' : ''}">🔔 ${s.total_alerts_sent} alertas</span>
+              <span class="ml-auto text-slate-700 group-hover:text-slate-500 transition-colors" id="arrow-${s.id}">ver alertas ↓</span>
             </div>
           </button>
           <div id="alerts-${s.id}" class="hidden"></div>
-        </div>
-      `;
+        </div>`;
     }
 
-    async function toggleAlerts(sessionId, btn) {
-      const el = document.getElementById(`alerts-${sessionId}`);
-      const arrow = document.getElementById(`arrow-${sessionId}`);
+    // ─── Alerts ───────────────────────────────────────────────────────────────
+    async function toggleAlerts(id, btn) {
+      const el = document.getElementById(`alerts-${id}`);
+      const ar = document.getElementById(`arrow-${id}`);
       if (el.classList.contains('hidden')) {
         el.classList.remove('hidden');
         el.classList.add('fade-in');
-        arrow.textContent = '▲ fechar';
+        ar.textContent = 'fechar ↑';
         if (!el.dataset.loaded) {
-          el.innerHTML = '<p class="px-5 py-4 text-xs text-slate-500 border-t border-slate-800">Carregando alertas...</p>';
-          const res = await fetch(`/api/v1/dashboard/alerts/${sessionId}`);
-          const alerts = await res.json();
-          el.dataset.loaded = '1';
-          if (!alerts.length) {
-            el.innerHTML = '<p class="px-5 py-5 text-xs text-slate-500 border-t border-slate-800">Nenhum alerta nesta sessão.</p>';
-          } else {
-            el.innerHTML = `<div class="border-t border-slate-800 divide-y divide-slate-800/60">${alerts.map(renderAlert).join('')}</div>`;
+          el.innerHTML = `<div class="px-5 py-4 border-t border-slate-800/50 text-[11px] text-slate-600">Carregando...</div>`;
+          try {
+            const r = await fetch(`/api/v1/dashboard/alerts/${id}`);
+            const alerts = await r.json();
+            el.dataset.loaded = '1';
+            el.innerHTML = alerts.length
+              ? `<div class="border-t border-slate-800/50 divide-y divide-slate-800/40">${alerts.map(renderAlert).join('')}</div>`
+              : `<div class="px-5 py-5 border-t border-slate-800/50 text-[11px] text-slate-600 text-center">Nenhum alerta nesta sessão.</div>`;
+          } catch(e) {
+            el.innerHTML = `<div class="px-5 py-3 text-xs text-red-400">Erro ao carregar alertas.</div>`;
           }
         }
       } else {
         el.classList.add('hidden');
-        arrow.textContent = '▼ ver alertas';
+        ar.textContent = 'ver alertas ↓';
       }
     }
 
     function renderAlert(a) {
       const urg  = URGENCY[a.urgency]  || URGENCY.medium;
-      const sent = SENTIMENT[a.sentiment] || { label: a.sentiment || '—', cls: 'text-slate-400' };
-      const ct   = CONTENT_TYPE[a.content_type] || a.content_type || '';
-      const conf = a.confidence_score ? Math.round(a.confidence_score * 100) + '%' : null;
+      const sent = SENTIMENT[a.sentiment] || { label:'—', cls:'text-slate-500', icon:'' };
+      const ct   = CONTENT_LABEL[a.content_type] || '';
+      const conf = a.confidence_score ? Math.round(a.confidence_score * 100) : null;
 
-      const audioSection = a.has_audio && a.transcription_id
-        ? `<div class="mt-3 pt-3 border-t border-slate-800">
-             <p class="text-xs text-slate-400 mb-1.5">🎧 Áudio original do trecho</p>
-             <audio controls>
-               <source src="/api/v1/audio/${a.transcription_id}" type="audio/wav">
-             </audio>
+      const audio = a.has_audio && a.transcription_id
+        ? `<div class="mt-3 pt-3 border-t border-slate-800/50">
+             <p class="text-[11px] text-slate-500 mb-2">🎧 Áudio do trecho</p>
+             <audio controls class="rounded"><source src="/api/v1/audio/${a.transcription_id}" type="audio/wav"></audio>
            </div>`
-        : a.transcription_id
-          ? `<p class="text-xs text-slate-600 mt-3">🎧 Áudio não disponível</p>`
-          : '';
+        : '';
 
       return `
-        <div class="px-5 py-4 border-l-4 urgency-${a.urgency || 'medium'}">
+        <div class="px-5 py-4 border-l-4 border-l-transparent urgency-${a.urgency || 'medium'} hover:bg-white/[.02] transition-colors">
           <div class="flex items-center justify-between gap-3 mb-3 flex-wrap">
             <div class="flex items-center gap-2 flex-wrap">
-              <span class="text-xs font-semibold px-2 py-0.5 rounded-md ${urg.cls}">${urg.emoji} ${urg.label}</span>
-              ${ct ? `<span class="text-xs text-slate-400 bg-slate-800 px-2 py-0.5 rounded-md">${esc(ct)}</span>` : ''}
-              <span class="text-xs ${sent.cls}">${sent.label}</span>
-              ${conf ? `<span class="text-xs text-slate-500">confiança ${conf}</span>` : ''}
+              <span class="text-[11px] font-bold px-2 py-0.5 rounded ${urg.badge}">${urg.dot} ${urg.label}</span>
+              ${ct ? `<span class="text-[11px] text-slate-500 bg-slate-800 px-2 py-0.5 rounded">${esc(ct)}</span>` : ''}
+              <span class="text-[11px] font-medium ${sent.cls}">${sent.icon} ${sent.label}</span>
+              ${conf ? `<span class="text-[11px] text-slate-700">${conf}% confiança</span>` : ''}
             </div>
-            <span class="text-xs text-slate-500">${fmt(a.chunk_started_at || a.created_at)}</span>
+            <span class="text-[11px] text-slate-600">${fmt(a.chunk_started_at || a.created_at)}</span>
           </div>
 
-          ${a.theme ? `<p class="text-sm font-semibold text-slate-100 mb-2">📌 ${esc(a.theme)}</p>` : ''}
-          ${a.summary ? `<p class="text-sm text-slate-300 mb-2">${esc(a.summary)}</p>` : ''}
+          ${a.theme ? `<p class="text-sm font-semibold text-slate-100 mb-2 flex items-start gap-2"><span class="text-teal-500 shrink-0 mt-0.5">▸</span>${esc(a.theme)}</p>` : ''}
+          ${a.summary ? `<p class="text-sm text-slate-300 leading-relaxed mb-2">${esc(a.summary)}</p>` : ''}
           ${a.excerpt ? `
-            <blockquote class="text-xs text-slate-400 italic border-l-2 border-slate-600 pl-3 py-1 mb-2 bg-slate-800/30 rounded-r">
-              "${esc(a.excerpt.slice(0, 350))}${a.excerpt.length > 350 ? '…' : ''}"
+            <blockquote class="text-xs text-slate-400 italic border-l-2 border-slate-700 pl-3 py-1 mb-2 bg-slate-800/20 rounded-r leading-relaxed">
+              "${esc(a.excerpt.slice(0,400))}${a.excerpt.length > 400 ? '…' : ''}"
             </blockquote>` : ''}
-          ${a.reason ? `<p class="text-xs text-amber-400/80 mb-1.5">⚠️ ${esc(a.reason)}</p>` : ''}
-          ${a.suggested_action ? `<p class="text-xs text-teal-400/80">✅ ${esc(a.suggested_action)}</p>` : ''}
-          ${a.entities_mentioned && a.entities_mentioned.length
-            ? `<p class="text-xs text-slate-500 mt-2">👥 ${a.entities_mentioned.slice(0,6).map(esc).join(' · ')}</p>` : ''}
-          ${audioSection}
-        </div>
-      `;
-    }
 
-    function esc(s) {
-      if (!s) return '';
-      return String(s)
-        .replace(/&/g,'&amp;')
-        .replace(/</g,'&lt;')
-        .replace(/>/g,'&gt;')
-        .replace(/"/g,'&quot;');
+          <div class="space-y-1">
+            ${a.reason ? `<p class="text-xs text-amber-400/75 flex items-start gap-1.5"><span class="shrink-0">⚠</span>${esc(a.reason)}</p>` : ''}
+            ${a.suggested_action ? `<p class="text-xs text-teal-400/75 flex items-start gap-1.5"><span class="shrink-0">✦</span>${esc(a.suggested_action)}</p>` : ''}
+          </div>
+
+          ${a.entities_mentioned?.length ? `
+            <div class="flex flex-wrap gap-1.5 mt-3">
+              ${a.entities_mentioned.slice(0,8).map(e => `<span class="text-[11px] text-slate-500 bg-slate-800 px-2 py-0.5 rounded-full">${esc(e)}</span>`).join('')}
+            </div>` : ''}
+
+          ${audio}
+        </div>`;
     }
 
     loadAll();
+    setInterval(loadSessions, 120000);
   </script>
 </body>
 </html>

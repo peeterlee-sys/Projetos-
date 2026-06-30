@@ -275,6 +275,8 @@ class SessionDetailOut(BaseModel):
     program_name: Optional[str] = None
     station_name: Optional[str] = None
     station_city: Optional[str] = None
+    org_id: Optional[str] = None
+    org_name: Optional[str] = None
 
 
 class AlertDetailOut(BaseModel):
