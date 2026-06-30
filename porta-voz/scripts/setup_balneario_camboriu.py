@@ -29,15 +29,32 @@ ALERT_RECIPIENTS = [
     {"name": "Alerta BC", "phone": "5547999459031"},
 ]
 
-# TODO: preencha com os nomes reais dos gestores de BC antes de rodar
 CITY_CONTEXT = {
     "city": "Balneário Camboriú",
     "state": "SC",
-    "prefeito": "TODO_NOME_PREFEITO_BC",
-    "vice_prefeito": "TODO_NOME_VICE_BC",
-    "secretarios": "TODO_SECRETÁRIOS_BC",
+    "prefeito": "Juliana Pavan Von Borstel (prefeita), mandato 2025-2028",
+    "vice_prefeito": "Nilson Probst",
+    "secretarios": (
+        "Casa Civil: Leandro Índio (Leandro Arthur Rodrigues da Silva); "
+        "Comunicação: Dagmara Spautz; "
+        "Saúde: Aline Leal; "
+        "Educação: Zélia Zanella; "
+        "Obras: Aldemar Bola Pereira; "
+        "Fazenda: Magda Bez; "
+        "Planejamento Urbano: Carlos Humberto Silva; "
+        "Segurança e Ordem Pública: Carlos Alberto Araújo Gomes; "
+        "Turismo: Evandro Neiva Oliveira; "
+        "Assistência Social, Mulher e Família: Dão Koeddermann; "
+        "Pessoa Idosa: Claudir Maciel; "
+        "Meio Ambiente: Nelson Oliveira; "
+        "Governo e Inovação: Gilson Bordin; "
+        "Gestão de Pessoas: Ary Souza; "
+        "Compras e Convênios: José Neto; "
+        "Articulação Política: Omar Tomalih; "
+        "Procuradoria: Diego Montibeler; "
+        "Controladoria: Angelita Koslowski"
+    ),
     "camara": "Câmara Municipal de Balneário Camboriú",
-    "programas": "TODO_PROGRAMAS_DA_GESTÃO_BC",
     "bairros": "Centro, Barra Sul, Nações, Pioneiros, Tabuleiro, Agronomica, Municípios",
 }
 
@@ -46,12 +63,32 @@ CITY_CONTEXT = {
 KEYWORDS_BC = [
     # Instituições
     "prefeitura",
-    "prefeito",
+    "prefeita",
     "vice-prefeito",
     "secretaria",
     "secretário",
     "câmara municipal",
     "vereador",
+    # Gestores pelo nome
+    "juliana pavan",
+    "nilson probst",
+    "leandro índio",
+    "dagmara spautz",
+    "aline leal",
+    "zélia zanella",
+    "aldemar pereira",
+    "aldemar bola",
+    "magda bez",
+    "carlos humberto",
+    "evandro neiva",
+    "dão koeddermann",
+    "claudir maciel",
+    "nelson oliveira",
+    "gilson bordin",
+    "ary souza",
+    "omar tomalih",
+    "diego montibeler",
+    "angelita koslowski",
     # Serviços públicos
     "hospital",
     "upa",
@@ -73,9 +110,6 @@ KEYWORDS_BC = [
     "nações",
     "pioneiros",
     "tabuleiro",
-    # Adicione os nomes dos gestores de BC aqui:
-    # "nome do prefeito",
-    # "nome do secretário",
 ]
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -92,13 +126,6 @@ def req(method, path, data=None):
     except urllib.error.HTTPError as e:
         return json.loads(e.read())
 
-
-ctx_todos = [k for k, v in CITY_CONTEXT.items() if "TODO" in str(v)]
-if ctx_todos:
-    print("⚠️  Atenção: gestores de BC não preenchidos em CITY_CONTEXT.")
-    print(f"   Campos pendentes: {', '.join(ctx_todos)}")
-    print("   O sistema funcionará, mas o Claude terá menos contexto sobre quem é quem.")
-    print()
 
 print("=" * 55)
 print("  PORTA VOZ — Setup Balneário Camboriú")
