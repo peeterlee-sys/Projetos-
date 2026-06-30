@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PORTA VOZ — Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .fade-in { animation: fadeIn 0.2s ease; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-5px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .urgency-critical { border-left-color: #ef4444; }
+    .urgency-high     { border-left-color: #f97316; }
+    .urgency-medium   { border-left-color: #eab308; }
+    .urgency-low      { border-left-color: #22c55e; }
+    audio { width: 100%; accent-color: #14b8a6; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans antialiased">
+
+  <!-- Header -->
+  <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-20">
+    <div class="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <span class="text-xl">📻</span>
+        <div>
+          <h1 class="font-bold text-teal-400 tracking-wide text-lg leading-none">PORTA VOZ</h1>
+          <p class="text-xs text-slate-500 mt-0.5">Monitoramento de Rádio Municipal</p>
+        </div>
+      </div>
+      <button onclick="loadAll()" class="text-xs text-slate-400 hover:text-teal-400 transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 hover:border-teal-700">
+        ↻ Atualizar
+      </button>
+    </div>
+  </header>
+
+  <div class="max-w-4xl mx-auto px-6 py-8">
+
+    <!-- Stats -->
+    <div id="stats" class="grid grid-cols-3 gap-4 mb-8">
+      <div class="bg-slate-900 rounded-xl border border-slate-800 p-5 animate-pulse">
+        <div class="h-3 bg-slate-800 rounded w-24 mb-3"></div>
+        <div class="h-8 bg-slate-800 rounded w-12"></div>
+      </div>
+      <div class="bg-slate-900 rounded-xl border border-slate-800 p-5 animate-pulse">
+        <div class="h-3 bg-slate-800 rounded w-24 mb-3"></div>
+        <div class="h-8 bg-slate-800 rounded w-12"></div>
+      </div>
+      <div class="bg-slate-900 rounded-xl border border-slate-800 p-5 animate-pulse">
+        <div class="h-3 bg-slate-800 rounded w-24 mb-3"></div>
+        <div class="h-8 bg-slate-800 rounded w-20"></div>
+      </div>
+    </div>
+
+    <!-- Sessions -->
+    <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-4">Sessões Recentes</h2>
+    <div id="sessions" class="space-y-3">
+      <div class="text-slate-500 text-sm">Carregando...</div>
+    </div>
+
+  </div>
+
+  <script>
+    const URGENCY = {
+      critical: { emoji: '🔴', label: 'CRÍTICO',  cls: 'text-red-400 bg-red-950 border border-red-900' },
+      high:     { emoji: '🟠', label: 'ALTA',      cls: 'text-orange-400 bg-orange-950 border border-orange-900' },
+      medium:   { emoji: '🟡', label: 'MÉDIA',     cls: 'text-yellow-400 bg-yellow-950 border border-yellow-900' },
+      low:      { emoji: '🟢', label: 'BAIXA',     cls: 'text-green-400 bg-green-950 border border-green-900' },
+    };
+    const SENTIMENT = {
+      positive: { label: '✅ Positivo', cls: 'text-green-400' },
+      negative: { label: '⚠️ Negativo', cls: 'text-red-400' },
+      neutral:  { label: '➖ Neutro',   cls: 'text-slate-400' },
+    };
+    const CONTENT_TYPE = {
+      complaint:     'Reclamação',
+      denouncement:  'Denúncia',
+      praise:        'Elogio',
+      interview:     'Entrevista',
+      criticism:     'Crítica',
+      institutional: 'Institucional',
+      political:     'Político',
+      other:         'Outro',
+    };
+    const STATUS_LABEL = {
+      completed: 'Concluída',
+      running:   '● Ao vivo',
+      failed:    'Falhou',
+      pending:   'Pendente',
+    };
+    const STATUS_CLS = {
+      completed: 'text-green-400',
+      running:   'text-teal-400',
+      failed:    'text-red-400',
+      pending:   'text-slate-400',
+    };
+
+    function fmt(dt) {
+      if (!dt) return '—';
+      return new Date(dt).toLocaleString('pt-BR', {
+        day: '2-digit', month: '2-digit',
+        hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo',
+      });
+    }
+    function durMin(start, end) {
+      if (!start || !end) return null;
+      return Math.round((new Date(end) - new Date(start)) / 60000);
+    }
+
+    async function loadAll() {
+      loadStats();
+      loadSessions();
+    }
+
+    async function loadStats() {
+      try {
+        const [sr, ar] = await Promise.all([
+          fetch('/api/v1/sessions/?limit=200'),
+          fetch('/api/v1/alerts/?limit=1000&status=sent'),
+        ]);
+        const sessions = await sr.json();
+        const alerts   = await ar.json();
+        const latest   = sessions[0];
+
+        document.getElementById('stats').innerHTML = `
+          <div class="bg-slate-900 rounded-xl border border-slate-800 p-5">
+            <p class="text-xs text-slate-400 mb-2">Sessões monitoradas</p>
+            <p class="text-3xl font-bold text-teal-400">${sessions.length}</p>
+            <p class="text-xs text-slate-500 mt-1">${sessions.filter(s=>s.status==='completed').length} concluídas</p>
+          </div>
+          <div class="bg-slate-900 rounded-xl border border-slate-800 p-5">
+            <p class="text-xs text-slate-400 mb-2">Alertas enviados</p>
+            <p class="text-3xl font-bold text-orange-400">${alerts.length}</p>
+            <p class="text-xs text-slate-500 mt-1">via WhatsApp</p>
+          </div>
+          <div class="bg-slate-900 rounded-xl border border-slate-800 p-5">
+            <p class="text-xs text-slate-400 mb-2">Última sessão</p>
+            <p class="text-base font-semibold text-slate-200 leading-tight">${latest ? fmt(latest.started_at || latest.created_at) : '—'}</p>
+            <p class="text-xs text-slate-500 mt-1">${latest ? (STATUS_LABEL[latest.status] || latest.status) : ''}</p>
+          </div>
+        `;
+      } catch(e) { console.error('stats', e); }
+    }
+
+    async function loadSessions() {
+      const el = document.getElementById('sessions');
+      try {
+        const res = await fetch('/api/v1/dashboard/sessions?limit=30');
+        const sessions = await res.json();
+        if (!sessions.length) {
+          el.innerHTML = '<p class="text-slate-500 text-sm">Nenhuma sessão encontrada.</p>';
+          return;
+        }
+        el.innerHTML = sessions.map(renderSessionCard).join('');
+      } catch(e) {
+        el.innerHTML = '<p class="text-red-400 text-sm">Erro ao carregar sessões.</p>';
+      }
+    }
+
+    function renderSessionCard(s) {
+      const dur = durMin(s.started_at, s.ended_at);
+      return `
+        <div class="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
+          <button onclick="toggleAlerts('${s.id}', this)"
+            class="w-full text-left px-5 py-4 hover:bg-slate-800/40 transition-colors group">
+            <div class="flex items-start justify-between gap-4">
+              <div class="min-w-0">
+                <div class="flex items-center gap-2 flex-wrap mb-1">
+                  <span class="text-sm font-semibold text-slate-100 truncate">${esc(s.program_name || 'Programa')}</span>
+                  <span class="text-xs ${STATUS_CLS[s.status] || 'text-slate-400'} shrink-0">${STATUS_LABEL[s.status] || s.status}</span>
+                </div>
+                <p class="text-xs text-slate-400">${esc(s.station_name || '')}${s.station_city ? ' · ' + esc(s.station_city) : ''}</p>
+              </div>
+              <div class="text-right shrink-0">
+                <p class="text-xs text-slate-300">${fmt(s.started_at || s.created_at)}</p>
+                ${dur !== null ? `<p class="text-xs text-slate-500">${dur} min</p>` : ''}
+              </div>
+            </div>
+            <div class="flex gap-4 mt-3 text-xs text-slate-500">
+              <span>📦 ${s.total_chunks} trechos</span>
+              <span>⚡ ${s.relevant_chunks} relevantes</span>
+              <span>🔔 ${s.total_alerts_sent} alertas</span>
+              <span class="ml-auto text-slate-600 group-hover:text-slate-400 transition-colors" id="arrow-${s.id}">▼ ver alertas</span>
+            </div>
+          </button>
+          <div id="alerts-${s.id}" class="hidden"></div>
+        </div>
+      `;
+    }
+
+    async function toggleAlerts(sessionId, btn) {
+      const el = document.getElementById(`alerts-${sessionId}`);
+      const arrow = document.getElementById(`arrow-${sessionId}`);
+      if (el.classList.contains('hidden')) {
+        el.classList.remove('hidden');
+        el.classList.add('fade-in');
+        arrow.textContent = '▲ fechar';
+        if (!el.dataset.loaded) {
+          el.innerHTML = '<p class="px-5 py-4 text-xs text-slate-500 border-t border-slate-800">Carregando alertas...</p>';
+          const res = await fetch(`/api/v1/dashboard/alerts/${sessionId}`);
+          const alerts = await res.json();
+          el.dataset.loaded = '1';
+          if (!alerts.length) {
+            el.innerHTML = '<p class="px-5 py-5 text-xs text-slate-500 border-t border-slate-800">Nenhum alerta nesta sessão.</p>';
+          } else {
+            el.innerHTML = `<div class="border-t border-slate-800 divide-y divide-slate-800/60">${alerts.map(renderAlert).join('')}</div>`;
+          }
+        }
+      } else {
+        el.classList.add('hidden');
+        arrow.textContent = '▼ ver alertas';
+      }
+    }
+
+    function renderAlert(a) {
+      const urg  = URGENCY[a.urgency]  || URGENCY.medium;
+      const sent = SENTIMENT[a.sentiment] || { label: a.sentiment || '—', cls: 'text-slate-400' };
+      const ct   = CONTENT_TYPE[a.content_type] || a.content_type || '';
+      const conf = a.confidence_score ? Math.round(a.confidence_score * 100) + '%' : null;
+
+      const audioSection = a.has_audio && a.transcription_id
+        ? `<div class="mt-3 pt-3 border-t border-slate-800">
+             <p class="text-xs text-slate-400 mb-1.5">🎧 Áudio original do trecho</p>
+             <audio controls>
+               <source src="/api/v1/audio/${a.transcription_id}" type="audio/wav">
+             </audio>
+           </div>`
+        : a.transcription_id
+          ? `<p class="text-xs text-slate-600 mt-3">🎧 Áudio não disponível</p>`
+          : '';
+
+      return `
+        <div class="px-5 py-4 border-l-4 urgency-${a.urgency || 'medium'}">
+          <div class="flex items-center justify-between gap-3 mb-3 flex-wrap">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="text-xs font-semibold px-2 py-0.5 rounded-md ${urg.cls}">${urg.emoji} ${urg.label}</span>
+              ${ct ? `<span class="text-xs text-slate-400 bg-slate-800 px-2 py-0.5 rounded-md">${esc(ct)}</span>` : ''}
+              <span class="text-xs ${sent.cls}">${sent.label}</span>
+              ${conf ? `<span class="text-xs text-slate-500">confiança ${conf}</span>` : ''}
+            </div>
+            <span class="text-xs text-slate-500">${fmt(a.chunk_started_at || a.created_at)}</span>
+          </div>
+
+          ${a.theme ? `<p class="text-sm font-semibold text-slate-100 mb-2">📌 ${esc(a.theme)}</p>` : ''}
+          ${a.summary ? `<p class="text-sm text-slate-300 mb-2">${esc(a.summary)}</p>` : ''}
+          ${a.excerpt ? `
+            <blockquote class="text-xs text-slate-400 italic border-l-2 border-slate-600 pl-3 py-1 mb-2 bg-slate-800/30 rounded-r">
+              "${esc(a.excerpt.slice(0, 350))}${a.excerpt.length > 350 ? '…' : ''}"
+            </blockquote>` : ''}
+          ${a.reason ? `<p class="text-xs text-amber-400/80 mb-1.5">⚠️ ${esc(a.reason)}</p>` : ''}
+          ${a.suggested_action ? `<p class="text-xs text-teal-400/80">✅ ${esc(a.suggested_action)}</p>` : ''}
+          ${a.entities_mentioned && a.entities_mentioned.length
+            ? `<p class="text-xs text-slate-500 mt-2">👥 ${a.entities_mentioned.slice(0,6).map(esc).join(' · ')}</p>` : ''}
+          ${audioSection}
+        </div>
+      `;
+    }
+
+    function esc(s) {
+      if (!s) return '';
+      return String(s)
+        .replace(/&/g,'&amp;')
+        .replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;');
+    }
+
+    loadAll();
+  </script>
+</body>
+</html>

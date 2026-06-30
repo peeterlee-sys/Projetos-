@@ -250,6 +250,44 @@ class SubscriptionOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+# ─── Dashboard ───────────────────────────────────────────────────────────────
+
+class SessionDetailOut(BaseModel):
+    id: str
+    status: str
+    started_at: Optional[datetime]
+    ended_at: Optional[datetime]
+    total_chunks: int
+    relevant_chunks: int
+    total_alerts_sent: int
+    created_at: datetime
+    program_name: Optional[str] = None
+    station_name: Optional[str] = None
+    station_city: Optional[str] = None
+
+
+class AlertDetailOut(BaseModel):
+    id: str
+    status: str
+    message_text: Optional[str]
+    sent_at: Optional[datetime]
+    created_at: datetime
+    theme: Optional[str]
+    sentiment: Optional[str]
+    urgency: Optional[str]
+    content_type: Optional[str]
+    summary: Optional[str]
+    excerpt: Optional[str]
+    reason: Optional[str]
+    suggested_action: Optional[str]
+    confidence_score: Optional[float]
+    entities_mentioned: Optional[List[str]]
+    transcription_id: Optional[str]
+    chunk_started_at: Optional[datetime]
+    raw_text: Optional[str]
+    has_audio: bool = False
+
+
 # ─── Generic ──────────────────────────────────────────────────────────────────
 
 class MessageOut(BaseModel):

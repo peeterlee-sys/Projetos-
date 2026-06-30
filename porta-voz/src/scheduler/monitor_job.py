@@ -418,9 +418,6 @@ class MonitorJob:
             if report:
                 await self._send_report(session, report)
 
-            if self._capture:
-                self._capture.cleanup_chunks()
-
             logger.info(
                 "monitor_job.finalized",
                 session_id=self.session_id,
