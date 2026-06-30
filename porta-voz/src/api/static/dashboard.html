@@ -22,7 +22,7 @@
       transform: translateY(-50%);
       width: 7px; height: 7px;
       border-radius: 50%;
-      background: #2dd4bf;
+      background: #0d9488;
       animation: pulseDot 1.5s ease-in-out infinite;
     }
     @keyframes pulseDot {
@@ -33,40 +33,40 @@
     .urgency-high     { border-left-color: #f97316 !important; }
     .urgency-medium   { border-left-color: #eab308 !important; }
     .urgency-low      { border-left-color: #22c55e !important; }
-    audio { width: 100%; accent-color: #14b8a6; height: 32px; }
+    audio { width: 100%; accent-color: #0d9488; height: 32px; }
     .tab-btn { transition: all .15s ease; }
     ::-webkit-scrollbar { width: 4px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 2px; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 2px; }
   </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen antialiased">
+<body class="bg-slate-50 text-slate-800 min-h-screen antialiased">
 
   <!-- Header -->
-  <header class="bg-slate-900/80 backdrop-blur border-b border-slate-800/70 sticky top-0 z-20">
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-20 shadow-sm">
     <div class="max-w-5xl mx-auto px-6 py-3 flex items-center gap-6">
 
       <!-- Logo -->
       <div class="flex items-center gap-2.5 shrink-0">
-        <div class="w-8 h-8 rounded-lg bg-teal-500/15 border border-teal-500/20 flex items-center justify-center">
+        <div class="w-8 h-8 rounded-lg bg-teal-50 border border-teal-200 flex items-center justify-center">
           <span class="text-sm">📻</span>
         </div>
         <div>
-          <h1 class="font-bold text-teal-400 tracking-widest text-xs leading-none">PORTA VOZ</h1>
-          <p class="text-[10px] text-slate-600 mt-0.5 leading-none">Monitoramento Municipal</p>
+          <h1 class="font-bold text-teal-600 tracking-widest text-xs leading-none">PORTA VOZ</h1>
+          <p class="text-[10px] text-slate-400 mt-0.5 leading-none">Monitoramento Municipal</p>
         </div>
       </div>
 
       <!-- City tabs -->
       <div id="city-tabs" class="flex items-center gap-1.5 flex-1">
-        <div class="h-7 w-40 bg-slate-800 rounded-lg animate-pulse opacity-50"></div>
+        <div class="h-7 w-40 bg-slate-100 rounded-lg animate-pulse"></div>
       </div>
 
       <!-- Right -->
       <div class="flex items-center gap-3 shrink-0">
-        <span id="last-update" class="text-[10px] text-slate-600 hidden"></span>
+        <span id="last-update" class="text-[10px] text-slate-400 hidden"></span>
         <button onclick="loadAll()"
-          class="flex items-center gap-1.5 text-xs text-slate-500 hover:text-teal-400 transition-colors px-2.5 py-1.5 rounded-lg border border-slate-800 hover:border-slate-700 bg-slate-900">
+          class="flex items-center gap-1.5 text-xs text-slate-500 hover:text-teal-600 transition-colors px-2.5 py-1.5 rounded-lg border border-slate-200 hover:border-teal-300 bg-white shadow-sm">
           <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
               d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
@@ -81,32 +81,32 @@
 
     <!-- Stats -->
     <div id="stats" class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-7">
-      <div class="bg-slate-900 rounded-xl border border-slate-800/70 p-4 animate-pulse">
-        <div class="h-2.5 bg-slate-800 rounded w-20 mb-3"></div>
-        <div class="h-7 bg-slate-800 rounded w-10"></div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4 animate-pulse shadow-sm">
+        <div class="h-2.5 bg-slate-100 rounded w-20 mb-3"></div>
+        <div class="h-7 bg-slate-100 rounded w-10"></div>
       </div>
-      <div class="bg-slate-900 rounded-xl border border-slate-800/70 p-4 animate-pulse">
-        <div class="h-2.5 bg-slate-800 rounded w-20 mb-3"></div>
-        <div class="h-7 bg-slate-800 rounded w-10"></div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4 animate-pulse shadow-sm">
+        <div class="h-2.5 bg-slate-100 rounded w-20 mb-3"></div>
+        <div class="h-7 bg-slate-100 rounded w-10"></div>
       </div>
-      <div class="bg-slate-900 rounded-xl border border-slate-800/70 p-4 animate-pulse">
-        <div class="h-2.5 bg-slate-800 rounded w-20 mb-3"></div>
-        <div class="h-7 bg-slate-800 rounded w-10"></div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4 animate-pulse shadow-sm">
+        <div class="h-2.5 bg-slate-100 rounded w-20 mb-3"></div>
+        <div class="h-7 bg-slate-100 rounded w-10"></div>
       </div>
-      <div class="bg-slate-900 rounded-xl border border-slate-800/70 p-4 animate-pulse">
-        <div class="h-2.5 bg-slate-800 rounded w-20 mb-3"></div>
-        <div class="h-7 bg-slate-800 rounded w-14"></div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4 animate-pulse shadow-sm">
+        <div class="h-2.5 bg-slate-100 rounded w-20 mb-3"></div>
+        <div class="h-7 bg-slate-100 rounded w-14"></div>
       </div>
     </div>
 
     <!-- Sessions header -->
     <div class="flex items-center justify-between mb-3">
-      <h2 class="text-[10px] font-semibold text-slate-600 uppercase tracking-[.12em]">Sessões Recentes</h2>
-      <span id="session-count" class="text-[10px] text-slate-700"></span>
+      <h2 class="text-[10px] font-semibold text-slate-400 uppercase tracking-[.12em]">Sessões Recentes</h2>
+      <span id="session-count" class="text-[10px] text-slate-400"></span>
     </div>
 
     <div id="sessions" class="space-y-2.5">
-      <div class="text-slate-600 text-sm text-center py-10">Carregando...</div>
+      <div class="text-slate-400 text-sm text-center py-10">Carregando...</div>
     </div>
 
   </div>
@@ -119,15 +119,15 @@
 
     // ─── Lookups ──────────────────────────────────────────────────────────────
     const URGENCY = {
-      critical: { label:'CRÍTICO', badge:'text-red-400 bg-red-950/50 border border-red-900/50',    dot:'🔴' },
-      high:     { label:'ALTO',    badge:'text-orange-400 bg-orange-950/50 border border-orange-900/50', dot:'🟠' },
-      medium:   { label:'MÉDIO',   badge:'text-yellow-400 bg-yellow-950/50 border border-yellow-900/50', dot:'🟡' },
-      low:      { label:'BAIXO',   badge:'text-green-400 bg-green-950/50 border border-green-900/50',  dot:'🟢' },
+      critical: { label:'CRÍTICO', badge:'text-red-600 bg-red-50 border border-red-200',       dot:'🔴' },
+      high:     { label:'ALTO',    badge:'text-orange-600 bg-orange-50 border border-orange-200', dot:'🟠' },
+      medium:   { label:'MÉDIO',   badge:'text-yellow-700 bg-yellow-50 border border-yellow-200', dot:'🟡' },
+      low:      { label:'BAIXO',   badge:'text-green-600 bg-green-50 border border-green-200',   dot:'🟢' },
     };
     const SENTIMENT = {
-      positive: { label:'Positivo', cls:'text-emerald-400', icon:'↑' },
-      negative: { label:'Negativo', cls:'text-red-400',     icon:'↓' },
-      neutral:  { label:'Neutro',   cls:'text-slate-500',   icon:'—' },
+      positive: { label:'Positivo', cls:'text-emerald-600', icon:'↑' },
+      negative: { label:'Negativo', cls:'text-red-500',     icon:'↓' },
+      neutral:  { label:'Neutro',   cls:'text-slate-400',   icon:'—' },
     };
     const CONTENT_LABEL = {
       complaint:'Reclamação', denouncement:'Denúncia', praise:'Elogio',
@@ -135,20 +135,20 @@
       political:'Político', other:'Outro',
     };
     const STATUS = {
-      completed:{ label:'Concluída', cls:'text-slate-500' },
-      running:  { label:'Ao vivo',   cls:'text-teal-400 pulse-dot' },
-      failed:   { label:'Falhou',    cls:'text-red-400' },
-      pending:  { label:'Pendente',  cls:'text-slate-600' },
+      completed:{ label:'Concluída', cls:'text-slate-400' },
+      running:  { label:'Ao vivo',   cls:'text-teal-600 pulse-dot' },
+      failed:   { label:'Falhou',    cls:'text-red-500' },
+      pending:  { label:'Pendente',  cls:'text-slate-400' },
     };
 
     // Per-city accents
     const CITY_COLORS = [
       { test: s => s?.toLowerCase().includes('itapema'),
-        dot: 'bg-teal-400', accent: 'text-teal-400', ring: 'border-teal-500/30', bg: 'bg-teal-500/10' },
+        dot: 'bg-teal-400', accent: 'text-teal-600', ring: 'border-teal-200', bg: 'bg-teal-50' },
       { test: s => s?.toLowerCase().includes('balne') || s?.toLowerCase().includes('cambori'),
-        dot: 'bg-violet-400', accent: 'text-violet-400', ring: 'border-violet-500/30', bg: 'bg-violet-500/10' },
+        dot: 'bg-violet-400', accent: 'text-violet-600', ring: 'border-violet-200', bg: 'bg-violet-50' },
     ];
-    const DEFAULT_COLOR = { dot:'bg-slate-500', accent:'text-slate-400', ring:'border-slate-700', bg:'bg-slate-800/50' };
+    const DEFAULT_COLOR = { dot:'bg-slate-300', accent:'text-slate-500', ring:'border-slate-200', bg:'bg-slate-50' };
 
     function cityColor(city) {
       return CITY_COLORS.find(c => c.test(city)) || DEFAULT_COLOR;
@@ -203,7 +203,7 @@
             class="tab-btn flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium
               ${active
                 ? `${cc.bg} ${cc.accent} ${cc.ring}`
-                : 'bg-transparent text-slate-600 border-slate-800 hover:text-slate-400 hover:border-slate-700'
+                : 'bg-transparent text-slate-600 border-slate-200 hover:text-slate-700 hover:border-slate-300'
               }">
             ${t.city
               ? `<span class="w-1.5 h-1.5 rounded-full ${cc.dot} shrink-0"></span>`
@@ -253,24 +253,24 @@
       const st      = STATUS[latest?.status] || { label:'', cls:'text-slate-600' };
 
       document.getElementById('stats').innerHTML = `
-        <div class="bg-slate-900 rounded-xl border border-slate-800/70 p-4">
+        <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
           <p class="text-[11px] text-slate-500 mb-2 font-medium">Sessões</p>
-          <p class="text-2xl font-bold text-slate-100">${total}</p>
-          <p class="text-[11px] text-slate-600 mt-1">${done} concluídas</p>
+          <p class="text-2xl font-bold text-slate-800">${total}</p>
+          <p class="text-[11px] text-slate-400 mt-1">${done} concluídas</p>
         </div>
-        <div class="bg-slate-900 rounded-xl border border-slate-800/70 p-4">
+        <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
           <p class="text-[11px] text-slate-500 mb-2 font-medium">Alertas</p>
-          <p class="text-2xl font-bold text-orange-400">${alerts}</p>
-          <p class="text-[11px] text-slate-600 mt-1">via WhatsApp</p>
+          <p class="text-2xl font-bold text-orange-500">${alerts}</p>
+          <p class="text-[11px] text-slate-400 mt-1">via WhatsApp</p>
         </div>
-        <div class="bg-slate-900 rounded-xl border border-slate-800/70 p-4">
+        <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
           <p class="text-[11px] text-slate-500 mb-2 font-medium">Taxa relevante</p>
-          <p class="text-2xl font-bold text-teal-400">${rate}%</p>
-          <p class="text-[11px] text-slate-600 mt-1">${relev} de ${chunks} trechos</p>
+          <p class="text-2xl font-bold text-teal-600">${rate}%</p>
+          <p class="text-[11px] text-slate-400 mt-1">${relev} de ${chunks} trechos</p>
         </div>
-        <div class="bg-slate-900 rounded-xl border border-slate-800/70 p-4">
+        <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
           <p class="text-[11px] text-slate-500 mb-2 font-medium">Última sessão</p>
-          <p class="text-sm font-semibold text-slate-200 leading-snug truncate">${latest ? fmt(latest.started_at || latest.created_at) : '—'}</p>
+          <p class="text-sm font-semibold text-slate-700 leading-snug truncate">${latest ? fmt(latest.started_at || latest.created_at) : '—'}</p>
           <p class="text-[11px] mt-1 ${st.cls}">${latest ? st.label : ''}</p>
         </div>`;
     }
@@ -293,37 +293,37 @@
       const rate = s.total_chunks > 0 ? Math.round(s.relevant_chunks / s.total_chunks * 100) : 0;
 
       return `
-        <div class="bg-slate-900 rounded-xl border border-slate-800/70 overflow-hidden hover:border-slate-700/70 transition-colors">
+        <div class="bg-white rounded-xl border border-slate-200 overflow-hidden hover:border-slate-300 transition-colors shadow-sm">
           <button onclick="toggleAlerts('${s.id}', this)" class="w-full text-left px-5 py-4 group">
             <div class="flex items-start justify-between gap-4">
               <div class="flex items-start gap-3 min-w-0">
                 <div class="w-8 h-8 rounded-lg ${cc.bg} border ${cc.ring} flex items-center justify-center shrink-0 mt-0.5 text-sm">📻</div>
                 <div class="min-w-0">
                   <div class="flex items-center gap-2 mb-1 flex-wrap">
-                    <span class="text-sm font-semibold text-slate-100 truncate">${esc(s.program_name || 'Programa')}</span>
+                    <span class="text-sm font-semibold text-slate-800 truncate">${esc(s.program_name || 'Programa')}</span>
                     <span class="text-xs ${st.cls}">${st.label}</span>
                   </div>
                   <div class="flex items-center gap-1.5 text-[11px]">
                     <span class="w-1.5 h-1.5 rounded-full ${cc.dot} shrink-0"></span>
                     <span class="${cc.accent} font-medium">${esc(s.station_city || '')}</span>
-                    ${s.station_name ? `<span class="text-slate-700">·</span><span class="text-slate-500">${esc(s.station_name)}</span>` : ''}
+                    ${s.station_name ? `<span class="text-slate-300">·</span><span class="text-slate-500">${esc(s.station_name)}</span>` : ''}
                   </div>
                 </div>
               </div>
               <div class="text-right shrink-0">
-                <p class="text-xs font-medium text-slate-300">${fmtTime(s.started_at || s.created_at)}</p>
-                <p class="text-[11px] text-slate-600 mt-0.5">${fmtDate(s.started_at || s.created_at)}</p>
-                ${dur !== null ? `<p class="text-[11px] text-slate-700">${dur}min</p>` : ''}
+                <p class="text-xs font-medium text-slate-700">${fmtTime(s.started_at || s.created_at)}</p>
+                <p class="text-[11px] text-slate-400 mt-0.5">${fmtDate(s.started_at || s.created_at)}</p>
+                ${dur !== null ? `<p class="text-[11px] text-slate-400">${dur}min</p>` : ''}
               </div>
             </div>
 
-            <div class="flex items-center gap-5 mt-3 pt-3 border-t border-slate-800/50 text-[11px] text-slate-600">
+            <div class="flex items-center gap-5 mt-3 pt-3 border-t border-slate-100 text-[11px] text-slate-500">
               <span>${s.total_chunks} trechos</span>
-              <span class="${s.relevant_chunks > 0 ? 'text-teal-500' : ''}">
-                ${s.relevant_chunks} relevantes${s.total_chunks > 0 ? ` <span class="text-slate-700">${rate}%</span>` : ''}
+              <span class="${s.relevant_chunks > 0 ? 'text-teal-600' : ''}">
+                ${s.relevant_chunks} relevantes${s.total_chunks > 0 ? ` <span class="text-slate-400">${rate}%</span>` : ''}
               </span>
-              <span class="${s.total_alerts_sent > 0 ? 'text-orange-400' : ''}">🔔 ${s.total_alerts_sent} alertas</span>
-              <span class="ml-auto text-slate-700 group-hover:text-slate-500 transition-colors" id="arrow-${s.id}">ver alertas ↓</span>
+              <span class="${s.total_alerts_sent > 0 ? 'text-orange-500' : ''}">🔔 ${s.total_alerts_sent} alertas</span>
+              <span class="ml-auto text-slate-400 group-hover:text-slate-600 transition-colors" id="arrow-${s.id}">ver alertas ↓</span>
             </div>
           </button>
           <div id="alerts-${s.id}" class="hidden"></div>
@@ -339,14 +339,14 @@
         el.classList.add('fade-in');
         ar.textContent = 'fechar ↑';
         if (!el.dataset.loaded) {
-          el.innerHTML = `<div class="px-5 py-4 border-t border-slate-800/50 text-[11px] text-slate-600">Carregando...</div>`;
+          el.innerHTML = `<div class="px-5 py-4 border-t border-slate-100 text-[11px] text-slate-500">Carregando...</div>`;
           try {
             const r = await fetch(`/api/v1/dashboard/alerts/${id}`);
             const alerts = await r.json();
             el.dataset.loaded = '1';
             el.innerHTML = alerts.length
-              ? `<div class="border-t border-slate-800/50 divide-y divide-slate-800/40">${alerts.map(renderAlert).join('')}</div>`
-              : `<div class="px-5 py-5 border-t border-slate-800/50 text-[11px] text-slate-600 text-center">Nenhum alerta nesta sessão.</div>`;
+              ? `<div class="border-t border-slate-100 divide-y divide-slate-100">${alerts.map(renderAlert).join('')}</div>`
+              : `<div class="px-5 py-5 border-t border-slate-100 text-[11px] text-slate-500 text-center">Nenhum alerta nesta sessão.</div>`;
           } catch(e) {
             el.innerHTML = `<div class="px-5 py-3 text-xs text-red-400">Erro ao carregar alertas.</div>`;
           }
@@ -364,39 +364,39 @@
       const conf = a.confidence_score ? Math.round(a.confidence_score * 100) : null;
 
       const audio = a.has_audio && a.transcription_id
-        ? `<div class="mt-3 pt-3 border-t border-slate-800/50">
+        ? `<div class="mt-3 pt-3 border-t border-slate-100">
              <p class="text-[11px] text-slate-500 mb-2">🎧 Áudio do trecho</p>
              <audio controls class="rounded"><source src="/api/v1/audio/${a.transcription_id}" type="audio/wav"></audio>
            </div>`
         : '';
 
       return `
-        <div class="px-5 py-4 border-l-4 border-l-transparent urgency-${a.urgency || 'medium'} hover:bg-white/[.02] transition-colors">
+        <div class="px-5 py-4 border-l-4 border-l-transparent urgency-${a.urgency || 'medium'} hover:bg-slate-50 transition-colors">
           <div class="flex items-center justify-between gap-3 mb-3 flex-wrap">
             <div class="flex items-center gap-2 flex-wrap">
               <span class="text-[11px] font-bold px-2 py-0.5 rounded ${urg.badge}">${urg.dot} ${urg.label}</span>
-              ${ct ? `<span class="text-[11px] text-slate-500 bg-slate-800 px-2 py-0.5 rounded">${esc(ct)}</span>` : ''}
+              ${ct ? `<span class="text-[11px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded">${esc(ct)}</span>` : ''}
               <span class="text-[11px] font-medium ${sent.cls}">${sent.icon} ${sent.label}</span>
-              ${conf ? `<span class="text-[11px] text-slate-700">${conf}% confiança</span>` : ''}
+              ${conf ? `<span class="text-[11px] text-slate-400">${conf}% confiança</span>` : ''}
             </div>
-            <span class="text-[11px] text-slate-600">${fmt(a.chunk_started_at || a.created_at)}</span>
+            <span class="text-[11px] text-slate-400">${fmt(a.chunk_started_at || a.created_at)}</span>
           </div>
 
-          ${a.theme ? `<p class="text-sm font-semibold text-slate-100 mb-2 flex items-start gap-2"><span class="text-teal-500 shrink-0 mt-0.5">▸</span>${esc(a.theme)}</p>` : ''}
-          ${a.summary ? `<p class="text-sm text-slate-300 leading-relaxed mb-2">${esc(a.summary)}</p>` : ''}
+          ${a.theme ? `<p class="text-sm font-semibold text-slate-800 mb-2 flex items-start gap-2"><span class="text-teal-600 shrink-0 mt-0.5">▸</span>${esc(a.theme)}</p>` : ''}
+          ${a.summary ? `<p class="text-sm text-slate-600 leading-relaxed mb-2">${esc(a.summary)}</p>` : ''}
           ${a.excerpt ? `
-            <blockquote class="text-xs text-slate-400 italic border-l-2 border-slate-700 pl-3 py-1 mb-2 bg-slate-800/20 rounded-r leading-relaxed">
+            <blockquote class="text-xs text-slate-500 italic border-l-2 border-slate-300 pl-3 py-1 mb-2 bg-slate-50 rounded-r leading-relaxed">
               "${esc(a.excerpt.slice(0,400))}${a.excerpt.length > 400 ? '…' : ''}"
             </blockquote>` : ''}
 
           <div class="space-y-1">
-            ${a.reason ? `<p class="text-xs text-amber-400/75 flex items-start gap-1.5"><span class="shrink-0">⚠</span>${esc(a.reason)}</p>` : ''}
-            ${a.suggested_action ? `<p class="text-xs text-teal-400/75 flex items-start gap-1.5"><span class="shrink-0">✦</span>${esc(a.suggested_action)}</p>` : ''}
+            ${a.reason ? `<p class="text-xs text-amber-600 flex items-start gap-1.5"><span class="shrink-0">⚠</span>${esc(a.reason)}</p>` : ''}
+            ${a.suggested_action ? `<p class="text-xs text-teal-600 flex items-start gap-1.5"><span class="shrink-0">✦</span>${esc(a.suggested_action)}</p>` : ''}
           </div>
 
           ${a.entities_mentioned?.length ? `
             <div class="flex flex-wrap gap-1.5 mt-3">
-              ${a.entities_mentioned.slice(0,8).map(e => `<span class="text-[11px] text-slate-500 bg-slate-800 px-2 py-0.5 rounded-full">${esc(e)}</span>`).join('')}
+              ${a.entities_mentioned.slice(0,8).map(e => `<span class="text-[11px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">${esc(e)}</span>`).join('')}
             </div>` : ''}
 
           ${audio}
