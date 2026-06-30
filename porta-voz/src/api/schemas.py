@@ -212,7 +212,7 @@ class ReportOut(BaseModel):
 # ─── Alert Recipient ─────────────────────────────────────────────────────────
 
 class RecipientCreate(BaseModel):
-    org_id: str
+    org_id: Optional[str] = None
     name: Optional[str] = None
     phone: str
     urgency_filter: str = "low"
