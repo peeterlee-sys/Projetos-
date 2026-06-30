@@ -1,19 +1,20 @@
 """
 Rotas do dashboard: áudio original e dados enriquecidos para a UI.
 """
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
-from sqlalchemy import select, desc
+from sqlalchemy import select, desc, update
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.database import get_db
 from src.core.models import (
     Alert, AlertStatus, Analysis, Transcription,
-    MonitoringSession, Program,
+    MonitoringSession, SessionStatus, Program,
 )
 from src.api.schemas import AlertDetailOut, SessionDetailOut
 
@@ -57,6 +58,15 @@ async def dashboard_sessions(
     )
     sessions = result.scalars().all()
 
+    # Corrige sessões presas como "running" há mais de 6 horas
+    stale_cutoff = datetime.utcnow() - timedelta(hours=6)
+    for s in sessions:
+        if s.status and s.status.value == "running" and s.created_at < stale_cutoff:
+            s.status = SessionStatus.completed
+            if not s.ended_at:
+                s.ended_at = s.created_at + timedelta(minutes=s.total_chunks // 2)
+    await db.commit()
+
     out = []
     for s in sessions:
         program = s.program
@@ -87,7 +97,7 @@ async def dashboard_alerts(
         select(Alert)
         .where(
             Alert.session_id == session_id,
-            Alert.status.in_([AlertStatus.sent, AlertStatus.pending]),
+            Alert.status != AlertStatus.suppressed,
         )
         .order_by(Alert.created_at)
     )
