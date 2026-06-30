@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.database import get_db
 from src.core.models import Organization, AlertRecipient
-from src.api.schemas import OrganizationCreate, OrganizationOut, RecipientCreate, RecipientOut, MessageOut
+from src.api.schemas import OrganizationCreate, OrganizationUpdate, OrganizationOut, RecipientCreate, RecipientOut, MessageOut
 
 router = APIRouter(prefix="/organizations", tags=["Organizações"])
 
@@ -32,6 +32,24 @@ async def get_organization(org_id: str, db: AsyncSession = Depends(get_db)):
     org = await db.get(Organization, org_id)
     if not org:
         raise HTTPException(status_code=404, detail="Organização não encontrada")
+    return org
+
+
+@router.patch("/{org_id}", response_model=OrganizationOut)
+async def update_organization(
+    org_id: str,
+    payload: OrganizationUpdate,
+    db: AsyncSession = Depends(get_db),
+):
+    org = await db.get(Organization, org_id)
+    if not org:
+        raise HTTPException(status_code=404, detail="Organização não encontrada")
+
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(org, field, value)
+
+    await db.commit()
+    await db.refresh(org)
     return org
 
 

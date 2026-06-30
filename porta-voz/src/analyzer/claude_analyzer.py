@@ -27,21 +27,10 @@ def get_client() -> anthropic.AsyncAnthropic:
 
 SYSTEM_PROMPT = """Você é um analista de monitoramento de mídia especializado em comunicação pública municipal.
 
-Sua tarefa é analisar trechos transcritos de programas de rádio e identificar se o conteúdo é DIRETAMENTE relevante para a Secretaria de Comunicação da Prefeitura de Itapema/SC.
-
-CONTEXTO DO MUNICÍPIO — ITAPEMA/SC:
-- Prefeito: Carlos Alexandre de Souza Ribeiro (Alexandre Xepa), mandato 2025
-- Vice-prefeito: Eurico Osmari
-- Secretaria de Comunicação: Caroline Poerner
-- Secretaria de Saúde: Fabrício Lazzari (Fafá)
-- Secretaria de Obras: Jean Idimar da Silva
-- Secretaria de Assistência Social: Íris Bispo da Silva
-- Câmara Municipal: 13 vereadores, presidente Zulma Souza
-- Programa de infraestrutura: "Avança Itapema"
-- Bairros: Meia Praia, Centro, Canto da Praia, Várzea, Morretes, Ilhota
+Sua tarefa é analisar trechos transcritos de programas de rádio e identificar se o conteúdo é DIRETAMENTE relevante para a Secretaria de Comunicação da Prefeitura monitorada.
 
 RELEVANTE — marque is_relevant: true SOMENTE se o conteúdo:
-1. Citar explicitamente a Prefeitura, o Prefeito, Vice-prefeito, Secretário(a) ou Câmara Municipal
+1. Citar explicitamente a Prefeitura, o Prefeito, Vice-prefeito, Secretário(a) ou Câmara Municipal do município monitorado
 2. Criticar ou elogiar um serviço público municipal: saúde, obras, transporte, limpeza, saneamento
 3. Trazer reclamação de morador sobre falha de serviço público (buraco, falta de água, lixo, UPA)
 4. Entrevistar ou mencionar autoridade municipal pelo nome
@@ -50,7 +39,7 @@ RELEVANTE — marque is_relevant: true SOMENTE se o conteúdo:
 NÃO RELEVANTE — marque is_relevant: false se o conteúdo:
 - For ocorrência policial (crime, roubo, acidente, viatura) sem envolver diretamente a gestão municipal
 - Mencionar apenas o nome de um bairro sem criticar serviço público da prefeitura
-- For notícia sobre outro município que cita Itapema de passagem
+- For notícia sobre outro município
 - For clima, turismo, esporte, cultura sem relação com gestão pública
 - For propaganda comercial ou anúncio
 - For genérico demais para demandar ação da comunicação municipal
@@ -66,7 +55,7 @@ RÁDIO: {station_name}
 PROGRAMA: {program_name}
 HORÁRIO DO TRECHO: {chunk_time}
 PALAVRAS-CHAVE DETECTADAS: {keywords}
-
+{city_context_section}
 TRANSCRIÇÃO:
 {text}
 
@@ -164,6 +153,7 @@ async def analyze_transcription(
     program_name: str,
     chunk_time: str,
     matched_keywords: list[str],
+    city_context: Optional[str] = None,
 ) -> Optional[AnalysisResult]:
     """
     Analisa um trecho transcrito com Claude.
@@ -181,11 +171,17 @@ async def analyze_transcription(
     if not text or not text.strip():
         return None
 
+    city_context_section = (
+        f"CONTEXTO DO MUNICÍPIO MONITORADO:\n{city_context}\n"
+        if city_context else ""
+    )
+
     user_message = USER_PROMPT_TEMPLATE.format(
         station_name=station_name,
         program_name=program_name,
         chunk_time=chunk_time,
         keywords=", ".join(matched_keywords) if matched_keywords else "nenhuma detectada",
+        city_context_section=city_context_section,
         text=text,
     )
 

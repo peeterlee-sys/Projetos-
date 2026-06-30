@@ -17,7 +17,7 @@ from src.core.database import AsyncSessionLocal
 from src.core.models import (
     MonitoringSession, Program, RadioStation, Transcription,
     Analysis, Alert, AlertStatus, SessionStatus, Sentiment,
-    Urgency, ContentType, AlertRecipient, StationSubscription,
+    Urgency, ContentType, AlertRecipient, StationSubscription, Organization,
 )
 from src.capture.stream_capture import StreamCapture, AudioChunk
 from src.capture.youtube import resolve_stream_url
@@ -198,12 +198,14 @@ class MonitorJob:
 
             # 2. Análise Claude com contexto do cliente
             station_label = f"{station.name} ({city_filter})" if city_filter else station.name
+            city_context = await self._get_org_city_context(db, org_id)
             analysis_result: Optional[AnalysisResult] = await analyze_transcription(
                 text=text,
                 station_name=station_label,
                 program_name=program.name,
                 chunk_time=chunk_time,
                 matched_keywords=matched,
+                city_context=city_context,
             )
 
             if not analysis_result:
@@ -333,6 +335,29 @@ class MonitorJob:
         if not session:
             logger.error("monitor_job.session_not_found", session_id=self.session_id)
         return session
+
+    async def _get_org_city_context(self, db: AsyncSession, org_id: str) -> Optional[str]:
+        org = await db.get(Organization, org_id)
+        if not org or not org.settings:
+            return None
+        ctx = org.settings.get("city_context")
+        if not ctx or not isinstance(ctx, dict):
+            return None
+        lines = []
+        if ctx.get("city"):
+            lines.append(f"- Município: {ctx['city']}/{ctx.get('state', 'SC')}")
+        for key, label in [
+            ("prefeito", "Prefeito"),
+            ("vice_prefeito", "Vice-prefeito"),
+            ("secretarios", "Secretários"),
+            ("camara", "Câmara Municipal"),
+            ("programas", "Programas/Projetos"),
+            ("bairros", "Bairros"),
+        ]:
+            val = ctx.get(key)
+            if val:
+                lines.append(f"- {label}: {val}")
+        return "\n".join(lines) if lines else None
 
     async def _load_keywords(self, db: AsyncSession, org_id: str, program_id: str) -> list:
         from src.core.models import Keyword

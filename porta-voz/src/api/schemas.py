@@ -13,6 +13,16 @@ class OrganizationCreate(BaseModel):
     city: Optional[str] = None
     state: Optional[str] = None
     plan: str = "mvp"
+    settings: Optional[dict] = None
+
+
+class OrganizationUpdate(BaseModel):
+    name: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    plan: Optional[str] = None
+    is_active: Optional[bool] = None
+    settings: Optional[dict] = None
 
 
 class OrganizationOut(BaseModel):
@@ -22,6 +32,7 @@ class OrganizationOut(BaseModel):
     state: Optional[str]
     plan: str
     is_active: bool
+    settings: Optional[dict] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
