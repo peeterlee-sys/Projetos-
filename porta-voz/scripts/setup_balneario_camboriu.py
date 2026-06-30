@@ -1,10 +1,8 @@
 """
-Setup completo para Balneário Camboriú.
+Setup completo para Balneário Camboriú — Menina FM.
 Cria: organização, rádio, programa, keywords e destinatários de alerta.
 
-ANTES DE RODAR:
-1. Preencha as variáveis marcadas com TODO abaixo
-2. Execute no servidor: python3 scripts/setup_balneario_camboriu.py
+Uso: python3 scripts/setup_balneario_camboriu.py
 """
 import urllib.request
 import json
@@ -12,45 +10,38 @@ import sys
 
 BASE = "http://localhost:8000/api/v1"
 
-# ─── TODO: preencha os dados abaixo ──────────────────────────────────────────
+# ─── Dados de Balneário Camboriú ─────────────────────────────────────────────
 
-# URL do stream de áudio da rádio (MP3 ou HLS)
-# Exemplos: "http://radios.br:8000/stream", "https://..."
-# Para encontrar: abra a rádio no navegador → F12 → Network → filtre por .mp3 ou .m3u8
-STREAM_URL = "TODO_URL_DO_STREAM_DA_RADIO"
+# ATENÇÃO: esta URL pode ser a página do player, não o stream direto.
+# Se der erro de captura, abra https://portalmenina.com.br/streaming/ no Chrome,
+# pressione F12 → Network → filtre por "audio" ou ".mp3" ou ".aac" para achar o stream real.
+STREAM_URL = "https://portalmenina.com.br/streaming/"
 
-# URL do YouTube Live (alternativa ao stream direto — pode deixar vazio se tiver stream)
 YOUTUBE_URL = ""
 
-# Nome da rádio (ex: "Rádio Aliança BC", "Litoral FM")
-RADIO_NAME = "TODO_NOME_DA_RADIO"
+RADIO_NAME = "Menina FM"
 
-# Nome do programa a monitorar
-PROGRAM_NAME = "TODO_NOME_DO_PROGRAMA"
+PROGRAM_NAME = "Bote a Boca no Trombone"
 
-# Horário do programa (formato "HH:MM")
-PROGRAM_START = "07:00"
-PROGRAM_END   = "09:00"
+PROGRAM_START = "06:00"
+PROGRAM_END   = "08:25"
 
-# Dias da semana: monday, tuesday, wednesday, thursday, friday, saturday, sunday
 PROGRAM_DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday"]
 
-# WhatsApp dos destinatários de alerta para BC (formato: 55DDDNÚMERO)
 ALERT_RECIPIENTS = [
-    {"name": "TODO_NOME", "phone": "5547TODO_NUMERO"},
+    {"name": "Alerta BC", "phone": "5547999459031"},
 ]
 
-# Gestores de BC (para o Claude entender o contexto local)
-# Atualize com os dados corretos da gestão atual
+# TODO: preencha com os nomes reais dos gestores de BC antes de rodar
 CITY_CONTEXT = {
     "city": "Balneário Camboriú",
     "state": "SC",
-    "prefeito": "TODO_NOME_PREFEITO",
-    "vice_prefeito": "TODO_NOME_VICE",
-    "secretarios": "TODO_SECRETÁRIOS_PRINCIPAIS",
+    "prefeito": "TODO_NOME_PREFEITO_BC",
+    "vice_prefeito": "TODO_NOME_VICE_BC",
+    "secretarios": "TODO_SECRETÁRIOS_BC",
     "camara": "Câmara Municipal de Balneário Camboriú",
-    "programas": "TODO_PROGRAMAS_DA_GESTÃO",
-    "bairros": "Centro, Barra Sul, Municípios, Nações, Pioneiros, Tabuleiro, Agronomica",
+    "programas": "TODO_PROGRAMAS_DA_GESTÃO_BC",
+    "bairros": "Centro, Barra Sul, Nações, Pioneiros, Tabuleiro, Agronomica, Municípios",
 }
 
 # ─── Keywords específicas de BC ───────────────────────────────────────────────
@@ -105,23 +96,12 @@ def req(method, path, data=None):
         return json.loads(e.read())
 
 
-def check_todos():
-    todos = [v for v in [STREAM_URL, RADIO_NAME, PROGRAM_NAME] if "TODO" in str(v)]
-    recipients_todo = [r for r in ALERT_RECIPIENTS if "TODO" in r["phone"] or "TODO" in r["name"]]
-    if todos or recipients_todo:
-        print("⚠️  ATENÇÃO: Preencha os campos TODO antes de rodar este script!")
-        if "TODO" in STREAM_URL:
-            print("   → STREAM_URL")
-        if "TODO" in RADIO_NAME:
-            print("   → RADIO_NAME")
-        if "TODO" in PROGRAM_NAME:
-            print("   → PROGRAM_NAME")
-        if recipients_todo:
-            print("   → ALERT_RECIPIENTS")
-        sys.exit(1)
-
-
-check_todos()
+ctx_todos = [k for k, v in CITY_CONTEXT.items() if "TODO" in str(v)]
+if ctx_todos:
+    print("⚠️  Atenção: gestores de BC não preenchidos em CITY_CONTEXT.")
+    print(f"   Campos pendentes: {', '.join(ctx_todos)}")
+    print("   O sistema funcionará, mas o Claude terá menos contexto sobre quem é quem.")
+    print()
 
 print("=" * 55)
 print("  PORTA VOZ — Setup Balneário Camboriú")
