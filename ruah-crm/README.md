@@ -106,33 +106,26 @@ mesmo protocolo libSQL que o projeto ja usa, sem mudar nenhuma linha de
 codigo).
 
 1. **Criar o banco no Turso**
-   - Crie uma conta em [turso.tech](https://turso.tech) e instale a CLI
-     (`curl -sSfL https://get.tur.so/install.sh | bash`) ou use o painel web.
-   - `turso db create ruah-crm`
-   - `turso db show ruah-crm --url` -> vira `DATABASE_URL`
-   - `turso db tokens create ruah-crm` -> vira `DATABASE_AUTH_TOKEN`
+   - Crie uma conta em [turso.tech](https://turso.tech) (painel web, sem
+     precisar de CLI) e crie um banco (ex: `ruah-crm`).
+   - Copie a **Database URL** (`libsql://...`) e gere um **token de acesso**
+     - vao virar `DATABASE_URL` e `DATABASE_AUTH_TOKEN`.
 
-2. **Aplicar as migracoes no banco do Turso**
-   ```bash
-   DATABASE_URL="libsql://SEU-BANCO.turso.io" DATABASE_AUTH_TOKEN="SEU_TOKEN" npm run db:migrate
-   ```
+   As migracoes (criacao das tabelas) **nao precisam ser aplicadas
+   manualmente**: o script `vercel-build` (`package.json`) roda
+   `tsx src/db/migrate.ts` antes do `next build`, entao a cada deploy na
+   Vercel as tabelas sao criadas/atualizadas automaticamente no banco
+   configurado em `DATABASE_URL`.
 
-3. **Criar os 3 logins no banco do Turso** (mesmo comando de antes, agora
-   apontando pra producao):
-   ```bash
-   DATABASE_URL="libsql://SEU-BANCO.turso.io" DATABASE_AUTH_TOKEN="SEU_TOKEN" \
-     npm run users:create -- ana@ruah.com "Ana" "senha-forte-1"
-   ```
-
-4. **Importar o repositorio na Vercel**
+2. **Importar o repositorio na Vercel**
    - [vercel.com/new](https://vercel.com/new) -> conecte o GitHub -> selecione
      este repositorio -> em "Root Directory" escolha a pasta `ruah-crm`
      (o repositorio tem outros projetos ao lado, a Vercel precisa saber qual
      subpasta buildar).
    - A Vercel detecta Next.js automaticamente (build command e output ja
-     vem prontos).
+     vem prontos, incluindo a migracao).
 
-5. **Configurar as variaveis de ambiente na Vercel** (Project Settings ->
+3. **Configurar as variaveis de ambiente na Vercel** (Project Settings ->
    Environment Variables), pelo menos:
    - `DATABASE_URL`, `DATABASE_AUTH_TOKEN` (do Turso)
    - `NEXTAUTH_SECRET` (gere com `openssl rand -base64 32`)
@@ -141,11 +134,20 @@ codigo).
    - `CRON_SECRET`, `WHATSAPP_WEBHOOK_VERIFY_TOKEN` e as demais quando for
      ativar WhatsApp/e-mail (veja a tabela acima)
 
-6. **Deploy**. A cada push na branch conectada a Vercel builda e publica
-   automaticamente. Acesse a URL gerada e entre com um dos logins criados no
-   passo 3.
+4. **Deploy**. A cada push na branch conectada a Vercel builda e publica
+   automaticamente (o primeiro deploy ja aplica as migracoes no banco).
 
-7. **Lembretes agendados em producao**: configure um cron externo (Vercel
+5. **Criar os 3 logins no banco do Turso** agora que as tabelas ja existem:
+   ```bash
+   DATABASE_URL="libsql://SEU-BANCO.turso.io" DATABASE_AUTH_TOKEN="SEU_TOKEN" \
+     npm run users:create -- ana@ruah.com "Ana" "senha-forte-1"
+   ```
+   (rode esse comando de uma maquina/ambiente com acesso normal a internet -
+   o Turso tambem tem um "SQL shell" no painel web caso prefira criar a linha
+   direto por SQL, mas a senha precisa estar em bcrypt, entao o script e mais
+   simples)
+
+6. **Lembretes agendados em producao**: configure um cron externo (Vercel
    Cron, cron-job.org etc.) para chamar
    `GET https://SEU_DOMINIO/api/cron/lembretes?secret=SEU_CRON_SECRET` a cada
    minuto - veja a secao "Lembretes e alertas agendados" abaixo.
