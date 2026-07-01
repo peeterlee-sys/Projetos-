@@ -90,3 +90,15 @@ export const lembretes = sqliteTable("lembretes", {
     .notNull()
     .default(sql`(unixepoch())`),
 });
+
+export const users = sqliteTable("users", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  email: text("email").notNull().unique(),
+  nome: text("nome").notNull(),
+  senhaHash: text("senha_hash").notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});

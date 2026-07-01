@@ -9,6 +9,7 @@ import { LeadCard } from "./LeadCard";
 import { LeadDetailDrawer } from "./LeadDetailDrawer";
 import { NovoLeadModal } from "./NovoLeadModal";
 import { RuahLogo } from "./RuahLogo";
+import { SairButton } from "./SairButton";
 
 function Coluna({
   estagio,
@@ -49,7 +50,13 @@ function Coluna({
   );
 }
 
-export function KanbanBoard({ leadsIniciais }: { leadsIniciais: LeadComRelacoes[] }) {
+export function KanbanBoard({
+  leadsIniciais,
+  usuarioNome,
+}: {
+  leadsIniciais: LeadComRelacoes[];
+  usuarioNome?: string | null;
+}) {
   const [leads, setLeads] = useState(leadsIniciais);
   const [leadSelecionado, setLeadSelecionado] = useState<LeadComRelacoes | null>(null);
   const [modalNovoLeadAberto, setModalNovoLeadAberto] = useState(false);
@@ -106,12 +113,16 @@ export function KanbanBoard({ leadsIniciais }: { leadsIniciais: LeadComRelacoes[
             <p className="text-xs text-zinc-400">OOH / DOOH - acompanhamento de oportunidades</p>
           </div>
         </div>
-        <button
-          onClick={() => setModalNovoLeadAberto(true)}
-          className="flex items-center gap-1.5 rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700"
-        >
-          <Plus size={16} /> Novo lead
-        </button>
+        <div className="flex items-center gap-4">
+          {usuarioNome && <span className="text-xs text-zinc-500">Ola, {usuarioNome}</span>}
+          <button
+            onClick={() => setModalNovoLeadAberto(true)}
+            className="flex items-center gap-1.5 rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700"
+          >
+            <Plus size={16} /> Novo lead
+          </button>
+          <SairButton />
+        </div>
       </div>
 
       <DndContext sensors={sensors} onDragEnd={handleDragEnd}>

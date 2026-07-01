@@ -14,6 +14,9 @@ mensagens de WhatsApp.
   (notas, ligacoes, mudancas de estagio, mensagens de WhatsApp recebidas etc.).
 - **Lembretes** (ex: "Reuniao dia 09/07/26 as 16h") com envio automatico de
   alerta via **WhatsApp**, **e-mail** ou ambos, no horario agendado.
+- **Login por usuario**: acesso protegido por e-mail/senha (NextAuth). Todos os
+  usuarios tem o mesmo nivel de acesso ao pipeline; o nome de quem esta logado
+  fica registrado automaticamente nas notas adicionadas ao historico.
 - **Alimentacao via WhatsApp**: configurando o webhook da WhatsApp Cloud API
   (Meta) apontando para este projeto, uma mensagem como abaixo cria ou
   atualiza um lead automaticamente no pipeline:
@@ -38,9 +41,9 @@ mensagens de WhatsApp.
 ## Stack
 
 Next.js 15 (App Router) + TypeScript + Tailwind CSS 4, Drizzle ORM sobre
-libSQL/SQLite (compativel com Turso para producao), dnd-kit para o Kanban,
-Zod para validacao, Nodemailer para e-mail e a WhatsApp Cloud API (Meta) para
-WhatsApp.
+libSQL/SQLite (compativel com Turso para producao), NextAuth (login por
+e-mail/senha), dnd-kit para o Kanban, Zod para validacao, Nodemailer para
+e-mail e a WhatsApp Cloud API (Meta) para WhatsApp.
 
 ## Como rodar localmente
 
@@ -50,6 +53,7 @@ cp .env.example .env      # ajuste as variaveis, veja abaixo
 npm run db:generate       # gera as migracoes a partir do schema (ja versionadas em src/db/migrations)
 npm run db:migrate        # aplica as migracoes no banco local (ruah-crm.db)
 npm run db:seed           # (opcional) popula com leads de exemplo
+npm run users:create -- voce@ruah.com "Seu Nome" senha123   # cria seu login
 npm run dev                # http://localhost:3000
 ```
 
@@ -61,6 +65,8 @@ Veja `.env.example` para a lista completa. Resumo:
 |---|---|
 | `DATABASE_URL` | `file:./ruah-crm.db` local, ou uma URL `libsql://...` do Turso em producao |
 | `DATABASE_AUTH_TOKEN` | Token do Turso (producao) |
+| `NEXTAUTH_SECRET` | Chave usada para assinar a sessao de login (gere com `openssl rand -base64 32`) |
+| `NEXTAUTH_URL` | URL publica do deploy (em dev, `http://localhost:3000`) |
 | `CRON_SECRET` | Protege `/api/cron/lembretes` contra chamadas externas nao autorizadas |
 | `WHATSAPP_WEBHOOK_VERIFY_TOKEN` | Token usado no handshake de verificacao do webhook da Meta |
 | `WHATSAPP_API_TOKEN` / `WHATSAPP_PHONE_NUMBER_ID` | Credenciais da WhatsApp Cloud API para enviar mensagens (alertas e confirmacoes) |
@@ -72,6 +78,77 @@ Sem as credenciais de WhatsApp/SMTP configuradas, o sistema continua
 funcionando normalmente (CRUD, Kanban, historico) - apenas o envio efetivo do
 alerta e da confirmacao fica desativado e um aviso e registrado no log do
 servidor.
+
+## Usuarios (login)
+
+Nao ha cadastro publico - cada login e criado por linha de comando com o
+script `users:create`, que recebe e-mail, nome e senha e grava a senha ja
+criptografada (bcrypt) na tabela `users`. Rodar de novo com o mesmo e-mail
+atualiza nome/senha (serve tambem para resetar senha).
+
+```bash
+npm run users:create -- ana@ruah.com "Ana" "senha-forte-1"
+npm run users:create -- bruno@ruah.com "Bruno" "senha-forte-2"
+npm run users:create -- carla@ruah.com "Carla" "senha-forte-3"
+```
+
+Rode o comando apontando `DATABASE_URL`/`DATABASE_AUTH_TOKEN` para o banco de
+producao (Turso) quando for criar os logins que vao ser usados no deploy real
+- veja a secao de deploy abaixo. Todos os usuarios tem o mesmo nivel de
+acesso a todo o pipeline.
+
+## Deploy na Vercel (com banco Turso)
+
+O app roda em servidores serverless (Vercel), entao o banco SQLite local
+(`ruah-crm.db`) nao serve para producao - use o
+[Turso](https://turso.tech) (SQLite na nuvem, tem plano gratuito e fala o
+mesmo protocolo libSQL que o projeto ja usa, sem mudar nenhuma linha de
+codigo).
+
+1. **Criar o banco no Turso**
+   - Crie uma conta em [turso.tech](https://turso.tech) e instale a CLI
+     (`curl -sSfL https://get.tur.so/install.sh | bash`) ou use o painel web.
+   - `turso db create ruah-crm`
+   - `turso db show ruah-crm --url` -> vira `DATABASE_URL`
+   - `turso db tokens create ruah-crm` -> vira `DATABASE_AUTH_TOKEN`
+
+2. **Aplicar as migracoes no banco do Turso**
+   ```bash
+   DATABASE_URL="libsql://SEU-BANCO.turso.io" DATABASE_AUTH_TOKEN="SEU_TOKEN" npm run db:migrate
+   ```
+
+3. **Criar os 3 logins no banco do Turso** (mesmo comando de antes, agora
+   apontando pra producao):
+   ```bash
+   DATABASE_URL="libsql://SEU-BANCO.turso.io" DATABASE_AUTH_TOKEN="SEU_TOKEN" \
+     npm run users:create -- ana@ruah.com "Ana" "senha-forte-1"
+   ```
+
+4. **Importar o repositorio na Vercel**
+   - [vercel.com/new](https://vercel.com/new) -> conecte o GitHub -> selecione
+     este repositorio -> em "Root Directory" escolha a pasta `ruah-crm`
+     (o repositorio tem outros projetos ao lado, a Vercel precisa saber qual
+     subpasta buildar).
+   - A Vercel detecta Next.js automaticamente (build command e output ja
+     vem prontos).
+
+5. **Configurar as variaveis de ambiente na Vercel** (Project Settings ->
+   Environment Variables), pelo menos:
+   - `DATABASE_URL`, `DATABASE_AUTH_TOKEN` (do Turso)
+   - `NEXTAUTH_SECRET` (gere com `openssl rand -base64 32`)
+   - `NEXTAUTH_URL` (a URL que a Vercel vai te dar, ex:
+     `https://ruah-crm.vercel.app`)
+   - `CRON_SECRET`, `WHATSAPP_WEBHOOK_VERIFY_TOKEN` e as demais quando for
+     ativar WhatsApp/e-mail (veja a tabela acima)
+
+6. **Deploy**. A cada push na branch conectada a Vercel builda e publica
+   automaticamente. Acesse a URL gerada e entre com um dos logins criados no
+   passo 3.
+
+7. **Lembretes agendados em producao**: configure um cron externo (Vercel
+   Cron, cron-job.org etc.) para chamar
+   `GET https://SEU_DOMINIO/api/cron/lembretes?secret=SEU_CRON_SECRET` a cada
+   minuto - veja a secao "Lembretes e alertas agendados" abaixo.
 
 ## Configurando o WhatsApp (entrada e saida de mensagens)
 
@@ -108,21 +185,26 @@ escolhido (`whatsapp`, `email` ou `ambos`), marca o lembrete como `enviado`
 
 ```
 src/
+  middleware.ts                # protege todas as rotas exceto /login, webhook e cron
   app/
     page.tsx                 # pagina do Kanban (server component)
+    login/                    # tela de login
     api/
+      auth/[...nextauth]/    # NextAuth (login por e-mail/senha)
       leads/                 # CRUD de leads, historico e lembretes
       lembretes/[id]/        # editar/cancelar lembrete
       webhook/whatsapp/      # entrada de mensagens (Meta Cloud API)
       cron/lembretes/        # dispara alertas de lembretes vencidos
-  components/                 # Kanban, card, drawer de detalhes, modal de novo lead
+  components/                 # Kanban, card, drawer de detalhes, modal de novo lead, logo
   db/                          # schema Drizzle, client, migracoes, seed
   lib/
+    auth.ts                    # configuracao do NextAuth (Credentials provider)
     leads.ts                  # consultas e helpers de lead/historico
     reminders.ts               # processamento de lembretes vencidos
     notifications/             # adapters de WhatsApp (Cloud API) e e-mail (SMTP)
     whatsapp-parser.ts          # extracao de campos de mensagens de texto livre
     whatsapp-inbound.ts         # cria/atualiza lead a partir de mensagem recebida
   scripts/
+    create-user.ts              # cria/atualiza um login (email + senha)
     reminder-worker.ts          # worker standalone (node-cron) para self-hosting
 ```
