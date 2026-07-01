@@ -8,6 +8,7 @@ import type { Lead, LeadComDetalhes, LeadComRelacoes } from "@/lib/types";
 import { LeadCard } from "./LeadCard";
 import { LeadDetailDrawer } from "./LeadDetailDrawer";
 import { NovoLeadModal } from "./NovoLeadModal";
+import { RuahLogo } from "./RuahLogo";
 
 function Coluna({
   estagio,
@@ -98,9 +99,12 @@ export function KanbanBoard({ leadsIniciais }: { leadsIniciais: LeadComRelacoes[
   return (
     <div className="p-6">
       <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-zinc-900">Pipeline de Vendas - Ruah</h1>
-          <p className="text-sm text-zinc-500">OOH / DOOH - acompanhamento de oportunidades</p>
+        <div className="flex items-center gap-3">
+          <RuahLogo />
+          <div className="border-l border-zinc-300 pl-3">
+            <p className="text-sm font-semibold text-zinc-700">Pipeline de Vendas</p>
+            <p className="text-xs text-zinc-400">OOH / DOOH - acompanhamento de oportunidades</p>
+          </div>
         </div>
         <button
           onClick={() => setModalNovoLeadAberto(true)}
