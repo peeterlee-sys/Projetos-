@@ -39,7 +39,7 @@ class Settings(BaseSettings):
 
     # Monitoramento
     CHUNK_DURATION_SECONDS: int = 30
-    DEDUP_WINDOW_MINUTES: int = 15
+    DEDUP_WINDOW_MINUTES: int = 60
     STREAM_RECONNECT_DELAY_SECONDS: int = 10
     MAX_RECONNECT_ATTEMPTS: int = 10
     MIN_CLIP_CONTEXT_SECONDS: int = 30  # segundos de contexto antes/depois do trecho relevante

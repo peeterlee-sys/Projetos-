@@ -32,7 +32,7 @@ from src.core.logging_config import get_logger
 
 logger = get_logger(__name__)
 
-ALERT_URGENCIES = {"critical", "high", "medium"}
+ALERT_URGENCIES = {"critical", "high"}
 
 
 class MonitorJob:
@@ -236,8 +236,10 @@ class MonitorJob:
                 await db.commit()
                 return
 
-            # 3. Deduplicação por org (cada cliente tem seu próprio controle)
-            dedup_hash = f"{org_id}:{build_dedup_hash(analysis_result.theme, analysis_result.content_type, station.name)}"
+            # 3. Deduplicação por org — usa content_type + primeiras palavras do tema
+            # (não o texto completo, que varia a cada chunk mesmo para o mesmo assunto)
+            theme_key = " ".join((analysis_result.theme or "").lower().split()[:4])
+            dedup_hash = f"{org_id}:{build_dedup_hash(theme_key, analysis_result.content_type, station.name)}"
 
             if await is_duplicate(db, session_id, dedup_hash):
                 alert_row = Alert(
