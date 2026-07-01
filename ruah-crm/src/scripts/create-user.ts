@@ -2,6 +2,7 @@ import "dotenv/config";
 import bcrypt from "bcryptjs";
 import { createClient } from "@libsql/client";
 import { drizzle } from "drizzle-orm/libsql";
+import { limparTokenDb } from "../db/env";
 import { users } from "../db/schema";
 
 async function main() {
@@ -12,8 +13,8 @@ async function main() {
   }
 
   const client = createClient({
-    url: process.env.DATABASE_URL || "file:./ruah-crm.db",
-    authToken: process.env.DATABASE_AUTH_TOKEN,
+    url: (process.env.DATABASE_URL || "file:./ruah-crm.db").trim(),
+    authToken: limparTokenDb(process.env.DATABASE_AUTH_TOKEN),
   });
   const db = drizzle(client);
 

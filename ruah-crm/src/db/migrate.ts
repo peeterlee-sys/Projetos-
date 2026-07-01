@@ -10,9 +10,13 @@ process.on("unhandledRejection", (err) => {
 });
 
 async function main() {
-  const url = process.env.DATABASE_URL || "file:./ruah-crm.db";
+  const { limparTokenDb } = await import("./env");
+  const url = (process.env.DATABASE_URL || "file:./ruah-crm.db").trim();
+  const authToken = limparTokenDb(process.env.DATABASE_AUTH_TOKEN);
   console.log(`[migrate] Conectando em ${url.replace(/:\/\/.*@/, "://***@")}`);
-  console.log(`[migrate] Token presente: ${Boolean(process.env.DATABASE_AUTH_TOKEN)}`);
+  console.log(
+    `[migrate] Token presente: ${Boolean(authToken)} (tamanho original: ${process.env.DATABASE_AUTH_TOKEN?.length ?? 0}, tamanho limpo: ${authToken?.length ?? 0})`,
+  );
 
   const { createClient } = await import("@libsql/client");
   const { drizzle } = await import("drizzle-orm/libsql");
@@ -20,7 +24,7 @@ async function main() {
 
   const client = createClient({
     url,
-    authToken: process.env.DATABASE_AUTH_TOKEN,
+    authToken,
   });
   const db = drizzle(client);
 
