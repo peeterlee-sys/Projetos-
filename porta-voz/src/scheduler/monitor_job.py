@@ -4,13 +4,13 @@ Coordena captura → transcrição → filtro → análise → alerta para um pr
 Suporta múltiplos clientes monitorando a mesma rádio simultaneamente.
 """
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
 import pytz
 
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -265,12 +265,19 @@ class MonitorJob:
                 await db.commit()
                 return
 
-            # 5. Formata e envia alerta
+            # 5. Enriquece alerta com contexto histórico e cruzado
+            recurrence_count = await self._count_theme_recurrence(db, dedup_hash)
+            cross_radio = await self._get_cross_radio_stations(db, org_id, station.id)
+
+            # 6. Formata e envia alerta
             message = format_alert_message(
                 analysis=analysis_result,
                 station_name=station.name,
                 program_name=program.name,
                 chunk_time=chunk_time,
+                recurrence_count=recurrence_count,
+                cross_radio_stations=cross_radio,
+                dashboard_url=settings.DASHBOARD_URL,
             )
 
             recipients = await self._get_recipients(db, org_id, program, analysis_result.urgency)
@@ -407,6 +414,38 @@ class MonitorJob:
             filtered = settings.alert_recipients_list
 
         return filtered
+
+    async def _count_theme_recurrence(self, db: AsyncSession, dedup_hash: str) -> int:
+        """Conta quantas vezes este tema gerou alerta nos últimos 7 dias para este org."""
+        cutoff = datetime.utcnow() - timedelta(days=7)
+        result = await db.execute(
+            select(func.count()).select_from(Alert).where(
+                Alert.dedup_hash == dedup_hash,
+                Alert.status == AlertStatus.sent,
+                Alert.sent_at >= cutoff,
+            )
+        )
+        return result.scalar() or 0
+
+    async def _get_cross_radio_stations(
+        self, db: AsyncSession, org_id: str, current_station_id: str
+    ) -> list[str]:
+        """Retorna nomes de outras rádios que tiveram conteúdo relevante hoje para este org."""
+        today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+        result = await db.execute(
+            select(RadioStation.name).distinct()
+            .join(Program, Program.station_id == RadioStation.id)
+            .join(MonitoringSession, MonitoringSession.program_id == Program.id)
+            .join(Transcription, Transcription.session_id == MonitoringSession.id)
+            .join(Analysis, Analysis.transcription_id == Transcription.id)
+            .where(
+                Analysis.org_id == org_id,
+                Analysis.is_relevant == True,
+                RadioStation.id != current_station_id,
+                Transcription.created_at >= today_start,
+            )
+        )
+        return [row[0] for row in result.all()]
 
     async def _send_alert(
         self,

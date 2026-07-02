@@ -48,6 +48,7 @@ class Settings(BaseSettings):
     API_HOST: str = "0.0.0.0"
     API_PORT: int = 8000
     API_SECRET_KEY: str = "dev-secret-change-in-production"
+    DASHBOARD_URL: str = ""  # ex: http://147.182.211.211:8000/dashboard
 
     # Paths
     AUDIO_CHUNKS_DIR: Path = Path("audio_chunks")

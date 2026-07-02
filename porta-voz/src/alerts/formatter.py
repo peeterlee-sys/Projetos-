@@ -47,12 +47,25 @@ _CONTENT_TYPE_LABEL = {
     "other": "Outro",
 }
 
+_SOURCE_TYPE_LABEL = {
+    "listener_call": "📞 Ouvinte ao vivo",
+    "interview": "🎤 Entrevista",
+    "report": "📰 Reportagem",
+    "editorial": "🗣️ Editorial/Comentário",
+    "other": "📻 Programa",
+}
+
+_ORDINAL = ["", "1ª", "2ª", "3ª", "4ª", "5ª", "6ª", "7ª", "8ª", "9ª", "10ª"]
+
 
 def format_alert_message(
     analysis: AnalysisResult,
     station_name: str,
     program_name: str,
     chunk_time: str,
+    recurrence_count: int = 0,
+    cross_radio_stations: Optional[list] = None,
+    dashboard_url: str = "",
 ) -> str:
     """
     Formata mensagem de alerta WhatsApp com emojis e estrutura clara.
@@ -65,6 +78,7 @@ def format_alert_message(
     urgency_label = _URGENCY_LABEL.get(urgency, urgency.upper())
     sentiment_label = _SENTIMENT_LABEL.get(analysis.sentiment, analysis.sentiment)
     content_label = _CONTENT_TYPE_LABEL.get(analysis.content_type, analysis.content_type)
+    source_label = _SOURCE_TYPE_LABEL.get(getattr(analysis, "source_type", "other"), "📻 Programa")
     confidence_pct = int(analysis.confidence_score * 100)
 
     entities = ", ".join(analysis.entities_mentioned[:6]) if analysis.entities_mentioned else "—"
@@ -74,11 +88,21 @@ def format_alert_message(
         "",
         f"📻 *Programa:* {program_name}",
         f"🕐 *Horário:* {chunk_time}",
+        f"🎙️ *Fonte:* {source_label}",
         f"📌 *Tema:* {analysis.theme}",
         f"💬 *Tipo:* {content_label} | *Tom:* {sentiment_label}",
         f"⚡ *Urgência:* {urgency_label} (confiança: {confidence_pct}%)",
-        "",
     ]
+
+    if recurrence_count > 0:
+        ordinal = _ORDINAL[min(recurrence_count + 1, len(_ORDINAL) - 1)]
+        lines.append(f"🔁 *{ordinal} menção a este tema em 7 dias*")
+
+    if cross_radio_stations:
+        stations_str = ", ".join(cross_radio_stations[:3])
+        lines.append(f"📡 *Também detectado hoje:* {stations_str}")
+
+    lines.append("")
 
     if analysis.summary:
         lines += [
@@ -108,7 +132,19 @@ def format_alert_message(
             "",
         ]
 
+    response_draft = getattr(analysis, "response_draft", "")
+    if response_draft:
+        lines += [
+            "📋 *Minuta sugerida:*",
+            f'"{response_draft}"',
+            "",
+        ]
+
     lines.append(f"👥 *Mencionados:* {entities}")
+
+    if dashboard_url:
+        lines.append(f"🔗 {dashboard_url}")
+
     lines.append(f"\n_🤖 PORTA VOZ · {_now_brt().strftime('%d/%m %H:%M')} BRT_")
 
     return "\n".join(lines)

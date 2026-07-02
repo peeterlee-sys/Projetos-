@@ -68,10 +68,12 @@ Responda EXATAMENTE com este JSON (sem markdown, sem explicação, apenas o JSON
   "sentiment": "positive|negative|neutral",
   "urgency": "low|medium|high|critical",
   "content_type": "complaint|denouncement|praise|interview|criticism|institutional|political|other",
+  "source_type": "listener_call|interview|report|editorial|other",
   "summary": "resumo objetivo do que foi falado em até 200 caracteres",
   "excerpt": "trecho exato mais relevante da transcrição, entre aspas",
   "reason": "por que isso importa para a prefeitura: risco ou oportunidade em até 150 caracteres",
   "suggested_action": "ação prática sugerida para a equipe de comunicação em até 150 caracteres",
+  "response_draft": "minuta de nota institucional pronta para enviar ao veículo ou publicar, em até 300 caracteres. Só preencha se is_relevant=true, senão retorne string vazia.",
   "entities_mentioned": ["lista", "de", "pessoas", "lugares", "programas", "citados"]
 }}"""
 
@@ -84,10 +86,12 @@ class AnalysisResult:
     sentiment: str
     urgency: str
     content_type: str
+    source_type: str
     summary: str
     excerpt: str
     reason: str
     suggested_action: str
+    response_draft: str
     entities_mentioned: list
     duration_ms: int
     raw_response: dict
@@ -198,7 +202,7 @@ async def analyze_transcription(
         client = get_client()
         response = await client.messages.create(
             model=settings.CLAUDE_MODEL,
-            max_tokens=1024,
+            max_tokens=1536,
             system=SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_message}],
         )
@@ -216,10 +220,12 @@ async def analyze_transcription(
             sentiment=parsed.get("sentiment", "neutral"),
             urgency=parsed.get("urgency", "low"),
             content_type=parsed.get("content_type", "other"),
+            source_type=parsed.get("source_type", "other"),
             summary=str(parsed.get("summary", ""))[:500],
             excerpt=str(parsed.get("excerpt", ""))[:1000],
             reason=str(parsed.get("reason", ""))[:500],
             suggested_action=str(parsed.get("suggested_action", ""))[:500],
+            response_draft=str(parsed.get("response_draft", ""))[:600],
             entities_mentioned=parsed.get("entities_mentioned", []),
             duration_ms=duration_ms,
             raw_response=parsed,
