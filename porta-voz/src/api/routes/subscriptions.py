@@ -31,7 +31,8 @@ async def create_subscription(data: SubscriptionCreate, db: AsyncSession = Depen
         is_active=True,
     )
     db.add(sub)
-    await db.flush()
+    await db.commit()
+    await db.refresh(sub)
     return sub
 
 
