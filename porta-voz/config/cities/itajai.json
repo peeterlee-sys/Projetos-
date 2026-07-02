@@ -1,0 +1,269 @@
+{
+  "current_as_of": "2026-07-02",
+  "city": "Itajaí",
+  "state": "SC",
+  "region": "Litoral Norte / Foz do Rio Itajaí",
+
+  "executivo": {
+    "prefeito": "Robison José Coelho",
+    "aliases_prefeito": [
+      "Robison Coelho",
+      "Prefeito Robison",
+      "Prefeito Robison Coelho",
+      "prefeito de Itajaí",
+      "prefeito"
+    ],
+    "vice_prefeito": "Rubens Angioletti",
+    "aliases_vice": [
+      "vice-prefeito Rubens",
+      "vice-prefeito Rubens Angioletti",
+      "vice-prefeito de Itajaí",
+      "vice Rubens"
+    ]
+  },
+
+  "gestores": [
+    { "nome": "Mylene Lavado", "pasta": "Saúde", "aliases": ["Secretária Mylene", "Mylene"] },
+    { "nome": "Tarcísio Zanelatto", "pasta": "Obras", "aliases": ["Secretário Tarcísio", "Tarcísio"] },
+    { "nome": "Leonardo Severino", "pasta": "Assistência Social", "aliases": ["Léo Severino", "Secretário Léo Severino"] },
+    { "nome": "Ettore Stenghele", "pasta": "Segurança", "aliases": ["Secretário Ettore", "Ettore"] }
+  ],
+
+  "secretarias": [
+    {
+      "nome": "Secretaria de Saúde",
+      "aliases": ["Saúde de Itajaí", "secretária de Saúde", "secretário de Saúde"],
+      "gestor": "Mylene Lavado",
+      "equipamentos": [
+        "Hospital Marieta Konder Bornhausen",
+        "Hospital Marieta",
+        "Hospital Pequeno Anjo",
+        "UPA Cordeiros",
+        "UPA CIS",
+        "CIS",
+        "UBS",
+        "Farmácia Municipal",
+        "SAMU"
+      ],
+      "keywords_sensiveis": [
+        "fila de exames", "falta de médico", "falta de remédio", "consultas",
+        "ambulância", "paciente", "cirurgia", "atendimento médico",
+        "falta de especialista", "exames atrasados", "mutirão de saúde",
+        "atendimento negado", "mau atendimento", "negligência",
+        "vacinação", "dengue", "surto", "atendimento infantil"
+      ]
+    },
+    {
+      "nome": "Secretaria de Educação",
+      "aliases": ["Educação de Itajaí", "secretário de Educação", "secretária de Educação"],
+      "equipamentos": ["CEI", "creche", "escola municipal", "CEMESPI"],
+      "keywords_sensiveis": [
+        "transporte escolar", "merenda", "uniforme escolar", "falta de vaga",
+        "fila de espera", "estrutura escolar", "professores", "alunos",
+        "pais de alunos", "obras em escola", "educação inclusiva",
+        "falta de professor", "manutenção em escola", "fila em creche",
+        "educação integral", "escola em tempo integral"
+      ]
+    },
+    {
+      "nome": "Secretaria de Obras",
+      "aliases": ["Obras de Itajaí", "secretário de Obras", "secretária de Obras"],
+      "gestor": "Tarcísio Zanelatto",
+      "keywords_sensiveis": [
+        "obras públicas", "pavimentação", "drenagem", "tapa-buraco", "calçadas",
+        "praças", "manutenção urbana", "infraestrutura", "patrolamento",
+        "rua sem pavimentação", "obra parada", "obra atrasada",
+        "contenção", "ponte", "túnel", "drenagem pluvial", "revitalização",
+        "Beira-Rio", "Avenida Ministro Victor Konder", "Joca Brandão", "Marcos Konder"
+      ]
+    },
+    {
+      "nome": "Secretaria de Planejamento Urbano",
+      "aliases": ["Planejamento de Itajaí", "secretário de Planejamento", "secretária de Planejamento"],
+      "keywords_sensiveis": [
+        "planejamento urbano", "alvará", "fiscalização de obras", "obra irregular",
+        "construção civil", "regularização", "zoneamento", "Plano Diretor",
+        "crescimento urbano", "verticalização", "loteamento",
+        "Praia Brava", "Fazenda", "Cabeçudas", "Rio do Meio", "ZPA", "ZI", "ZRP", "microzoneamento"
+      ]
+    },
+    {
+      "nome": "Secretaria de Segurança Pública",
+      "aliases": ["Segurança de Itajaí", "secretário de Segurança", "secretária de Segurança"],
+      "gestor": "Ettore Stenghele",
+      "keywords_sensiveis": [
+        "segurança pública", "fiscalização", "ordem pública", "perturbação do sossego",
+        "violência", "criminalidade", "Guarda Municipal", "Polícia Militar", "Polícia Civil",
+        "Operação Recomeço", "Nossa Senhora das Graças", "São Vicente", "Cidade Nova", "Cordeiros",
+        "vandalismo", "tráfico"
+      ]
+    },
+    {
+      "nome": "Secretaria de Assistência Social",
+      "aliases": ["Assistência Social de Itajaí", "secretário de Assistência Social", "secretária de Assistência Social"],
+      "gestor": "Leonardo Severino",
+      "keywords_sensiveis": [
+        "assistência social", "abordagem social", "população em situação de rua",
+        "acolhimento", "vulnerabilidade social", "CRAS", "CREAS",
+        "famílias atingidas por chuva", "desabrigados", "campanha solidária", "doações"
+      ]
+    },
+    {
+      "nome": "Secretaria de Desenvolvimento Econômico",
+      "aliases": ["Desenvolvimento Econômico de Itajaí"],
+      "keywords_sensiveis": [
+        "porto", "logística", "comércio exterior", "indústria naval", "pesca",
+        "empresas", "empregos", "investimentos", "importação", "exportação",
+        "zona portuária", "atividade econômica"
+      ]
+    },
+    {
+      "nome": "Secretaria de Turismo e Eventos",
+      "aliases": ["Turismo de Itajaí", "secretário de Turismo", "secretária de Turismo"],
+      "keywords_sensiveis": [
+        "turismo", "temporada", "eventos", "Marejada", "trade turístico",
+        "hotelaria", "visitantes", "imagem da cidade", "verão", "turistas",
+        "cruzeiros", "Marina de Itajaí", "The Ocean Race", "Centreventos"
+      ]
+    },
+    {
+      "nome": "Secretaria de Meio Ambiente",
+      "aliases": ["Meio Ambiente de Itajaí", "secretário de Meio Ambiente", "secretária de Meio Ambiente"],
+      "keywords_sensiveis": [
+        "balneabilidade", "fiscalização ambiental", "esgoto", "poluição",
+        "rios", "canais", "limpeza urbana", "lixo", "coleta", "praia suja",
+        "água imprópria", "restinga", "área de preservação", "licença ambiental",
+        "supressão vegetal", "encosta", "INIS", "Instituto Itajaí Sustentável"
+      ]
+    },
+    {
+      "nome": "Secretaria da Fazenda",
+      "aliases": ["Fazenda de Itajaí", "secretário da Fazenda", "secretária da Fazenda"],
+      "keywords_sensiveis": [
+        "IPTU", "ISS", "alvará", "arrecadação", "dívida ativa", "nota fiscal",
+        "tributos", "taxas municipais", "orçamento", "receita", "despesa pública"
+      ]
+    }
+  ],
+
+  "autarquias": [
+    {
+      "nome": "Defesa Civil",
+      "aliases": ["Coordenadoria Municipal de Proteção e Defesa Civil"],
+      "keywords": [
+        "alagamento", "chuva forte", "deslizamento", "emergência", "risco",
+        "ressaca", "vendaval", "área de risco", "telemetria",
+        "estações de telemetria", "monitoramento de rios",
+        "Rio Itajaí-Açu", "Rio Itajaí-Mirim", "enchente"
+      ]
+    },
+    {
+      "nome": "Semasa",
+      "aliases": ["Serviço Municipal de Água, Saneamento Básico e Infraestrutura"],
+      "keywords": [
+        "abastecimento de água", "falta de água", "baixa pressão",
+        "reservatório", "rede de água", "esgoto", "saneamento",
+        "estação de tratamento", "coleta de esgoto", "rompimento de adutora",
+        "água turva", "vazamento", "tarifa de água"
+      ]
+    },
+    {
+      "nome": "Codetran",
+      "aliases": ["Departamento de Trânsito de Itajaí"],
+      "keywords": [
+        "trânsito", "mobilidade urbana", "agentes de trânsito", "semáforo",
+        "estacionamento", "transporte coletivo", "ônibus", "Transpiedade",
+        "congestionamento", "Terminal Fazenda", "Terminal Ressacada", "Terminal Cordeiros"
+      ]
+    },
+    {
+      "nome": "Porto de Itajaí",
+      "aliases": ["Autoridade Portuária", "APS", "zona portuária"],
+      "keywords": ["porto", "caminhões", "carga pesada", "logística", "pesca", "indústria naval", "comércio exterior"],
+      "nota": "Monitorar quando houver impacto direto na cidade ou na administração municipal"
+    },
+    { "nome": "INIS", "aliases": ["Instituto Itajaí Sustentável"] },
+    { "nome": "Procuradoria Geral do Município" },
+    { "nome": "Controladoria" },
+    { "nome": "Ouvidoria" },
+    { "nome": "Procon" },
+    { "nome": "Fundação Cultural" },
+    { "nome": "Fundação Municipal de Esportes" },
+    { "nome": "Fundação Genésio Miranda Lins" }
+  ],
+
+  "camara": {
+    "nome": "Câmara de Vereadores de Itajaí",
+    "aliases": ["Câmara de Itajaí", "Legislativo municipal", "vereadores de Itajaí"],
+    "mesa_diretora": {
+      "presidente": "Fernando Pegorini",
+      "aliases_presidente": ["Fernando Martins Pegorini", "vereador Fernando Pegorini", "presidente Fernando Pegorini"]
+    },
+    "vereadores": [
+      "Fernando Pegorini"
+    ],
+    "nota": "Lista completa de vereadores a ser adicionada após validação no site da Câmara de Itajaí"
+  },
+
+  "bairros": [
+    "Centro", "Fazenda", "Praia Brava", "Cabeçudas", "Atalaia", "Geremias",
+    "Molhes", "Cordeiros", "São Vicente", "Cidade Nova", "São João",
+    "Vila Operária", "Ressacada", "Itaipava", "Canhanduba", "Rio do Meio",
+    "Espinheiros", "Espinheirinhos", "Salseiros", "Barra do Rio", "Imaruí",
+    "Nova Brasília", "Dom Bosco", "Nossa Senhora das Graças", "São Judas",
+    "Murta", "Costa Cavalcante", "Portal", "Santa Regina", "Volta de Cima",
+    "Brilhante", "Campeche", "Limoeiro", "Arraial dos Cunhas", "Paciência",
+    "Praia dos Amores", "Morro Cortado", "Morro da Cruz"
+  ],
+
+  "locais_estrategicos": [
+    "BR-101", "BR-470", "SC-486",
+    "Avenida Marcos Konder", "Avenida Joca Brandão",
+    "Avenida Ministro Victor Konder", "Avenida Beira-Rio",
+    "Avenida Adolfo Konder", "Avenida Reinaldo Schmithausen",
+    "Rua Heitor Liberato", "Rodovia Antônio Heil",
+    "Avenida Contorno Sul",
+    "Porto de Itajaí", "Marina de Itajaí", "Univali",
+    "Mercado Público", "Centreventos",
+    "Praça Genésio Miranda Lins",
+    "Terminal Fazenda", "Terminal Ressacada", "Terminal Cordeiros",
+    "Hospital Marieta", "Hospital Pequeno Anjo",
+    "UPA Cordeiros", "UPA CIS",
+    "Rio Itajaí-Açu", "Rio Itajaí-Mirim"
+  ],
+
+  "aliases_cidade": [
+    "Itajaí",
+    "Município de Itajaí",
+    "Prefeitura de Itajaí",
+    "Prefeitura Municipal de Itajaí",
+    "PMI",
+    "Paço Municipal",
+    "administração municipal",
+    "governo municipal",
+    "governo de Itajaí",
+    "Executivo municipal"
+  ],
+
+  "temas_criticos": [
+    "saúde pública",
+    "Hospital Marieta",
+    "Hospital Pequeno Anjo",
+    "UPA Cordeiros",
+    "UPA CIS",
+    "Semasa",
+    "falta de água",
+    "enchente",
+    "alagamento",
+    "Defesa Civil",
+    "Rio Itajaí-Açu",
+    "obras e infraestrutura",
+    "Codetran",
+    "Porto de Itajaí",
+    "segurança pública",
+    "Operação Recomeço",
+    "educação municipal",
+    "assistência social",
+    "licitações e contratos"
+  ]
+}
