@@ -210,6 +210,13 @@ async def analyze_transcription(
         duration_ms = int((time.monotonic() - start) * 1000)
         raw_text = response.content[0].text.strip()
 
+        # Remove markdown code fences if Claude wrapped the JSON (```json ... ```)
+        if raw_text.startswith("```"):
+            raw_text = raw_text.split("```", 2)[1]
+            if raw_text.startswith("json"):
+                raw_text = raw_text[4:]
+            raw_text = raw_text.strip().rstrip("`").strip()
+
         # Parse JSON response
         parsed = json.loads(raw_text)
 
