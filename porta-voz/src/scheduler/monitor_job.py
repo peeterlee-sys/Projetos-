@@ -206,6 +206,7 @@ class MonitorJob:
             # 2. Análise Claude com contexto do cliente
             station_label = f"{station.name} ({city_filter})" if city_filter else station.name
             city_context = await self._get_org_city_context(db, org_id)
+            org_system_prompt = await self._get_org_system_prompt(db, org_id)
             analysis_result: Optional[AnalysisResult] = await analyze_transcription(
                 text=text,
                 station_name=station_label,
@@ -213,6 +214,7 @@ class MonitorJob:
                 chunk_time=chunk_time,
                 matched_keywords=matched,
                 city_context=city_context,
+                org_system_prompt=org_system_prompt,
             )
 
             if not analysis_result:
@@ -356,6 +358,10 @@ class MonitorJob:
         org = await db.get(Organization, org_id)
         if not org or not org.settings:
             return None
+        # Free-form context string takes priority (used by detailed Prompt Mestre configs)
+        master = org.settings.get("master_prompt")
+        if master and isinstance(master, str):
+            return master
         ctx = org.settings.get("city_context")
         if not ctx or not isinstance(ctx, dict):
             return None
@@ -363,17 +369,26 @@ class MonitorJob:
         if ctx.get("city"):
             lines.append(f"- Município: {ctx['city']}/{ctx.get('state', 'SC')}")
         for key, label in [
-            ("prefeito", "Prefeito"),
+            ("prefeito", "Prefeito(a)"),
             ("vice_prefeito", "Vice-prefeito"),
             ("secretarios", "Secretários"),
+            ("autarquias", "Autarquias"),
             ("camara", "Câmara Municipal"),
-            ("programas", "Programas/Projetos"),
+            ("vereadores", "Vereadores"),
+            ("programas", "Equipamentos/Programas"),
             ("bairros", "Bairros"),
+            ("temas_prioritarios", "Temas prioritários"),
         ]:
             val = ctx.get(key)
             if val:
                 lines.append(f"- {label}: {val}")
         return "\n".join(lines) if lines else None
+
+    async def _get_org_system_prompt(self, db: AsyncSession, org_id: str) -> Optional[str]:
+        org = await db.get(Organization, org_id)
+        if not org or not org.settings:
+            return None
+        return org.settings.get("system_prompt") or None
 
     async def _load_keywords(self, db: AsyncSession, org_id: str, program_id: str) -> list:
         from src.core.models import Keyword

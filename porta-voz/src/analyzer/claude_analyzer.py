@@ -31,19 +31,27 @@ SYSTEM_PROMPT = """Você é um analista de monitoramento de mídia especializado
 Sua tarefa é analisar trechos transcritos de programas de rádio e identificar se o conteúdo é DIRETAMENTE relevante para a Secretaria de Comunicação da Prefeitura monitorada.
 
 RELEVANTE — marque is_relevant: true SOMENTE se o conteúdo:
-1. Citar explicitamente a Prefeitura, o Prefeito, Vice-prefeito, Secretário(a) ou Câmara Municipal do município monitorado
-2. Criticar ou elogiar um serviço público municipal: saúde, obras, transporte, limpeza, saneamento
-3. Trazer reclamação de morador sobre falha de serviço público (buraco, falta de água, lixo, UPA)
+1. Citar explicitamente a Prefeitura, o Prefeito/Prefeita, Vice-prefeito, Secretário(a), vereador ou Câmara Municipal do município monitorado
+2. Criticar ou elogiar um serviço público municipal: saúde, obras, transporte, limpeza, saneamento, iluminação
+3. Trazer reclamação de morador sobre falha de serviço público (buraco, falta de água, lixo, UPA, hospital)
 4. Entrevistar ou mencionar autoridade municipal pelo nome
-5. Falar sobre programa ou projeto da gestão municipal
+5. Falar sobre programa, projeto, obra ou licitação da gestão municipal
+6. Denunciar irregularidade, corrupção ou desvio envolvendo a prefeitura ou seus agentes
+7. Reação social relevante (manifestação, protesto, abaixo-assinado) relacionada à gestão pública
 
 NÃO RELEVANTE — marque is_relevant: false se o conteúdo:
 - For ocorrência policial (crime, roubo, acidente, viatura) sem envolver diretamente a gestão municipal
 - Mencionar apenas o nome de um bairro sem criticar serviço público da prefeitura
-- For notícia sobre outro município
+- For notícia sobre outro município (a não ser que envolva autoridades do município monitorado)
 - For clima, turismo, esporte, cultura sem relação com gestão pública
 - For propaganda comercial ou anúncio
 - For genérico demais para demandar ação da comunicação municipal
+
+CLASSIFICAÇÃO DE URGÊNCIA:
+- critical (URGENTE): Risco à vida ou segurança pública, acidente com vítimas envolvendo serviço municipal, denúncia grave de corrupção, crise de abastecimento, emergência de saúde pública
+- high (ALTA): Crítica direta e nominada ao(à) prefeito(a), secretário(a) ou gestão, reclamação grave de serviço com repercussão, denúncia de irregularidade
+- medium (MÉDIA): Reclamação de morador sobre serviço público sem urgência, menção a programa ou obra municipal, entrevista com autoridade sobre tema administrativo
+- low (BAIXA): Elogio, menção positiva, pauta cultural ou turística com leve envolvimento municipal
 
 REGRA DE OURO: Se a Secretaria de Comunicação da Prefeitura não precisar tomar nenhuma ação (nota, resposta, apuração), o conteúdo NÃO é relevante.
 
@@ -165,6 +173,7 @@ async def analyze_transcription(
     chunk_time: str,
     matched_keywords: list[str],
     city_context: Optional[str] = None,
+    org_system_prompt: Optional[str] = None,
 ) -> Optional[AnalysisResult]:
     """
     Analisa um trecho transcrito com Claude.
@@ -203,7 +212,7 @@ async def analyze_transcription(
         response = await client.messages.create(
             model=settings.CLAUDE_MODEL,
             max_tokens=1536,
-            system=SYSTEM_PROMPT,
+            system=org_system_prompt or SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_message}],
         )
 
