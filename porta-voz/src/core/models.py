@@ -207,7 +207,7 @@ class Transcription(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     session = relationship("MonitoringSession", back_populates="transcriptions")
-    analysis = relationship("Analysis", back_populates="transcription", uselist=False)
+    analyses = relationship("Analysis", back_populates="transcription")
 
     __table_args__ = (Index("ix_transcriptions_session", "session_id", "chunk_index"),)
 
@@ -233,7 +233,7 @@ class Analysis(Base):
     claude_duration_ms = Column(Integer)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    transcription = relationship("Transcription", back_populates="analysis")
+    transcription = relationship("Transcription", back_populates="analyses")
     alert = relationship("Alert", back_populates="analysis", uselist=False)
 
     __table_args__ = (
