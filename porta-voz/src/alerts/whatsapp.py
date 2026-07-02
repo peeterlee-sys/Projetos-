@@ -1,7 +1,9 @@
 """
 Envio de alertas via Z-API (WhatsApp Business).
 """
+import base64
 import httpx
+from pathlib import Path
 from typing import List, Optional
 
 from src.core.config import settings
@@ -103,6 +105,69 @@ async def send_to_recipients(
     )
 
     return results
+
+
+async def send_audio(phone: str, audio_path: Path) -> bool:
+    """
+    Envia clip de áudio como mensagem de voz via Z-API.
+
+    Args:
+        phone: Número no formato 5547999999999
+        audio_path: Caminho do arquivo WAV
+
+    Returns:
+        True se enviado com sucesso
+    """
+    if not settings.ZAPI_INSTANCE_ID or not settings.ZAPI_TOKEN:
+        logger.warning("whatsapp.audio_not_configured", phone=phone)
+        return False
+
+    if not audio_path.exists():
+        logger.warning("whatsapp.audio_not_found", path=str(audio_path))
+        return False
+
+    try:
+        with open(audio_path, "rb") as f:
+            audio_b64 = base64.b64encode(f.read()).decode("utf-8")
+    except Exception as e:
+        logger.error("whatsapp.audio_read_error", error=str(e))
+        return False
+
+    url = (
+        f"{settings.ZAPI_BASE_URL}/instances/{settings.ZAPI_INSTANCE_ID}"
+        f"/token/{settings.ZAPI_TOKEN}/send-audio"
+    )
+    headers = {
+        "Content-Type": "application/json",
+        "Client-Token": settings.ZAPI_CLIENT_TOKEN,
+    }
+    payload = {
+        "phone": phone,
+        "audio": audio_b64,
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.post(url, json=payload, headers=headers)
+
+        if response.status_code in (200, 201):
+            logger.info("whatsapp.audio_sent", phone=phone[-4:])
+            return True
+        else:
+            logger.error(
+                "whatsapp.audio_failed",
+                phone=phone[-4:],
+                status=response.status_code,
+                body=response.text[:300],
+            )
+            return False
+
+    except httpx.TimeoutException:
+        logger.error("whatsapp.audio_timeout", phone=phone[-4:])
+        return False
+    except Exception as e:
+        logger.error("whatsapp.audio_error", phone=phone[-4:], error=str(e))
+        return False
 
 
 def filter_by_urgency(recipients_with_filter: list, urgency: str) -> List[str]:

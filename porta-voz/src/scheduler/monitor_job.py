@@ -8,6 +8,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+import pytz
+
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,7 +28,7 @@ from src.analyzer.keyword_filter import check_keywords
 from src.analyzer.claude_analyzer import analyze_transcription, AnalysisResult
 from src.analyzer.deduplicator import build_dedup_hash, is_duplicate
 from src.alerts.formatter import format_alert_message
-from src.alerts.whatsapp import send_to_recipients, filter_by_urgency
+from src.alerts.whatsapp import send_to_recipients, send_audio, filter_by_urgency
 from src.reports.generator import generate_session_report
 from src.core.logging_config import get_logger
 
@@ -110,7 +112,8 @@ class MonitorJob:
 
             program: Program = session.program
             station: RadioStation = program.station
-            chunk_time = chunk.started_at.strftime("%H:%M:%S")
+            tz = pytz.timezone(program.timezone or "America/Sao_Paulo")
+            chunk_time = chunk.started_at.replace(tzinfo=pytz.utc).astimezone(tz).strftime("%H:%M:%S")
 
             # 1. Transcrição única para todos os clientes
             transcription_result = await transcribe_audio(
@@ -170,6 +173,7 @@ class MonitorJob:
                         program=program,
                         chunk_time=chunk_time,
                         program_id=program.id,
+                        audio_path=chunk.file_path,
                     )
                 except Exception as e:
                     logger.error("monitor_job.org_processing_error", org_id=org_id, error=str(e))
@@ -186,6 +190,7 @@ class MonitorJob:
         program: Program,
         chunk_time: str,
         program_id: str,
+        audio_path: Optional[Path] = None,
     ) -> None:
         """Executa o pipeline completo (filtro → análise → alerta) para um cliente específico."""
         async with AsyncSessionLocal() as db:
@@ -283,7 +288,7 @@ class MonitorJob:
             await db.flush()
 
             asyncio.create_task(
-                self._send_alert(alert_row.id, recipients, message)
+                self._send_alert(alert_row.id, recipients, message, audio_path)
             )
 
             await db.commit()
@@ -403,9 +408,21 @@ class MonitorJob:
 
         return filtered
 
-    async def _send_alert(self, alert_id: str, recipients: list, message: str) -> None:
+    async def _send_alert(
+        self,
+        alert_id: str,
+        recipients: list,
+        message: str,
+        audio_path: Optional[Path] = None,
+    ) -> None:
         results = await send_to_recipients(recipients, message)
         any_success = any(results.values())
+
+        if audio_path and audio_path.exists():
+            for phone in recipients:
+                phone_str = phone if isinstance(phone, str) else phone.get("phone", "")
+                if phone_str:
+                    await send_audio(phone_str, audio_path)
 
         async with AsyncSessionLocal() as db:
             result = await db.execute(select(Alert).where(Alert.id == alert_id))

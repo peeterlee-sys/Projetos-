@@ -5,7 +5,15 @@ Cria mensagens ricas com emojis e estrutura clara.
 from datetime import datetime
 from typing import Optional
 
+import pytz
+
 from src.analyzer.claude_analyzer import AnalysisResult
+
+_BRT = pytz.timezone("America/Sao_Paulo")
+
+
+def _now_brt() -> datetime:
+    return datetime.utcnow().replace(tzinfo=pytz.utc).astimezone(_BRT)
 
 
 _URGENCY_EMOJI = {
@@ -101,7 +109,7 @@ def format_alert_message(
         ]
 
     lines.append(f"👥 *Mencionados:* {entities}")
-    lines.append(f"\n_🤖 PORTA VOZ · {datetime.utcnow().strftime('%d/%m %H:%M')} UTC_")
+    lines.append(f"\n_🤖 PORTA VOZ · {_now_brt().strftime('%d/%m %H:%M')} BRT_")
 
     return "\n".join(lines)
 
@@ -175,6 +183,6 @@ def format_report_message(
             lines.append(f"• {rec}")
         lines.append("")
 
-    lines.append(f"_🤖 PORTA VOZ · {datetime.utcnow().strftime('%d/%m/%Y %H:%M')} UTC_")
+    lines.append(f"_🤖 PORTA VOZ · {_now_brt().strftime('%d/%m/%Y %H:%M')} BRT_")
 
     return "\n".join(lines)
