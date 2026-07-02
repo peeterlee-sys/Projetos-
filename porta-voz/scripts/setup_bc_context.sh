@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-API="${API_BASE:-http://localhost:8000}"
+API="${API_BASE:-http://localhost:8000/api/v1}"
 BC_ORG_ID="${BC_ORG_ID:?Defina a variável BC_ORG_ID com o org_id de Balneário Camboriú}"
 
 echo "==> Atualizando city_context de BC ($BC_ORG_ID)..."

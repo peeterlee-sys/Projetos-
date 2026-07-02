@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-API="${API_BASE:-http://localhost:8000}"
+API="${API_BASE:-http://localhost:8000/api/v1}"
 ITAJAI_ORG_ID="${ITAJAI_ORG_ID:-63403984-d772-4337-8646-778a0032f31d}"
 
 echo "==> Atualizando city_context de Itajaí ($ITAJAI_ORG_ID)..."
