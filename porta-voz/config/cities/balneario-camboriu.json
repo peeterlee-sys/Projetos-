@@ -1,0 +1,101 @@
+{
+  "current_as_of": "2026-07-02",
+  "city": "Balneário Camboriú",
+  "state": "SC",
+  "region": "Litoral Norte",
+
+  "executivo": {
+    "prefeita": "Juliana Pavan Von Borstel",
+    "aliases_prefeita": [
+      "Juliana Pavan",
+      "Von Borstel",
+      "Prefeita Juliana",
+      "prefeita de BC",
+      "prefeita de Balneário"
+    ],
+    "vice_prefeito": "Nilson Probst",
+    "aliases_vice": [
+      "vice Nilson",
+      "vice-prefeito Nilson"
+    ]
+  },
+
+  "secretarios": [
+    { "pasta": "Saúde", "nome": "Aline Leal" },
+    { "pasta": "Educação", "nome": "Zélia Zanella" },
+    { "pasta": "Fazenda", "nome": "Magda Bez" },
+    { "pasta": "Casa Civil", "nome": "Leandro Índio" },
+    { "pasta": "Governo e Inovação", "nome": "Gilson Bordin" },
+    { "pasta": "Obras", "nome": "Aldemar Pereira", "alias": "Bola" },
+    { "pasta": "Planejamento", "nome": "Carlos Humberto" },
+    { "pasta": "Turismo", "nome": "Evandro Neiva" },
+    { "pasta": "Meio Ambiente", "nome": "Nelson Oliveira" },
+    { "pasta": "Assistência Social", "nome": "Dão Koeddermann" },
+    { "pasta": "Pessoa Idosa", "nome": "Claudir Maciel" },
+    { "pasta": "Segurança", "nome": "Araújo Gomes" }
+  ],
+
+  "autarquias": [
+    {
+      "nome": "Emasa",
+      "descricao": "Água e Saneamento",
+      "diretor": "Auri Antonio Pavoni",
+      "keywords": ["falta de água", "abastecimento", "esgoto", "saneamento", "Emasa", "rede de água"]
+    },
+    {
+      "nome": "BC Trânsito",
+      "keywords": ["trânsito", "semáforo", "agentes de trânsito", "mobilidade", "estacionamento rotativo"]
+    },
+    {
+      "nome": "Defesa Civil",
+      "keywords": ["alagamento", "deslizamento", "emergência", "risco", "ressaca", "chuva forte"]
+    }
+  ],
+
+  "equipamentos_publicos": [
+    "Hospital Ruth Cardoso",
+    "UPA das Nações",
+    "UPA da Barra",
+    "Terminal Rodoviário",
+    "Calçadão",
+    "Orla Central",
+    "Píer Turístico"
+  ],
+
+  "bairros": [
+    "Centro",
+    "Barra Sul",
+    "Barra Norte",
+    "Nações",
+    "Municípios",
+    "Pioneiros",
+    "Tabuleiro",
+    "Iate Clube"
+  ],
+
+  "aliases_cidade": [
+    "Balneário Camboriú",
+    "Balneário",
+    "BC",
+    "Prefeitura de Balneário Camboriú",
+    "Prefeitura de BC",
+    "administração municipal de BC"
+  ],
+
+  "temas_criticos": [
+    "saúde pública",
+    "Hospital Ruth Cardoso",
+    "UPA das Nações",
+    "UPA da Barra",
+    "obras e infraestrutura",
+    "Emasa",
+    "BC Trânsito",
+    "turismo e temporada",
+    "balneabilidade",
+    "licitações e contratos",
+    "segurança pública",
+    "educação municipal",
+    "assistência social",
+    "pessoa idosa"
+  ]
+}

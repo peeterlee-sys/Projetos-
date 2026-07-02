@@ -1,0 +1,274 @@
+{
+  "current_as_of": "2026-07-02",
+  "city": "Itapema",
+  "state": "SC",
+  "region": "Litoral Norte / Costa Esmeralda",
+
+  "executivo": {
+    "prefeito": "Carlos Alexandre de Souza Ribeiro",
+    "aliases_prefeito": [
+      "Alexandre Xepa",
+      "Xepa",
+      "Prefeito Xepa",
+      "Prefeito Alexandre Xepa",
+      "prefeito de Itapema",
+      "prefeito Alexandre"
+    ],
+    "vice_prefeito": "Eurico Osmari",
+    "aliases_vice": [
+      "vice-prefeito Eurico",
+      "vice Eurico",
+      "vice-prefeito Eurico Osmari",
+      "vice-prefeito de Itapema"
+    ]
+  },
+
+  "gestores": [
+    { "nome": "Alvadi Fernando Henrique", "alias": ["Dico"] },
+    { "nome": "Caroline Poerner", "alias": [] },
+    { "nome": "Daniel de Amorim", "alias": [] },
+    { "nome": "Fabrício Lazzari de Oliveira", "alias": ["Fafá"] },
+    { "nome": "Gabriela Fernandes Nascimento", "alias": [] },
+    { "nome": "Íris Bispo da Silva", "alias": ["Iris Bispo da Silva"] },
+    { "nome": "Jean Idimar da Silva", "alias": [] },
+    { "nome": "Luciana Saramento", "alias": [] },
+    { "nome": "Marcelo Correia", "alias": [] },
+    { "nome": "Ana Maria Vedana", "alias": [] },
+    { "nome": "Nicolau Domingos da Silva Neto", "alias": [] },
+    { "nome": "Patrícia Marin", "alias": ["Pati Marin"] },
+    { "nome": "Paulo Roberto Camargo", "alias": [] },
+    { "nome": "Raphael Sargilo Saramento", "alias": ["Rafael Sargilo", "Raphael Sargilo"] }
+  ],
+
+  "secretarias": [
+    {
+      "nome": "Secretaria de Saúde",
+      "aliases": ["Saúde de Itapema", "secretário de Saúde", "secretária de Saúde"],
+      "equipamentos": [
+        "Hospital Santo Antônio",
+        "Pronto Atendimento",
+        "UBS",
+        "Farmácia Municipal",
+        "SAMU"
+      ],
+      "keywords_sensiveis": [
+        "fila de exames", "falta de médico", "falta de remédio", "consultas",
+        "ambulância", "paciente", "cirurgia", "atendimento médico",
+        "falta de especialista", "exames atrasados", "mutirão de saúde",
+        "atendimento negado", "mau atendimento", "negligência"
+      ]
+    },
+    {
+      "nome": "Secretaria de Educação",
+      "aliases": ["Educação de Itapema", "secretário de Educação", "secretária de Educação"],
+      "equipamentos": ["CEI", "creche", "escola municipal"],
+      "keywords_sensiveis": [
+        "transporte escolar", "merenda", "uniforme escolar", "falta de vaga",
+        "fila de espera", "estrutura escolar", "professores", "alunos",
+        "pais de alunos", "obras em escola"
+      ]
+    },
+    {
+      "nome": "Secretaria de Obras",
+      "aliases": ["Obras de Itapema", "secretário de Obras", "secretária de Obras"],
+      "keywords_sensiveis": [
+        "obras públicas", "pavimentação", "drenagem", "tapa-buraco", "calçadas",
+        "praças", "manutenção urbana", "infraestrutura", "patrolamento", "máquinas",
+        "rua sem pavimentação", "obra parada", "obra atrasada"
+      ]
+    },
+    {
+      "nome": "Secretaria de Planejamento Urbano",
+      "aliases": ["Planejamento de Itapema", "secretário de Planejamento", "secretária de Planejamento"],
+      "keywords_sensiveis": [
+        "planejamento urbano", "alvará", "fiscalização de obras", "obra irregular",
+        "construção civil", "regularização", "zoneamento", "Plano Diretor",
+        "crescimento urbano", "verticalização", "loteamento"
+      ]
+    },
+    {
+      "nome": "Secretaria de Turismo",
+      "aliases": ["Turismo de Itapema", "secretário de Turismo", "secretária de Turismo"],
+      "keywords_sensiveis": [
+        "turismo", "temporada", "eventos", "trade turístico", "hotelaria",
+        "visitantes", "imagem da cidade", "verão", "turistas", "Réveillon",
+        "eventos de verão", "reclamação de turistas"
+      ]
+    },
+    {
+      "nome": "Secretaria de Segurança Pública",
+      "aliases": ["Segurança de Itapema", "secretário de Segurança", "secretária de Segurança"],
+      "keywords_sensiveis": [
+        "segurança pública", "fiscalização", "ordem pública", "perturbação do sossego",
+        "violência", "criminalidade", "Guarda Municipal", "Polícia Militar", "Polícia Civil"
+      ]
+    },
+    {
+      "nome": "Secretaria de Assistência Social",
+      "aliases": ["Assistência Social de Itapema", "secretário de Assistência Social", "secretária de Assistência Social"],
+      "keywords_sensiveis": [
+        "assistência social", "abordagem social", "população em situação de rua",
+        "acolhimento", "vulnerabilidade social", "CRAS", "CREAS"
+      ]
+    },
+    {
+      "nome": "Secretaria de Meio Ambiente",
+      "aliases": ["Meio Ambiente de Itapema", "secretário de Meio Ambiente", "secretária de Meio Ambiente"],
+      "keywords_sensiveis": [
+        "balneabilidade", "fiscalização ambiental", "esgoto", "poluição",
+        "rios", "canais", "limpeza urbana", "lixo", "coleta", "praia suja",
+        "água imprópria", "sustentabilidade"
+      ]
+    },
+    {
+      "nome": "Secretaria da Fazenda",
+      "aliases": ["Fazenda de Itapema", "secretário da Fazenda", "secretária da Fazenda"],
+      "keywords_sensiveis": [
+        "IPTU", "ISS", "alvará", "arrecadação", "dívida ativa", "nota fiscal",
+        "tributos", "taxas municipais"
+      ]
+    }
+  ],
+
+  "autarquias": [
+    {
+      "nome": "Defesa Civil",
+      "keywords": ["alagamento", "chuva forte", "deslizamento", "emergência", "risco", "ressaca", "vendaval", "área de risco"]
+    },
+    {
+      "nome": "Conasa / Águas de Itapema",
+      "aliases": ["concessionária de água", "concessionária de saneamento", "Conasa", "Águas de Itapema"],
+      "keywords": ["abastecimento de água", "falta de água", "rede de água", "esgoto", "saneamento", "estação de tratamento", "rompimento", "adutora"]
+    },
+    {
+      "nome": "Departamento de Trânsito",
+      "keywords": ["trânsito", "mobilidade urbana", "agentes de trânsito", "semáforo", "estacionamento", "transporte coletivo", "ônibus", "congestionamento"]
+    },
+    { "nome": "Procuradoria Geral do Município" },
+    { "nome": "Controladoria" },
+    { "nome": "Ouvidoria" },
+    { "nome": "Procon" },
+    { "nome": "Fundação de Cultura" },
+    { "nome": "Fundação Municipal de Esportes" },
+    { "nome": "Fundação Ambiental" }
+  ],
+
+  "camara": {
+    "nome": "Câmara de Vereadores de Itapema",
+    "aliases": ["Câmara de Itapema", "Legislativo municipal", "vereadores de Itapema"],
+    "mesa_diretora": {
+      "presidente": "Zulma Souza",
+      "vice_presidente": "Jaison Simas",
+      "primeiro_secretario": "Márcio José da Silva",
+      "segundo_secretario": "João Vitor de Souza"
+    },
+    "vereadores": [
+      "Zulma Souza",
+      "Jaison Simas",
+      "Márcio José da Silva",
+      "João Vitor de Souza",
+      "Lorita Duro Montagner",
+      "Rute Maurina Correia Guedes",
+      "Sidnei Sassaki",
+      "Leonardo Arlindo Cordeiro",
+      "Saulo Salustiano Ramos Neto",
+      "Yagan Dadam",
+      "Raquel Aparecida Josino",
+      "André de Oliveira",
+      "Mauro Roberto Alves Cordeiro"
+    ]
+  },
+
+  "bairros": [
+    "Meia Praia",
+    "Centro",
+    "Canto da Praia",
+    "Morretes",
+    "Ilhota",
+    "Várzea",
+    "Casa Branca",
+    "Tabuleiro dos Oliveiras",
+    "Sertão do Trombudo",
+    "Alto São Bento",
+    "Praia Grossa"
+  ],
+
+  "locais_estrategicos": [
+    "BR-101",
+    "Avenida Nereu Ramos",
+    "Orla",
+    "Calçadão",
+    "Marginal Leste",
+    "Marginal Oeste",
+    "acesso principal",
+    "entrada da cidade",
+    "saída da cidade",
+    "Rua 120", "Rua 200", "Rua 220", "Rua 230", "Rua 240",
+    "Rua 246", "Rua 250", "Rua 252", "Rua 600", "Rua 700",
+    "Rua 900", "Rua 1200", "Rua 1500"
+  ],
+
+  "governo_estadual_conexao_local": {
+    "governador": "Jorginho Mello",
+    "vice_governadora": "Marilisa Boehm",
+    "aliases": [
+      "Governo do Estado",
+      "Governo de SC",
+      "Estado de Santa Catarina",
+      "governador Jorginho"
+    ],
+    "nota": "Monitorar apenas quando houver conexão direta com pauta local de Itapema"
+  },
+
+  "aliases_cidade": [
+    "Itapema",
+    "Município de Itapema",
+    "Prefeitura de Itapema",
+    "Prefeitura Municipal de Itapema",
+    "PMI",
+    "Paço Municipal",
+    "administração municipal",
+    "governo municipal",
+    "governo de Itapema"
+  ],
+
+  "temas_criticos": [
+    "saúde pública",
+    "Hospital Santo Antônio",
+    "pronto atendimento",
+    "UBS",
+    "fila de exames",
+    "falta de médicos",
+    "medicamentos",
+    "educação infantil",
+    "creches",
+    "CEIs",
+    "obras públicas",
+    "buracos",
+    "drenagem",
+    "alagamentos",
+    "mobilidade urbana",
+    "trânsito",
+    "BR-101",
+    "transporte coletivo",
+    "segurança pública",
+    "turismo",
+    "temporada de verão",
+    "limpeza urbana",
+    "coleta de lixo",
+    "iluminação pública",
+    "abastecimento de água",
+    "falta de água",
+    "esgoto",
+    "balneabilidade",
+    "meio ambiente",
+    "enchentes",
+    "Defesa Civil",
+    "planejamento urbano",
+    "construção civil",
+    "fiscalização de obras",
+    "licitações",
+    "contratos",
+    "suspeitas de irregularidade"
+  ]
+}
