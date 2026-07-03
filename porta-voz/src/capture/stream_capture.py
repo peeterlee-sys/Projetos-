@@ -7,7 +7,7 @@ import subprocess
 import shutil
 from pathlib import Path
 from datetime import datetime
-from typing import AsyncIterator, Optional, Callable
+from typing import AsyncIterator, Optional, Callable, Awaitable
 from dataclasses import dataclass
 
 from src.core.config import settings
@@ -40,12 +40,18 @@ class StreamCapture:
         chunk_duration: int = None,
         output_dir: Optional[Path] = None,
         on_chunk: Optional[Callable[[AudioChunk], None]] = None,
+        url_resolver: Optional[Callable[[], Awaitable[Optional[str]]]] = None,
     ):
         self.stream_url = stream_url
         self.session_id = session_id
         self.chunk_duration = chunk_duration or settings.CHUNK_DURATION_SECONDS
         self.output_dir = output_dir or (settings.AUDIO_CHUNKS_DIR / session_id)
         self.on_chunk = on_chunk
+        # Callback opcional que retorna uma URL fresca antes de cada (re)start
+        # do ffmpeg. Essencial para YouTube Live: a URL do manifesto expira e
+        # reusá-la em reconexões causa HTTP 429. Para stream direto, retorna
+        # a mesma URL (sem efeito colateral).
+        self.url_resolver = url_resolver
         self._process: Optional[asyncio.subprocess.Process] = None
         self._running = False
         self._chunk_index = 0
@@ -111,6 +117,16 @@ class StreamCapture:
                 await asyncio.sleep(settings.STREAM_RECONNECT_DELAY_SECONDS)
 
     async def _run_ffmpeg(self) -> None:
+        # Reresolve a URL antes de (re)iniciar — evita reusar manifesto YouTube
+        # expirado/rate-limited (HTTP 429).
+        if self.url_resolver is not None:
+            try:
+                fresh_url = await self.url_resolver()
+                if fresh_url:
+                    self.stream_url = fresh_url
+            except Exception as e:
+                logger.warning("stream_capture.url_refresh_failed", error=str(e))
+
         cmd = self._build_ffmpeg_cmd()
         logger.debug("ffmpeg.starting", cmd=" ".join(cmd))
 
@@ -150,6 +166,10 @@ class StreamCapture:
                 for f in complete_files:
                     if f.name not in seen:
                         seen.add(f.name)
+                        # Captura saudável: zera o contador de reconexões para
+                        # que falhas esparsas ao longo de um programa longo não
+                        # acumulem até o limite e matem a sessão.
+                        self._reconnect_count = 0
                         chunk = AudioChunk(
                             index=self._chunk_index,
                             file_path=f,

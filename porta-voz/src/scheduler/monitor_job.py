@@ -96,11 +96,15 @@ class MonitorJob:
 
         self._running = True
 
+        async def _refresh_url() -> Optional[str]:
+            return await resolve_stream_url(station_stream_url, station_youtube_url)
+
         self._capture = StreamCapture(
             stream_url=stream_url,
             session_id=self.session_id,
             chunk_duration=settings.CHUNK_DURATION_SECONDS,
             on_chunk=self._handle_chunk,
+            url_resolver=_refresh_url,
         )
 
         try:
