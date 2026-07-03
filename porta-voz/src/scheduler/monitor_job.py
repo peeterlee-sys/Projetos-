@@ -22,7 +22,7 @@ from src.core.models import (
     Urgency, ContentType, AlertRecipient, StationSubscription, Organization,
 )
 from src.capture.stream_capture import StreamCapture, AudioChunk
-from src.capture.youtube import resolve_stream_url
+from src.capture.youtube import resolve_stream_url, build_ytdlp_stream_cmd, is_youtube_url
 from src.transcriber.whisper_client import transcribe_audio
 from src.analyzer.keyword_filter import check_keywords
 from src.analyzer.claude_analyzer import analyze_transcription, AnalysisResult
@@ -96,16 +96,30 @@ class MonitorJob:
 
         self._running = True
 
-        async def _refresh_url() -> Optional[str]:
-            return await resolve_stream_url(station_stream_url, station_youtube_url)
+        # Estação YouTube: usa o modo pipe (yt-dlp de longa duração → ffmpeg),
+        # uma só conexão com o YouTube evita HTTP 429. O stream_url resolvido
+        # acima serviu apenas como sinal de que a transmissão está no ar.
+        is_youtube = not station_stream_url and is_youtube_url(station_youtube_url)
+        if is_youtube:
+            ytdlp_cmd = build_ytdlp_stream_cmd(station_youtube_url)
+            self._capture = StreamCapture(
+                stream_url=stream_url,
+                session_id=self.session_id,
+                chunk_duration=settings.CHUNK_DURATION_SECONDS,
+                on_chunk=self._handle_chunk,
+                ytdlp_cmd=ytdlp_cmd,
+            )
+        else:
+            async def _refresh_url() -> Optional[str]:
+                return await resolve_stream_url(station_stream_url, station_youtube_url)
 
-        self._capture = StreamCapture(
-            stream_url=stream_url,
-            session_id=self.session_id,
-            chunk_duration=settings.CHUNK_DURATION_SECONDS,
-            on_chunk=self._handle_chunk,
-            url_resolver=_refresh_url,
-        )
+            self._capture = StreamCapture(
+                stream_url=stream_url,
+                session_id=self.session_id,
+                chunk_duration=settings.CHUNK_DURATION_SECONDS,
+                on_chunk=self._handle_chunk,
+                url_resolver=_refresh_url,
+            )
 
         try:
             await self._capture.start()

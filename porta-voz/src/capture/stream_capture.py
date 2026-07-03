@@ -41,6 +41,7 @@ class StreamCapture:
         output_dir: Optional[Path] = None,
         on_chunk: Optional[Callable[[AudioChunk], None]] = None,
         url_resolver: Optional[Callable[[], Awaitable[Optional[str]]]] = None,
+        ytdlp_cmd: Optional[list[str]] = None,
     ):
         self.stream_url = stream_url
         self.session_id = session_id
@@ -48,11 +49,13 @@ class StreamCapture:
         self.output_dir = output_dir or (settings.AUDIO_CHUNKS_DIR / session_id)
         self.on_chunk = on_chunk
         # Callback opcional que retorna uma URL fresca antes de cada (re)start
-        # do ffmpeg. Essencial para YouTube Live: a URL do manifesto expira e
-        # reusá-la em reconexões causa HTTP 429. Para stream direto, retorna
-        # a mesma URL (sem efeito colateral).
+        # do ffmpeg. Para stream direto, retorna a mesma URL (sem efeito).
         self.url_resolver = url_resolver
+        # Se definido, usa o modo YouTube: um processo yt-dlp de longa duração
+        # baixa o stream e alimenta o ffmpeg por um pipe (evita HTTP 429).
+        self.ytdlp_cmd = ytdlp_cmd
         self._process: Optional[asyncio.subprocess.Process] = None
+        self._ytdlp_process: Optional[asyncio.subprocess.Process] = None
         self._running = False
         self._chunk_index = 0
         self._reconnect_count = 0
@@ -117,8 +120,11 @@ class StreamCapture:
                 await asyncio.sleep(settings.STREAM_RECONNECT_DELAY_SECONDS)
 
     async def _run_ffmpeg(self) -> None:
-        # Reresolve a URL antes de (re)iniciar — evita reusar manifesto YouTube
-        # expirado/rate-limited (HTTP 429).
+        if self.ytdlp_cmd is not None:
+            await self._run_ytdlp_pipe()
+            return
+
+        # Reresolve a URL antes de (re)iniciar (modo stream direto).
         if self.url_resolver is not None:
             try:
                 fresh_url = await self.url_resolver()
@@ -150,6 +156,74 @@ class StreamCapture:
         if self._process.returncode not in (0, None, -15):
             err = stderr.decode("utf-8", errors="replace") if stderr else "unknown"
             raise RuntimeError(f"ffmpeg exited with code {self._process.returncode}: {err[:500]}")
+
+    async def _run_ytdlp_pipe(self) -> None:
+        """
+        Modo YouTube: yt-dlp baixa o stream ao vivo e escreve em stdout;
+        o ffmpeg lê desse pipe e segmenta em chunks WAV. Um único yt-dlp de
+        longa duração mantém uma só conexão com o YouTube (sem 429).
+        """
+        ffmpeg_cmd = [
+            "ffmpeg",
+            "-loglevel", "warning",
+            "-i", "pipe:0",
+            "-f", "segment",
+            "-segment_time", str(self.chunk_duration),
+            "-reset_timestamps", "1",
+            "-ar", "16000",
+            "-ac", "1",
+            "-c:a", "pcm_s16le",
+            "-n",
+            str(self.output_dir / "chunk_%05d.wav"),
+        ]
+        logger.debug("ytdlp_pipe.starting", cmd=" ".join(self.ytdlp_cmd))
+
+        self._ytdlp_process = await asyncio.create_subprocess_exec(
+            *self.ytdlp_cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        self._process = await asyncio.create_subprocess_exec(
+            *ffmpeg_cmd,
+            stdin=self._ytdlp_process.stdout,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+
+        watcher_task = asyncio.create_task(self._watch_chunks())
+
+        _, ff_stderr = await self._process.communicate()
+
+        # Encerra o yt-dlp junto com o ffmpeg
+        if self._ytdlp_process and self._ytdlp_process.returncode is None:
+            try:
+                self._ytdlp_process.terminate()
+                await asyncio.wait_for(self._ytdlp_process.wait(), timeout=5.0)
+            except (asyncio.TimeoutError, ProcessLookupError):
+                try:
+                    self._ytdlp_process.kill()
+                except ProcessLookupError:
+                    pass
+        yt_stderr = b""
+        if self._ytdlp_process and self._ytdlp_process.stderr:
+            try:
+                yt_stderr = await self._ytdlp_process.stderr.read()
+            except Exception:
+                pass
+
+        watcher_task.cancel()
+        try:
+            await watcher_task
+        except asyncio.CancelledError:
+            pass
+
+        if self._process.returncode not in (0, None, -15):
+            ff_err = ff_stderr.decode("utf-8", errors="replace") if ff_stderr else ""
+            yt_err = yt_stderr.decode("utf-8", errors="replace") if yt_stderr else ""
+            raise RuntimeError(
+                f"ytdlp/ffmpeg pipe exited (ffmpeg={self._process.returncode}): "
+                f"{(yt_err or ff_err)[:500]}"
+            )
 
     async def _watch_chunks(self) -> None:
         """Monitora o diretório de saída e entrega chunks conforme são completados."""
@@ -197,12 +271,18 @@ class StreamCapture:
 
     async def stop(self) -> None:
         self._running = False
-        if self._process and self._process.returncode is None:
-            self._process.terminate()
-            try:
-                await asyncio.wait_for(self._process.wait(), timeout=5.0)
-            except asyncio.TimeoutError:
-                self._process.kill()
+        for proc in (self._process, self._ytdlp_process):
+            if proc and proc.returncode is None:
+                try:
+                    proc.terminate()
+                    await asyncio.wait_for(proc.wait(), timeout=5.0)
+                except asyncio.TimeoutError:
+                    try:
+                        proc.kill()
+                    except ProcessLookupError:
+                        pass
+                except ProcessLookupError:
+                    pass
         logger.info("stream_capture.stopped", session_id=self.session_id)
 
     def cleanup_chunks(self) -> None:

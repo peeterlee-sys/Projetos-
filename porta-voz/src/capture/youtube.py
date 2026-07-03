@@ -24,6 +24,35 @@ def _cookies_args() -> list[str]:
     return []
 
 
+def is_youtube_url(url: Optional[str]) -> bool:
+    return bool(url) and ("youtube.com" in url or "youtu.be" in url)
+
+
+def build_ytdlp_stream_cmd(youtube_url: str, quality: str = "91") -> list[str]:
+    """
+    Monta o comando yt-dlp que baixa o YouTube Live continuamente e escreve
+    em stdout (para ser lido pelo ffmpeg via pipe).
+
+    Um único processo yt-dlp de longa duração cuida de renovar o manifesto e
+    paçar as requisições ao YouTube — evita o HTTP 429 que ocorre quando o
+    ffmpeg (ou resoluções repetidas) martelam a URL do manifesto diretamente.
+
+    Formato 91 = HLS 144p (~290k) com áudio; o ffmpeg extrai só o áudio.
+    """
+    return [
+        "yt-dlp",
+        "--no-playlist",
+        "--quiet",
+        "--no-warnings",
+        "--format", quality,
+        "--remote-components", "ejs:github",
+        "--hls-use-mpegts",   # saída mpegts válida para pipe
+        *_cookies_args(),
+        "-o", "-",            # escreve o stream em stdout
+        youtube_url,
+    ]
+
+
 async def get_youtube_stream_url(youtube_url: str, quality: str = "worst") -> Optional[str]:
     """
     Usa yt-dlp para obter a URL real do stream HLS/MP4 de um YouTube Live.
