@@ -68,6 +68,63 @@ class JobManager:
 
         logger.info("job_manager.programs_loaded", count=len(programs))
 
+    async def recover_on_startup(self) -> None:
+        """
+        Recuperação pós-reinício:
+        1. Marca sessões órfãs (running/scheduled de execuções anteriores) como interrupted.
+        2. Retoma imediatamente programas cuja janela de horário está em andamento agora.
+        Chamado na inicialização, depois de load_programs().
+        """
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(
+                select(MonitoringSession).where(
+                    MonitoringSession.status.in_(
+                        [SessionStatus.running, SessionStatus.scheduled]
+                    )
+                )
+            )
+            stale_sessions = result.scalars().all()
+            for s in stale_sessions:
+                s.status = SessionStatus.interrupted
+                s.ended_at = datetime.utcnow()
+                s.error_message = "Sessão interrompida por reinício do serviço"
+            if stale_sessions:
+                await db.commit()
+                logger.info(
+                    "job_manager.stale_sessions_closed", count=len(stale_sessions)
+                )
+
+            result = await db.execute(
+                select(Program).where(Program.is_active == True)
+            )
+            programs = result.scalars().all()
+
+        weekdays = [
+            "monday", "tuesday", "wednesday", "thursday",
+            "friday", "saturday", "sunday",
+        ]
+        for program in programs:
+            try:
+                tz = pytz.timezone(program.timezone or "America/Sao_Paulo")
+                now = datetime.now(tz)
+                if weekdays[now.weekday()] not in (program.days_of_week or []):
+                    continue
+                start_h, start_m = map(int, program.start_time.split(":"))
+                end_h, end_m = map(int, program.end_time.split(":"))
+                start_dt = now.replace(hour=start_h, minute=start_m, second=0, microsecond=0)
+                end_dt = now.replace(hour=end_h, minute=end_m, second=0, microsecond=0)
+                if start_dt <= now < end_dt:
+                    logger.info(
+                        "job_manager.resuming_program",
+                        program_id=program.id,
+                        program_name=program.name,
+                    )
+                    await self._start_monitoring(program.id)
+            except Exception as e:
+                logger.error(
+                    "job_manager.resume_error", program_id=program.id, error=str(e)
+                )
+
     def schedule_program(self, program: Program) -> None:
         """Agenda start e stop de um programa com base em seu horário."""
         if not program.days_of_week or not program.start_time or not program.end_time:
