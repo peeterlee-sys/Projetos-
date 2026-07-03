@@ -57,8 +57,28 @@ class MonitorJob:
 
             program = session.program
             station: RadioStation = program.station
+            station_stream_url = station.stream_url
+            station_youtube_url = station.youtube_url
+            program_end_time = program.end_time
+            program_tz = program.timezone or "America/Sao_Paulo"
+            program_name = program.name
+            station_name = station.name
 
-            stream_url = await resolve_stream_url(station.stream_url, station.youtube_url)
+        # Resolve com retry até o fim da janela do programa
+        # (YouTube Live pode subir atrasado; stream pode voltar do ar)
+        stream_url = None
+        try:
+            stream_url = await self._resolve_stream_with_retry(
+                station_stream_url, station_youtube_url, program_end_time, program_tz
+            )
+        except asyncio.CancelledError:
+            pass
+
+        async with AsyncSessionLocal() as db:
+            session = await self._load_session(db)
+            if not session:
+                return
+
             if not stream_url:
                 await self._fail_session(db, session, "Não foi possível resolver URL do stream")
                 return
@@ -70,8 +90,8 @@ class MonitorJob:
             logger.info(
                 "monitor_job.started",
                 session_id=self.session_id,
-                program=program.name,
-                station=station.name,
+                program=program_name,
+                station=station_name,
             )
 
         self._running = True
@@ -97,6 +117,52 @@ class MonitorJob:
         self._running = False
         if self._capture:
             await self._capture.stop()
+
+    async def _resolve_stream_with_retry(
+        self,
+        station_stream_url: Optional[str],
+        station_youtube_url: Optional[str],
+        program_end_time: str,
+        program_tz: str,
+        retry_interval: int = 120,
+    ) -> Optional[str]:
+        """
+        Tenta resolver a URL do stream; se falhar, tenta novamente a cada
+        retry_interval segundos até o fim da janela do programa.
+        """
+        tz = pytz.timezone(program_tz)
+        end_h, end_m = map(int, program_end_time.split(":"))
+        attempt = 0
+
+        while True:
+            url = await resolve_stream_url(station_stream_url, station_youtube_url)
+            if url:
+                if attempt:
+                    logger.info(
+                        "monitor_job.stream_resolved_after_retry",
+                        session_id=self.session_id,
+                        attempts=attempt,
+                    )
+                return url
+
+            attempt += 1
+            now = datetime.now(tz)
+            end_dt = now.replace(hour=end_h, minute=end_m, second=0, microsecond=0)
+            if now >= end_dt - timedelta(seconds=retry_interval):
+                logger.error(
+                    "monitor_job.stream_resolve_gave_up",
+                    session_id=self.session_id,
+                    attempts=attempt,
+                )
+                return None
+
+            logger.warning(
+                "monitor_job.stream_unavailable_retrying",
+                session_id=self.session_id,
+                attempt=attempt,
+                retry_in_seconds=retry_interval,
+            )
+            await asyncio.sleep(retry_interval)
 
     # ─── Chunk handler ────────────────────────────────────────────────────────
 
