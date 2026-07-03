@@ -133,6 +133,11 @@ async def send_audio(phone: str, audio_path: Path) -> bool:
         logger.error("whatsapp.audio_read_error", error=str(e))
         return False
 
+    # A Z-API exige um data URI (com o mime), não base64 cru — caso contrário
+    # retorna 400 "Base64/Url could not be read".
+    mime = "audio/ogg" if audio_path.suffix.lower() == ".ogg" else "audio/mpeg"
+    audio_data_uri = f"data:{mime};base64,{audio_b64}"
+
     url = (
         f"{settings.ZAPI_BASE_URL}/instances/{settings.ZAPI_INSTANCE_ID}"
         f"/token/{settings.ZAPI_TOKEN}/send-audio"
@@ -143,7 +148,7 @@ async def send_audio(phone: str, audio_path: Path) -> bool:
     }
     payload = {
         "phone": phone,
-        "audio": audio_b64,
+        "audio": audio_data_uri,
     }
 
     try:
