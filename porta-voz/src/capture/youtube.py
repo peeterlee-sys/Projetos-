@@ -3,10 +3,10 @@ Extrai URL de stream de YouTube Live usando yt-dlp.
 """
 import asyncio
 import json
-import os
 from pathlib import Path
 from typing import Optional
 
+from src.core.config import settings
 from src.core.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -15,10 +15,10 @@ logger = get_logger(__name__)
 def _cookies_args() -> list[str]:
     """
     Retorna args de cookies se um arquivo de cookies do YouTube estiver
-    configurado (env YOUTUBE_COOKIES_FILE). Necessário para contornar o
+    configurado (YOUTUBE_COOKIES_FILE no .env). Necessário para contornar o
     'Sign in to confirm you're not a bot' em IPs de datacenter.
     """
-    cookies_file = os.environ.get("YOUTUBE_COOKIES_FILE", "").strip()
+    cookies_file = (settings.YOUTUBE_COOKIES_FILE or "").strip()
     if cookies_file and Path(cookies_file).exists():
         return ["--cookies", cookies_file]
     return []

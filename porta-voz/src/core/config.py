@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     ANTHROPIC_API_KEY: str = ""
     CLAUDE_MODEL: str = "claude-sonnet-4-6"
 
+    # YouTube (captura de rádios via YouTube Live)
+    YOUTUBE_COOKIES_FILE: str = ""
+
     # Z-API
     ZAPI_INSTANCE_ID: str = ""
     ZAPI_TOKEN: str = ""
@@ -55,7 +58,7 @@ class Settings(BaseSettings):
     CLIPS_DIR: Path = Path("clips")
     LOGS_DIR: Path = Path("logs")
 
-    model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
+    model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
 
     @property
     def alert_recipients_list(self) -> List[str]:
