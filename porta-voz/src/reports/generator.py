@@ -2,8 +2,11 @@
 Geração de relatório consolidado ao final de cada sessão de monitoramento.
 Consulta as análises da sessão e produz um resumo executivo.
 """
+import re
+import unicodedata
 from datetime import datetime
 from collections import Counter
+from difflib import SequenceMatcher
 from typing import Optional
 
 from sqlalchemy import select
@@ -17,6 +20,76 @@ from src.analyzer.claude_analyzer import summarize_program
 from src.core.logging_config import get_logger
 
 logger = get_logger(__name__)
+
+# Temas com similaridade acima destes limiares são tratados como o mesmo assunto.
+_THEME_SIMILARITY_THRESHOLD = 0.72   # similaridade de string (difflib)
+_THEME_TOKEN_JACCARD_THRESHOLD = 0.5  # sobreposição de palavras significativas
+
+# Palavras muito comuns que não ajudam a distinguir temas.
+_THEME_STOPWORDS = {
+    "sobre", "para", "com", "sem", "dos", "das", "de", "do", "da", "no", "na",
+    "nos", "nas", "em", "por", "que", "uma", "um", "e", "a", "o", "as", "os",
+    "reclamacao", "denuncia", "entrevista", "mencao", "prefeitura", "municipal",
+}
+
+
+def _normalize_theme(theme: str) -> str:
+    """Normaliza um tema para comparação: minúsculas, sem acento/pontuação."""
+    t = unicodedata.normalize("NFKD", theme).encode("ascii", "ignore").decode("ascii")
+    t = re.sub(r"[^a-z0-9\s]", " ", t.lower())
+    return re.sub(r"\s+", " ", t).strip()
+
+
+def _significant_tokens(theme: str) -> set[str]:
+    return {
+        w for w in _normalize_theme(theme).split()
+        if len(w) >= 4 and w not in _THEME_STOPWORDS
+    }
+
+
+def _themes_similar(a: str, b: str) -> bool:
+    na, nb = _normalize_theme(a), _normalize_theme(b)
+    if not na or not nb:
+        return False
+    if na == nb or na in nb or nb in na:
+        return True
+    if SequenceMatcher(None, na, nb).ratio() >= _THEME_SIMILARITY_THRESHOLD:
+        return True
+    # Sobreposição de palavras significativas (pega mesmo assunto com redação diferente)
+    ta, tb = _significant_tokens(a), _significant_tokens(b)
+    if ta and tb:
+        jaccard = len(ta & tb) / len(ta | tb)
+        if jaccard >= _THEME_TOKEN_JACCARD_THRESHOLD:
+            return True
+    return False
+
+
+def _canonicalize_themes(themes: list[str]) -> dict[str, str]:
+    """
+    Agrupa temas parecidos. Retorna um mapa {tema_original: tema_canônico},
+    onde o canônico é a primeira (e geralmente mais completa) variação vista.
+    """
+    canonicals: list[str] = []
+    mapping: dict[str, str] = {}
+    for theme in themes:
+        if theme in mapping:
+            continue
+        match = next((c for c in canonicals if _themes_similar(theme, c)), None)
+        if match is None:
+            # Mantém a variação mais longa como canônica (tende a ser a mais descritiva)
+            canonicals.append(theme)
+            mapping[theme] = theme
+        else:
+            # Se o novo é mais longo/descritivo, promove-o a canônico do grupo
+            if len(theme) > len(match):
+                for k, v in mapping.items():
+                    if v == match:
+                        mapping[k] = theme
+                canonicals[canonicals.index(match)] = theme
+                mapping[theme] = theme
+            else:
+                mapping[theme] = mapping.get(match, match)
+    return mapping
 
 
 async def generate_session_report(
@@ -62,28 +135,38 @@ async def generate_session_report(
             1 for a in analyses if a.urgency in ("high", "critical")
         )
 
-        # Temas principais
+        # Temas principais — agrupa variações parecidas do mesmo assunto
         themes = [a.theme for a in analyses if a.theme]
-        theme_counter = Counter(themes)
+        theme_map = _canonicalize_themes(themes)
+        canonical_themes = [theme_map[t] for t in themes]
+        theme_counter = Counter(canonical_themes)
         key_topics = [t for t, _ in theme_counter.most_common(10)]
 
         # Sentimento predominante
         sentiments = [a.sentiment.value if a.sentiment else "neutral" for a in analyses]
         overall_sentiment = Counter(sentiments).most_common(1)[0][0] if sentiments else "neutral"
 
-        # Timeline
+        # Timeline — colapsa entradas do mesmo tema canônico próximas no tempo
         timeline = []
+        seen_recent: dict[str, str] = {}  # tema canônico → "HH:MM" da última entrada
         for a in analyses:
             trans = a.transcription
-            if trans and trans.chunk_started_at:
-                timeline.append({
-                    "time": trans.chunk_started_at.strftime("%H:%M"),
-                    "topic": a.theme or "",
-                    "sentiment": a.sentiment.value if a.sentiment else "neutral",
-                    "urgency": a.urgency.value if a.urgency else "low",
-                    "excerpt": (a.excerpt or "")[:150],
-                    "content_type": a.content_type.value if a.content_type else "other",
-                })
+            if not trans or not trans.chunk_started_at:
+                continue
+            canonical = theme_map.get(a.theme or "", a.theme or "")
+            time_str = trans.chunk_started_at.strftime("%H:%M")
+            # Evita repetir o mesmo assunto no mesmo minuto
+            if seen_recent.get(canonical) == time_str:
+                continue
+            seen_recent[canonical] = time_str
+            timeline.append({
+                "time": time_str,
+                "topic": canonical,
+                "sentiment": a.sentiment.value if a.sentiment else "neutral",
+                "urgency": a.urgency.value if a.urgency else "low",
+                "excerpt": (a.excerpt or "")[:150],
+                "content_type": a.content_type.value if a.content_type else "other",
+            })
 
         # Recomendações consolidadas
         recommendations = _build_recommendations(analyses, alert_count, high_urgency_count)
