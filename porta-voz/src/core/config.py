@@ -5,7 +5,7 @@ from typing import List, Optional
 
 class Settings(BaseSettings):
     # App
-    APP_NAME: str = "PORTA VOZ"
+    APP_NAME: str = "RADAR PÚBLICO"
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = False
     ENVIRONMENT: str = "production"

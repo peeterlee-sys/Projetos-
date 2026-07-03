@@ -7,7 +7,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
-from sqlalchemy import select, desc, update
+from sqlalchemy import select, desc, update, func
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,6 +15,7 @@ from src.core.database import get_db
 from src.core.models import (
     Alert, AlertStatus, Analysis, Transcription,
     MonitoringSession, SessionStatus, Program, Organization,
+    RadioStation, StationSubscription, Report,
 )
 from src.api.schemas import AlertDetailOut, SessionDetailOut
 
@@ -165,3 +166,234 @@ async def dashboard_alerts(
             has_audio=has_audio,
         ))
     return out
+
+
+@router.get("/dashboard/client/{org_id}")
+async def dashboard_client_bundle(org_id: str, db: AsyncSession = Depends(get_db)):
+    """
+    Pacote completo para a plataforma do cliente (org-aware): organização,
+    estatísticas, alertas, relatórios e rádios assinadas por este cliente.
+    Usa Alert.org_id / Analysis.org_id para dados por cliente (o cliente
+    assina rádios de outro dono via StationSubscription).
+    """
+    org = await db.get(Organization, org_id)
+    if not org:
+        raise HTTPException(status_code=404, detail="Organização não encontrada")
+
+    now = datetime.utcnow()
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    day_ago = now - timedelta(hours=24)
+
+    # ── Rádios assinadas pelo cliente ────────────────────────────────────────
+    subs_res = await db.execute(
+        select(StationSubscription).where(
+            StationSubscription.org_id == org_id,
+            StationSubscription.is_active == True,
+        )
+    )
+    subs = subs_res.scalars().all()
+    station_ids = [s.station_id for s in subs]
+
+    stations_map = {}
+    programs_by_station: dict[str, list] = {}
+    if station_ids:
+        st_res = await db.execute(
+            select(RadioStation).where(RadioStation.id.in_(station_ids))
+        )
+        stations_map = {s.id: s for s in st_res.scalars().all()}
+
+        pg_res = await db.execute(
+            select(Program).where(
+                Program.station_id.in_(station_ids),
+                Program.is_active == True,
+            )
+        )
+        for pg in pg_res.scalars().all():
+            programs_by_station.setdefault(pg.station_id, []).append(pg)
+
+    # Sessões em andamento (rádios "no ar") entre as estações assinadas
+    live_station_ids: set[str] = set()
+    if station_ids:
+        run_res = await db.execute(
+            select(MonitoringSession)
+            .options(selectinload(MonitoringSession.program))
+            .where(MonitoringSession.status == SessionStatus.running)
+        )
+        for s in run_res.scalars().all():
+            if s.program and s.program.station_id in station_ids:
+                live_station_ids.add(s.program.station_id)
+
+    def _sigla(name: str) -> str:
+        import re
+        nums = re.findall(r"\d+[.,]?\d*", name or "")
+        if nums:
+            return nums[0]
+        words = [w for w in re.split(r"\s+", name or "") if w]
+        return "".join(w[0] for w in words[:3]).upper() or "FM"
+
+    dias_pt = ["seg", "ter", "qua", "qui", "sex", "sáb", "dom"]
+    day_key = {"monday": "seg", "tuesday": "ter", "wednesday": "qua",
+               "thursday": "qui", "friday": "sex", "saturday": "sáb", "sunday": "dom"}
+
+    radios = []
+    for sid in station_ids:
+        st = stations_map.get(sid)
+        if not st:
+            continue
+        pgs = programs_by_station.get(sid, [])
+        radios.append({
+            "id": sid,
+            "sigla": _sigla(st.name),
+            "nome": st.name,
+            "cidade": st.city,
+            "no_ar": sid in live_station_ids,
+            "programas": [
+                {
+                    "nome": p.name,
+                    "horario": f"{p.start_time}–{p.end_time}",
+                    "dias": [day_key.get(d, d[:3]) for d in (p.days_of_week or [])],
+                }
+                for p in sorted(pgs, key=lambda x: x.start_time or "")
+            ],
+        })
+
+    # ── Alertas do cliente (Alert.org_id) ────────────────────────────────────
+    al_res = await db.execute(
+        select(Alert)
+        .where(
+            Alert.org_id == org_id,
+            Alert.status.in_([AlertStatus.sent, AlertStatus.pending, AlertStatus.failed]),
+        )
+        .order_by(desc(Alert.created_at))
+        .limit(50)
+    )
+    alerts_rows = al_res.scalars().all()
+
+    # Mapa session→(programa,estação) para rotular os alertas
+    sess_ids = list({a.session_id for a in alerts_rows})
+    sess_info: dict[str, dict] = {}
+    if sess_ids:
+        se_res = await db.execute(
+            select(MonitoringSession)
+            .options(selectinload(MonitoringSession.program).selectinload(Program.station))
+            .where(MonitoringSession.id.in_(sess_ids))
+        )
+        for s in se_res.scalars().all():
+            prog = s.program
+            stn = prog.station if prog else None
+            sess_info[s.id] = {
+                "programa": prog.name if prog else "—",
+                "radio": stn.name if stn else "—",
+            }
+
+    alerts = []
+    alerts_today = 0
+    crit_today = 0
+    alta_today = 0
+    for a in alerts_rows:
+        analysis = None
+        transcription = None
+        if a.analysis_id:
+            an = await db.get(Analysis, a.analysis_id)
+            analysis = an
+            if an and an.transcription_id:
+                transcription = await db.get(Transcription, an.transcription_id)
+        has_audio = bool(
+            transcription and transcription.audio_file_path
+            and Path(transcription.audio_file_path).exists()
+        )
+        urg = analysis.urgency.value if analysis and analysis.urgency else "low"
+        if a.created_at >= today_start:
+            alerts_today += 1
+            if urg == "critical":
+                crit_today += 1
+            elif urg == "high":
+                alta_today += 1
+        info = sess_info.get(a.session_id, {})
+        alerts.append({
+            "id": a.id,
+            "urgency": urg,
+            "content_type": analysis.content_type.value if analysis and analysis.content_type else None,
+            "sentiment": analysis.sentiment.value if analysis and analysis.sentiment else None,
+            "confidence": analysis.confidence_score if analysis else None,
+            "theme": analysis.theme if analysis else None,
+            "summary": analysis.summary if analysis else None,
+            "excerpt": analysis.excerpt if analysis else None,
+            "reason": analysis.reason if analysis else None,
+            "suggested_action": analysis.suggested_action if analysis else None,
+            "radio": info.get("radio", "—"),
+            "programa": info.get("programa", "—"),
+            "created_at": a.created_at.isoformat() if a.created_at else None,
+            "transcription_id": transcription.id if transcription else None,
+            "has_audio": has_audio,
+        })
+
+    # ── Estatísticas (Analysis.org_id) ───────────────────────────────────────
+    mencoes_24h = await db.scalar(
+        select(func.count()).select_from(Analysis).where(
+            Analysis.org_id == org_id,
+            Analysis.is_relevant == True,
+            Analysis.created_at >= day_ago,
+        )
+    ) or 0
+    trechos_24h = await db.scalar(
+        select(func.count()).select_from(Analysis).where(
+            Analysis.org_id == org_id,
+            Analysis.created_at >= day_ago,
+        )
+    ) or 0
+
+    # ── Relatórios das sessões das rádios assinadas ──────────────────────────
+    reports = []
+    if station_ids:
+        rep_res = await db.execute(
+            select(Report, MonitoringSession, Program, RadioStation)
+            .join(MonitoringSession, Report.session_id == MonitoringSession.id)
+            .join(Program, MonitoringSession.program_id == Program.id)
+            .join(RadioStation, Program.station_id == RadioStation.id)
+            .where(RadioStation.id.in_(station_ids))
+            .order_by(desc(Report.generated_at))
+            .limit(30)
+        )
+        for rep, sess, prog, stn in rep_res.all():
+            dur_min = 0
+            if sess.started_at and sess.ended_at:
+                dur_min = int((sess.ended_at - sess.started_at).total_seconds() / 60)
+            reports.append({
+                "id": rep.id,
+                "session_id": rep.session_id,
+                "programa": prog.name,
+                "radio": stn.name,
+                "sigla": _sigla(stn.name),
+                "generated_at": rep.generated_at.isoformat() if rep.generated_at else None,
+                "duracao_min": dur_min,
+                "total_mentions": rep.total_mentions,
+                "alert_count": rep.alert_count,
+                "high_urgency_count": rep.high_urgency_count,
+                "overall_sentiment": rep.overall_sentiment.value if rep.overall_sentiment else None,
+                "general_summary": rep.general_summary or rep.summary_text,
+                "key_topics": rep.key_topics or [],
+                "timeline": rep.timeline or [],
+                "recommendations": rep.recommendations or [],
+            })
+
+    return {
+        "org": {
+            "id": org.id,
+            "name": org.name,
+            "city": org.city,
+            "state": org.state,
+        },
+        "stats": {
+            "alertas_hoje": alerts_today,
+            "criticos_hoje": crit_today,
+            "alta_hoje": alta_today,
+            "mencoes_24h": mencoes_24h,
+            "trechos_24h": trechos_24h,
+            "radios_no_ar": len(live_station_ids),
+            "radios_total": len(station_ids),
+        },
+        "radios": radios,
+        "alertas": alerts,
+        "relatorios": reports,
+    }

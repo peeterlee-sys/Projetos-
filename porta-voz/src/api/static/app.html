@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Radar Público — Plataforma do cliente</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    html, body { margin: 0; padding: 0; background: #F1F5F9; }
+    * { box-sizing: border-box; }
+    body { font-family: 'Archivo', sans-serif; color: #0B1F3A; }
+    @keyframes blinkDot { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+    input::placeholder { color: #94A3B8; }
+    button { font-family: 'Archivo', sans-serif; }
+    .mono { font-family: 'IBM Plex Mono', monospace; }
+    .navbtn:hover { background: rgba(255,255,255,0.08) !important; }
+    .lnk:hover { color: #007F73 !important; border-color: #00A896 !important; }
+    .cta:hover { background: #00BFAC !important; }
+    a { color: inherit; }
+    @media (max-width: 760px) {
+      .shell { grid-template-columns: 1fr !important; }
+      .sidebar { position: static !important; height: auto !important; flex-direction: row !important; flex-wrap: wrap; }
+      .sidebar nav { flex-direction: row !important; flex-wrap: wrap; }
+      .grid4 { grid-template-columns: 1fr 1fr !important; }
+      .grid-2col { grid-template-columns: 1fr !important; }
+    }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+
+<script>
+const API = "/api/v1";
+const LOGO = `<svg width="{S}" height="{S}" viewBox="0 0 44 44" fill="none">
+  <rect x="5" y="18" width="4" height="8" rx="2" fill="#00A896" opacity="0.55"></rect>
+  <rect x="12" y="13" width="4" height="18" rx="2" fill="#00A896" opacity="0.8"></rect>
+  <rect x="19" y="7" width="4" height="30" rx="2" fill="#00A896"></rect>
+  <rect x="26" y="11" width="4" height="22" rx="2" fill="#F59E0B"></rect>
+  <rect x="33" y="16" width="4" height="12" rx="2" fill="#00A896" opacity="0.8"></rect>
+</svg>`;
+const logo = (s) => LOGO.replace(/\{S\}/g, s);
+
+const URG = {
+  critical: { label: "🔴 CRÍTICO", bg: "#DC2626", cor: "#FFFFFF", filtro: "CRÍTICO" },
+  high:     { label: "🟠 ALTA",    bg: "#F59E0B", cor: "#FFFFFF", filtro: "ALTA" },
+  medium:   { label: "🟡 MÉDIA",   bg: "#E2E8F0", cor: "#334155", filtro: "MÉDIA" },
+  low:      { label: "🟢 BAIXA",   bg: "#F0FDF4", cor: "#15803D", filtro: "BAIXA" },
+};
+const CTYPE = {
+  complaint: "📞 Reclamação", denouncement: "🚨 Denúncia", praise: "👏 Elogio",
+  interview: "🎙️ Entrevista", criticism: "🗣️ Crítica", institutional: "🏛️ Institucional",
+  political: "🏛️ Político", report: "📰 Reportagem", other: "🗞 Menção",
+};
+const TOM = { positive: "Tom positivo", negative: "Tom negativo", neutral: "Tom neutro" };
+const MARK = { positive: "✅", negative: "⚠️", neutral: "➖" };
+
+function esc(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, c =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+function horaBRT(iso) {
+  if (!iso) return "";
+  try {
+    return new Date(iso).toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" });
+  } catch (e) { return ""; }
+}
+function dataBRT(iso) {
+  if (!iso) return "";
+  try {
+    return new Date(iso).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo", weekday: "long", day: "numeric", month: "long" });
+  } catch (e) { return ""; }
+}
+function diaKey(iso) {
+  if (!iso) return "";
+  try {
+    return new Date(iso).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "numeric" });
+  } catch (e) { return ""; }
+}
+
+// ── State ──────────────────────────────────────────────────────────────────
+let S = {
+  orgId: localStorage.getItem("rp_org_id") || null,
+  orgName: localStorage.getItem("rp_org_name") || null,
+  tab: "visao",
+  filtro: "Todos",
+  data: null,
+  relAberto: null,
+  loading: false,
+  error: null,
+};
+
+// ── Login ──────────────────────────────────────────────────────────────────
+async function renderLogin() {
+  let orgs = [];
+  try {
+    const r = await fetch(`${API}/organizations/`);
+    orgs = await r.json();
+  } catch (e) { orgs = []; }
+  const opts = orgs.map(o => `<option value="${esc(o.id)}" data-name="${esc(o.name)}">${esc(o.name)}${o.city ? " — " + esc(o.city) : ""}</option>`).join("");
+  document.getElementById("root").innerHTML = `
+    <div style="min-height: 100vh; background: linear-gradient(180deg, #0B1F3A 0%, #081729 100%); display: grid; place-items: center; padding: 24px;">
+      <div style="width: 400px; max-width: 100%; background: #FFFFFF; border-radius: 16px; padding: 40px 36px; display: flex; flex-direction: column; gap: 22px; box-shadow: 0 30px 70px rgba(0,0,0,0.4);">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          ${logo(34)}
+          <div style="display: flex; flex-direction: column; line-height: 1;">
+            <span style="font-weight: 900; font-size: 19px; letter-spacing: -0.02em; color: #0B1F3A;">RADAR</span>
+            <span style="font-weight: 700; font-size: 12px; letter-spacing: 0.24em; color: #007F73; margin-top: 2px;">PÚBLICO</span>
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <div style="font-weight: 800; font-size: 21px; letter-spacing: -0.01em;">Plataforma do cliente</div>
+          <div style="font-size: 14px; color: #64748B;">Acesse o monitoramento do seu município.</div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            <label style="font-size: 13px; font-weight: 600; color: #334155;">Prefeitura</label>
+            <select id="orgSel" style="padding: 13px 14px; border-radius: 8px; border: 1px solid #CBD5E1; font-size: 14.5px; font-family: 'Archivo', sans-serif; outline: none; background: #F8FAFC;">
+              ${opts || '<option value="">Nenhuma organização encontrada</option>'}
+            </select>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            <label style="font-size: 13px; font-weight: 600; color: #334155;">Senha</label>
+            <input id="pwd" type="password" placeholder="••••••••" style="padding: 13px 14px; border-radius: 8px; border: 1px solid #CBD5E1; font-size: 14.5px; font-family: 'Archivo', sans-serif; outline: none; background: #F8FAFC;">
+          </div>
+        </div>
+        <button id="btnEntrar" class="cta" style="background: #00A896; color: #FFFFFF; border: none; padding: 14px; border-radius: 8px; font-weight: 800; font-size: 15.5px; cursor: pointer;">Entrar</button>
+        <div style="display: flex; justify-content: space-between; font-size: 13px;">
+          <span style="color: #94A3B8;">Acesso liberado por município</span>
+          <a href="https://wa.me/5547999459031" target="_blank" rel="noopener" style="color: #64748B; text-decoration: none;">Suporte via WhatsApp</a>
+        </div>
+      </div>
+    </div>`;
+  document.getElementById("btnEntrar").addEventListener("click", () => {
+    const sel = document.getElementById("orgSel");
+    const opt = sel.options[sel.selectedIndex];
+    if (!opt || !opt.value) return;
+    S.orgId = opt.value;
+    S.orgName = opt.getAttribute("data-name");
+    localStorage.setItem("rp_org_id", S.orgId);
+    localStorage.setItem("rp_org_name", S.orgName);
+    loadAndRender();
+  });
+}
+
+function logout() {
+  localStorage.removeItem("rp_org_id");
+  localStorage.removeItem("rp_org_name");
+  S.orgId = null; S.orgName = null; S.data = null; S.tab = "visao";
+  renderLogin();
+}
+
+// ── Data ───────────────────────────────────────────────────────────────────
+async function loadAndRender() {
+  S.loading = true; S.error = null;
+  renderApp();
+  try {
+    const r = await fetch(`${API}/dashboard/client/${S.orgId}`);
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    S.data = await r.json();
+    if (S.data.org && S.data.org.name) {
+      S.orgName = S.data.org.name;
+      localStorage.setItem("rp_org_name", S.orgName);
+    }
+  } catch (e) {
+    S.error = "Não foi possível carregar os dados (" + e.message + ").";
+  }
+  S.loading = false;
+  renderApp();
+}
+
+// ── App shell ──────────────────────────────────────────────────────────────
+const NAV = [
+  { key: "visao", label: "Visão geral", icone: "▦" },
+  { key: "alertas", label: "Alertas", icone: "!" },
+  { key: "relatorios", label: "Relatórios", icone: "☰" },
+  { key: "radios", label: "Minhas rádios", icone: "◉" },
+];
+const TITULOS = { visao: "Visão geral", alertas: "Alertas", relatorios: "Relatórios diários", radios: "Minhas rádios" };
+
+function renderApp() {
+  const d = S.data;
+  const municipio = (d && d.org && d.org.name) ? d.org.name : (S.orgName || "");
+  const noAr = d ? d.stats.radios_no_ar : 0;
+  const inicial = (municipio || "R").trim().charAt(0).toUpperCase();
+
+  const nav = NAV.map(n => {
+    const on = S.tab === n.key;
+    return `<button class="navbtn" data-tab="${n.key}" style="display:flex;align-items:center;gap:11px;padding:11px 12px;border-radius:8px;border:none;background:${on ? "rgba(0,168,150,0.18)" : "transparent"};color:${on ? "#33C6B8" : "#CBD5E1"};font-size:14px;font-weight:${on ? 800 : 500};cursor:pointer;text-align:left;">
+      <span class="mono" style="font-size:13px;width:18px;text-align:center;">${n.icone}</span>${n.label}</button>`;
+  }).join("");
+
+  let body = "";
+  if (S.loading) body = `<div style="color:#64748B;padding:40px 0;">Carregando…</div>`;
+  else if (S.error) body = `<div style="background:#FEF2F2;border:1px solid #FCA5A5;color:#B91C1C;padding:16px 20px;border-radius:12px;">${esc(S.error)}</div>`;
+  else if (d) {
+    if (S.tab === "visao") body = viewVisao(d);
+    else if (S.tab === "alertas") body = viewAlertas(d);
+    else if (S.tab === "relatorios") body = viewRelatorios(d);
+    else if (S.tab === "radios") body = viewRadios(d);
+  }
+
+  document.getElementById("root").innerHTML = `
+  <div class="shell" style="display:grid;grid-template-columns:240px 1fr;min-height:100vh;">
+    <aside class="sidebar" style="background:#0B1F3A;color:#FFFFFF;display:flex;flex-direction:column;padding:22px 14px;gap:26px;position:sticky;top:0;height:100vh;">
+      <div style="display:flex;align-items:center;gap:10px;padding:0 10px;">
+        ${logo(26)}
+        <div style="display:flex;flex-direction:column;line-height:1;">
+          <span style="font-weight:900;font-size:14px;letter-spacing:-0.02em;">RADAR</span>
+          <span style="font-weight:700;font-size:9px;letter-spacing:0.24em;color:#00A896;margin-top:2px;">PÚBLICO</span>
+        </div>
+      </div>
+      <nav style="display:flex;flex-direction:column;gap:4px;">${nav}</nav>
+      <div style="margin-top:auto;display:flex;flex-direction:column;gap:12px;">
+        <div style="background:rgba(0,168,150,0.12);border:1px solid rgba(0,168,150,0.35);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:4px;">
+          <div style="display:flex;align-items:center;gap:7px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.12em;color:#33C6B8;">
+            <span style="width:7px;height:7px;border-radius:50%;background:#00A896;animation:blinkDot 1.6s infinite;"></span>MONITORANDO
+          </div>
+          <div style="font-size:12.5px;color:#CBD5E1;">${noAr} ${noAr === 1 ? "rádio no ar" : "rádios no ar"} agora</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-top:1px solid rgba(255,255,255,0.1);">
+          <div style="width:32px;height:32px;border-radius:50%;background:#00A896;display:grid;place-items:center;font-weight:800;font-size:13px;color:#FFFFFF;">${esc(inicial)}</div>
+          <div style="display:flex;flex-direction:column;line-height:1.3;flex:1;min-width:0;">
+            <span style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(municipio)}</span>
+            <span style="font-size:11.5px;color:#94A3B8;">Plataforma do cliente</span>
+          </div>
+          <button id="btnSair" title="Sair" style="background:none;border:none;color:#64748B;cursor:pointer;font-size:15px;">⏻</button>
+        </div>
+      </div>
+    </aside>
+    <main style="padding:28px 32px 48px;display:flex;flex-direction:column;gap:24px;min-width:0;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+        <div style="display:flex;flex-direction:column;gap:3px;">
+          <h1 style="margin:0;font-size:24px;font-weight:900;letter-spacing:-0.02em;">${esc(TITULOS[S.tab])}</h1>
+          <div style="font-size:13.5px;color:#64748B;">${esc(municipio)} · ${esc(dataBRT(new Date().toISOString()))}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;background:#FFFFFF;border:1px solid #E2E8F0;border-radius:8px;padding:9px 14px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:${noAr ? "#007F73" : "#94A3B8"};">
+          <span style="width:8px;height:8px;border-radius:50%;background:${noAr ? "#00A896" : "#CBD5E1"};${noAr ? "animation:blinkDot 1.6s infinite;" : ""}"></span>
+          ${noAr ? `AO VIVO · ${noAr} ${noAr === 1 ? "RÁDIO" : "RÁDIOS"}` : "SEM PROGRAMA NO AR"}
+        </div>
+      </div>
+      ${body}
+    </main>
+  </div>`;
+
+  const bs = document.getElementById("btnSair");
+  if (bs) bs.addEventListener("click", logout);
+  document.querySelectorAll(".navbtn").forEach(b =>
+    b.addEventListener("click", () => { S.tab = b.getAttribute("data-tab"); renderApp(); }));
+  bindDynamic();
+}
+
+// ── Views ──────────────────────────────────────────────────────────────────
+function statCard(label, valor, sub, cor) {
+  return `<div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:6px;">
+    <div style="font-size:12.5px;color:#64748B;font-weight:600;">${esc(label)}</div>
+    <div style="font-size:30px;font-weight:900;letter-spacing:-0.02em;color:${cor};">${esc(valor)}</div>
+    <div style="font-size:12px;color:#94A3B8;">${esc(sub)}</div>
+  </div>`;
+}
+
+function viewVisao(d) {
+  const st = d.stats;
+  const critSub = st.criticos_hoje ? `${st.criticos_hoje} crítico(s), ${st.alta_hoje} alta` : (st.alta_hoje ? `${st.alta_hoje} de alta urgência` : "nenhum crítico hoje");
+  const stats = `<div class="grid4" style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;">
+    ${statCard("Alertas hoje", st.alertas_hoje, critSub, st.criticos_hoje ? "#DC2626" : "#0B1F3A")}
+    ${statCard("Menções relevantes", st.mencoes_24h, "nas últimas 24h", "#0B1F3A")}
+    ${statCard("Trechos analisados", st.trechos_24h, "nas últimas 24h", "#0B1F3A")}
+    ${statCard("Rádios no ar", `${st.radios_no_ar}/${st.radios_total}`, "monitorando agora", "#007F73")}
+  </div>`;
+
+  const recent = d.alertas.slice(0, 5).map(a => {
+    const u = URG[a.urgency] || URG.low;
+    return `<div style="display:flex;align-items:center;gap:14px;padding:14px 20px;border-bottom:1px solid #F1F5F9;">
+      <span style="background:${u.bg};color:${u.cor};font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;padding:4px 8px;border-radius:5px;letter-spacing:0.06em;white-space:nowrap;">${u.label}</span>
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;">
+        <span style="font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(a.theme || "—")}</span>
+        <span style="font-size:12px;color:#64748B;">${esc(a.radio)} · ${esc(a.programa)}</span>
+      </div>
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#94A3B8;">${esc(horaBRT(a.created_at))}</span>
+    </div>`;
+  }).join("") || `<div style="padding:20px;color:#94A3B8;font-size:13.5px;">Nenhum alerta ainda.</div>`;
+
+  const radios = d.radios.map(r => `
+    <div style="display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #F1F5F9;">
+      <div style="width:36px;height:36px;border-radius:9px;background:#0B1F3A;display:grid;place-items:center;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#33C6B8;font-weight:600;">${esc(r.sigla)}</div>
+      <div style="flex:1;display:flex;flex-direction:column;gap:1px;">
+        <span style="font-size:13.5px;font-weight:700;">${esc(r.nome)}</span>
+        <span style="font-size:12px;color:#64748B;">${esc(r.cidade || (r.programas.length + " programa(s)"))}</span>
+      </div>
+      <span style="display:flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:${r.no_ar ? "#00A896" : "#94A3B8"};"><span style="width:6px;height:6px;border-radius:50%;background:${r.no_ar ? "#00A896" : "#CBD5E1"};"></span>${r.no_ar ? "NO AR" : "monitorada"}</span>
+    </div>`).join("") || `<div style="padding:20px;color:#94A3B8;font-size:13.5px;">Nenhuma rádio assinada.</div>`;
+
+  return `<div style="display:flex;flex-direction:column;gap:24px;">
+    ${stats}
+    <div class="grid-2col" style="display:grid;grid-template-columns:1.5fr 1fr;gap:20px;align-items:start;">
+      <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:12px;overflow:hidden;">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #EDF2F7;">
+          <span style="font-weight:800;font-size:15px;">Últimos alertas</span>
+          <button class="navbtn" data-tab="alertas" style="background:none;border:none;color:#007F73;font-weight:700;font-size:13px;cursor:pointer;">Ver todos →</button>
+        </div>
+        <div style="display:flex;flex-direction:column;">${recent}</div>
+      </div>
+      <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:12px;overflow:hidden;">
+        <div style="padding:16px 20px;border-bottom:1px solid #EDF2F7;font-weight:800;font-size:15px;">Suas rádios</div>
+        <div style="display:flex;flex-direction:column;">${radios}</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function viewAlertas(d) {
+  const filtros = ["Todos", "CRÍTICO", "ALTA", "MÉDIA", "BAIXA"];
+  const chips = filtros.map(f => {
+    const on = S.filtro === f;
+    return `<button class="filtro" data-f="${f}" style="padding:8px 16px;border-radius:999px;border:1px solid ${on ? "#0B1F3A" : "#CBD5E1"};background:${on ? "#0B1F3A" : "#FFFFFF"};color:${on ? "#FFFFFF" : "#334155"};font-size:13px;font-weight:700;cursor:pointer;">${f}</button>`;
+  }).join("");
+
+  const lista = d.alertas.filter(a => {
+    if (S.filtro === "Todos") return true;
+    return (URG[a.urgency] || URG.low).filtro === S.filtro;
+  });
+
+  const cards = lista.map(a => {
+    const u = URG[a.urgency] || URG.low;
+    const tipo = CTYPE[a.content_type] || "🗞 Menção";
+    const tom = TOM[a.sentiment] || "";
+    const conf = a.confidence != null ? Math.round(a.confidence * 100) + "%" : "—";
+    const player = a.has_audio && a.transcription_id
+      ? `<audio controls preload="none" style="height:38px;flex:1;min-width:240px;max-width:420px;" src="${API}/audio/${esc(a.transcription_id)}"></audio>`
+      : `<div style="display:flex;align-items:center;gap:8px;color:#94A3B8;font-size:12.5px;background:#F1F5F9;border-radius:999px;padding:9px 16px;">🔇 Áudio do trecho indisponível</div>`;
+    const minuta = a.suggested_action
+      ? `<details style="margin-top:2px;"><summary style="cursor:pointer;font-size:12.5px;font-weight:700;color:#007F73;">Ver ação sugerida</summary><div style="margin-top:8px;background:#F0F7F0;border:1px solid #CDE5CD;border-radius:8px;padding:10px 12px;font-size:13px;color:#334155;line-height:1.55;">${esc(a.suggested_action)}</div></details>`
+      : "";
+    return `<div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:12px;padding:20px 22px;display:flex;flex-direction:column;gap:12px;">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span style="background:${u.bg};color:${u.cor};font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;padding:4px 9px;border-radius:5px;letter-spacing:0.06em;">${u.label}</span>
+        <span style="background:#EEF2F7;color:#334155;font-size:11.5px;padding:4px 9px;border-radius:5px;font-weight:600;">${esc(tipo)}${tom ? " · " + esc(tom) : ""}</span>
+        <span style="background:#EEF2F7;color:#64748B;font-family:'IBM Plex Mono',monospace;font-size:10.5px;padding:4px 9px;border-radius:5px;">confiança: ${conf}</span>
+        <span style="font-size:12.5px;color:#64748B;">${esc(a.radio)} · ${esc(a.programa)}</span>
+        <span style="margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#94A3B8;">${esc(horaBRT(a.created_at))}</span>
+      </div>
+      <div style="font-size:15px;font-weight:700;line-height:1.4;">${esc(a.theme || "—")}</div>
+      ${a.summary ? `<div style="font-size:14px;color:#334155;line-height:1.55;">${esc(a.summary)}</div>` : ""}
+      ${a.excerpt ? `<div style="border-left:3px solid #F59E0B;padding:6px 12px;background:#FFF7E8;border-radius:0 6px 6px 0;font-style:italic;color:#334155;font-size:13.5px;">"${esc(a.excerpt)}"</div>` : ""}
+      ${a.reason ? `<div style="font-size:13.5px;color:#334155;line-height:1.55;"><strong>⚠️ Por que importa:</strong> ${esc(a.reason)}</div>` : ""}
+      <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">${player}</div>
+      ${minuta}
+    </div>`;
+  }).join("") || `<div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:12px;padding:28px;color:#94A3B8;font-size:14px;">Nenhum alerta ${S.filtro !== "Todos" ? "com essa urgência" : ""} no período.</div>`;
+
+  return `<div style="display:flex;flex-direction:column;gap:18px;">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">${chips}</div>
+    <div style="display:flex;flex-direction:column;gap:14px;">${cards}</div>
+  </div>`;
+}
+
+function viewRelatorios(d) {
+  if (!d.relatorios.length)
+    return `<div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:12px;padding:28px;color:#94A3B8;font-size:14px;">Nenhum relatório gerado ainda. Os relatórios aparecem ao fim de cada programa monitorado.</div>`;
+
+  // Agrupa por dia
+  const grupos = {};
+  const ordem = [];
+  d.relatorios.forEach(r => {
+    const k = diaKey(r.generated_at);
+    if (!grupos[k]) { grupos[k] = []; ordem.push(k); }
+    grupos[k].push(r);
+  });
+
+  return ordem.map(k => {
+    const label = dataBRT(grupos[k][0].generated_at);
+    const itens = grupos[k].map(rel => {
+      const aberto = S.relAberto === rel.id;
+      const tomTxt = rel.overall_sentiment === "positive" ? "✅ Positivo" : rel.overall_sentiment === "negative" ? "⚠️ Negativo" : "➖ Neutro";
+      const badgeBg = rel.high_urgency_count ? "#F59E0B" : rel.alert_count ? "#FEF3C7" : "#F0FDF4";
+      const badgeCor = rel.high_urgency_count ? "#FFFFFF" : rel.alert_count ? "#B45309" : "#15803D";
+      const badge = rel.alert_count ? `${rel.alert_count} alerta(s)${rel.high_urgency_count ? " · alta urgência" : ""}` : "sem alertas";
+      const numeros = [
+        [rel.timeline && rel.timeline.length ? rel.timeline.length : rel.total_mentions, "trechos na timeline"],
+        [rel.total_mentions, "menções relevantes"],
+        [rel.alert_count, "alertas enviados"],
+        [tomTxt, "tom geral"],
+      ].map(n => `<div style="background:#F8FAFC;border:1px solid #EDF2F7;border-radius:9px;padding:12px 14px;display:flex;flex-direction:column;gap:2px;">
+        <span style="font-size:18px;font-weight:900;color:#0B1F3A;">${esc(n[0])}</span>
+        <span style="font-size:11.5px;color:#64748B;">${esc(n[1])}</span></div>`).join("");
+      const timeline = (rel.timeline || []).map(p => {
+        const mk = MARK[p.sentiment] || (p.urgency === "critical" || p.urgency === "high" ? "⚠️" : "➖");
+        return `<div style="display:flex;gap:10px;align-items:baseline;font-size:13.5px;color:#334155;">
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#94A3B8;white-space:nowrap;">${esc(p.time || "")}</span>
+          <span>${mk}</span><span>${esc(p.topic || "")}</span></div>`;
+      }).join("") || `<div style="font-size:13px;color:#94A3B8;">Sem trechos relevantes na timeline.</div>`;
+      const recs = (rel.recommendations || []).map(rc =>
+        `<div style="display:flex;gap:10px;align-items:baseline;font-size:13.5px;color:#334155;"><span style="color:#00A896;font-weight:800;">→</span><span>${esc(rc)}</span></div>`).join("")
+        || `<div style="font-size:13px;color:#94A3B8;">Sem recomendações específicas.</div>`;
+
+      return `<div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:12px;overflow:hidden;">
+        <button class="relToggle" data-id="${esc(rel.id)}" style="width:100%;display:flex;align-items:center;gap:16px;padding:18px 22px;background:none;border:none;cursor:pointer;text-align:left;">
+          <div style="width:40px;height:40px;border-radius:10px;background:#0B1F3A;display:grid;place-items:center;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#33C6B8;font-weight:600;flex-shrink:0;">${esc(rel.sigla)}</div>
+          <div style="flex:1;display:flex;flex-direction:column;gap:2px;min-width:0;">
+            <span style="font-size:15px;font-weight:800;color:#0B1F3A;">${esc(rel.programa)}</span>
+            <span style="font-size:12.5px;color:#64748B;">${esc(rel.radio)} · ${rel.duracao_min || 0} min monitorados</span>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <span style="background:#EEF2F7;color:#334155;font-size:12px;padding:5px 10px;border-radius:6px;font-weight:700;">${rel.total_mentions} menções</span>
+            <span style="background:${badgeBg};color:${badgeCor};font-size:12px;padding:5px 10px;border-radius:6px;font-weight:700;">${esc(badge)}</span>
+          </div>
+          <span style="color:#94A3B8;font-size:13px;">${aberto ? "▲" : "▼"}</span>
+        </button>
+        <div style="display:${aberto ? "flex" : "none"};border-top:1px solid #EDF2F7;padding:18px 22px 22px;flex-direction:column;gap:16px;">
+          <div class="grid4" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;">${numeros}</div>
+          ${rel.general_summary ? `<div style="font-size:14px;line-height:1.65;color:#334155;"><strong>🗞 O que foi ao ar:</strong> ${esc(rel.general_summary)}</div>` : ""}
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div style="font-size:12px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.08em;">📋 Timeline</div>${timeline}
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            <div style="font-size:12px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.08em;">💡 Recomendações</div>${recs}
+          </div>
+        </div>
+      </div>`;
+    }).join("");
+
+    return `<div style="display:flex;flex-direction:column;gap:12px;margin-bottom:10px;">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#64748B;">${esc(label)}</div>
+      ${itens}
+    </div>`;
+  }).join("");
+}
+
+function viewRadios(d) {
+  if (!d.radios.length)
+    return `<div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:12px;padding:28px;color:#94A3B8;font-size:14px;">Nenhuma rádio assinada para este município ainda.</div>`;
+  const cards = d.radios.map(r => {
+    const progs = r.programas.map(p =>
+      `<div style="display:flex;justify-content:space-between;align-items:center;font-size:13.5px;padding:8px 12px;background:#F8FAFC;border-radius:7px;gap:10px;">
+        <span style="font-weight:600;">${esc(p.nome)}</span>
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#64748B;white-space:nowrap;">${esc(p.horario)}</span></div>`).join("")
+      || `<div style="font-size:13px;color:#94A3B8;">Nenhum programa cadastrado.</div>`;
+    return `<div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:14px;padding:24px;display:flex;flex-direction:column;gap:16px;">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div style="width:46px;height:46px;border-radius:11px;background:#0B1F3A;display:grid;place-items:center;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#33C6B8;font-weight:600;">${esc(r.sigla)}</div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:1px;">
+          <span style="font-size:16px;font-weight:800;">${esc(r.nome)}</span>
+          <span style="font-size:12.5px;color:#64748B;">${esc(r.cidade || "—")}</span>
+        </div>
+        <span style="display:flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:${r.no_ar ? "#00A896" : "#94A3B8"};"><span style="width:7px;height:7px;border-radius:50%;background:${r.no_ar ? "#00A896" : "#CBD5E1"};${r.no_ar ? "animation:blinkDot 1.6s infinite;" : ""}"></span>${r.no_ar ? "NO AR" : "MONITORADA"}</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div style="font-size:12px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.08em;">Programas monitorados</div>${progs}
+      </div>
+      <div style="display:flex;justify-content:space-between;border-top:1px solid #EDF2F7;padding-top:14px;font-size:13px;color:#64748B;">
+        <span><strong style="color:#0B1F3A;">${r.programas.length}</strong> programa(s)</span>
+        <span>cobertura <strong style="color:#007F73;">24h</strong></span>
+      </div>
+    </div>`;
+  }).join("");
+  return `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px;">${cards}</div>`;
+}
+
+function bindDynamic() {
+  document.querySelectorAll(".filtro").forEach(b =>
+    b.addEventListener("click", () => { S.filtro = b.getAttribute("data-f"); renderApp(); }));
+  document.querySelectorAll(".relToggle").forEach(b =>
+    b.addEventListener("click", () => {
+      const id = b.getAttribute("data-id");
+      S.relAberto = S.relAberto === id ? null : id;
+      renderApp();
+    }));
+}
+
+// ── Boot ───────────────────────────────────────────────────────────────────
+if (S.orgId) loadAndRender();
+else renderLogin();
+</script>
+</body>
+</html>

@@ -33,7 +33,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="PORTA VOZ",
+    title="RADAR PÚBLICO",
     description="Sistema de monitoramento de rádio para comunicação pública municipal",
     version=settings.APP_VERSION,
     lifespan=lifespan,
@@ -64,8 +64,20 @@ async def serve_dashboard():
     return FileResponse("src/api/static/dashboard.html")
 
 
-@app.get("/", tags=["Health"])
-async def root():
+@app.get("/", include_in_schema=False)
+async def serve_landing():
+    """Landing comercial pública do Radar Público."""
+    return FileResponse("src/api/static/landing.html")
+
+
+@app.get("/app", include_in_schema=False)
+async def serve_client_app():
+    """Plataforma do cliente (login + dashboard)."""
+    return FileResponse("src/api/static/app.html")
+
+
+@app.get("/api", tags=["Health"])
+async def api_root():
     return {
         "service": settings.APP_NAME,
         "version": settings.APP_VERSION,

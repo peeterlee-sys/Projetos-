@@ -145,7 +145,7 @@ def format_alert_message(
     if dashboard_url:
         lines.append(f"🔗 {dashboard_url}")
 
-    lines.append(f"\n_🤖 PORTA VOZ · {_now_brt().strftime('%d/%m %H:%M')} BRT_")
+    lines.append(f"\n_🤖 RADAR PÚBLICO · {_now_brt().strftime('%d/%m %H:%M')} BRT_")
 
     return "\n".join(lines)
 
@@ -219,6 +219,6 @@ def format_report_message(
             lines.append(f"• {rec}")
         lines.append("")
 
-    lines.append(f"_🤖 PORTA VOZ · {_now_brt().strftime('%d/%m/%Y %H:%M')} BRT_")
+    lines.append(f"_🤖 RADAR PÚBLICO · {_now_brt().strftime('%d/%m/%Y %H:%M')} BRT_")
 
     return "\n".join(lines)
