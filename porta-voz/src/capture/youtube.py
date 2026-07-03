@@ -24,10 +24,15 @@ def _cookies_args() -> list[str]:
     return []
 
 
-async def get_youtube_stream_url(youtube_url: str, quality: str = "bestaudio") -> Optional[str]:
+async def get_youtube_stream_url(youtube_url: str, quality: str = "worst") -> Optional[str]:
     """
     Usa yt-dlp para obter a URL real do stream HLS/MP4 de um YouTube Live.
     Retorna None se falhar.
+
+    Em transmissões ao vivo o YouTube só oferece formatos HLS combinados
+    (vídeo+áudio); não existe 'bestaudio' separado. Usamos o formato de
+    menor banda ('worst', tipicamente 144p ~290k) — o ffmpeg extrai só o
+    áudio na captura, então baixar vídeo em baixa resolução economiza banda.
     """
     cmd = [
         "yt-dlp",
@@ -35,6 +40,7 @@ async def get_youtube_stream_url(youtube_url: str, quality: str = "bestaudio") -
         "--format", quality,
         "--get-url",
         "--no-warnings",
+        "--remote-components", "ejs:github",  # baixa o solver de desafio JS do YouTube
         *_cookies_args(),
         youtube_url,
     ]
