@@ -296,8 +296,9 @@ class MonitorJob:
             db.add(alert_row)
             await db.flush()
 
+            clip_path = await self._prepare_audio_clip(audio_path, alert_row.id)
             asyncio.create_task(
-                self._send_alert(alert_row.id, recipients, message, audio_path)
+                self._send_alert(alert_row.id, recipients, message, clip_path)
             )
 
             await db.commit()
@@ -462,6 +463,30 @@ class MonitorJob:
         )
         return [row[0] for row in result.all()]
 
+    async def _prepare_audio_clip(
+        self, audio_path: Optional[Path], alert_id: str
+    ) -> Optional[Path]:
+        """Converte chunk WAV para OGG Opus e salva em clips/ para persistência."""
+        if not audio_path or not audio_path.exists():
+            return None
+        try:
+            settings.CLIPS_DIR.mkdir(parents=True, exist_ok=True)
+            ogg_path = settings.CLIPS_DIR / f"alert_{alert_id}.ogg"
+            proc = await asyncio.create_subprocess_exec(
+                "ffmpeg", "-y", "-i", str(audio_path),
+                "-c:a", "libopus", "-b:a", "32k", "-ar", "24000", "-ac", "1",
+                str(ogg_path),
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.DEVNULL,
+            )
+            await proc.wait()
+            if ogg_path.exists() and ogg_path.stat().st_size > 0:
+                return ogg_path
+            logger.warning("monitor_job.audio_convert_failed", alert_id=alert_id)
+        except Exception as e:
+            logger.error("monitor_job.audio_convert_error", error=str(e))
+        return None
+
     async def _send_alert(
         self,
         alert_id: str,
@@ -477,6 +502,10 @@ class MonitorJob:
                 phone_str = phone if isinstance(phone, str) else phone.get("phone", "")
                 if phone_str:
                     await send_audio(phone_str, audio_path)
+            try:
+                audio_path.unlink(missing_ok=True)
+            except Exception:
+                pass
 
         async with AsyncSessionLocal() as db:
             result = await db.execute(select(Alert).where(Alert.id == alert_id))
