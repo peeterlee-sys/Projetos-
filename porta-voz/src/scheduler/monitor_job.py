@@ -626,10 +626,18 @@ class MonitorJob:
             await db.commit()
             await db.refresh(session)
 
-            report = await generate_session_report(db, session)
-
-            if report:
-                await self._send_report(session, report)
+            # Não envia relatório quando nada foi capturado (0 chunks) — isso
+            # indica falha de captura (ex.: stream fora do ar, rate-limit), e
+            # um relatório vazio parece defeito para o cliente.
+            if session.total_chunks > 0:
+                report = await generate_session_report(db, session)
+                if report:
+                    await self._send_report(session, report)
+            else:
+                logger.info(
+                    "monitor_job.report_skipped_no_audio",
+                    session_id=self.session_id,
+                )
 
             logger.info(
                 "monitor_job.finalized",
