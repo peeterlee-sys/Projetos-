@@ -12,7 +12,7 @@ from src.core.database import init_db
 from src.core.logging_config import get_logger
 from src.scheduler.job_manager import job_manager
 from src.api.routes import stations, programs, keywords, alerts, sessions, reports, organizations, subscriptions
-from src.api.routes import dashboard
+from src.api.routes import dashboard, auth
 
 logger = get_logger(__name__)
 
@@ -57,6 +57,7 @@ app.include_router(sessions.router, prefix="/api/v1")
 app.include_router(reports.router, prefix="/api/v1")
 app.include_router(subscriptions.router, prefix="/api/v1")
 app.include_router(dashboard.router, prefix="/api/v1")
+app.include_router(auth.router, prefix="/api/v1")
 
 
 @app.get("/dashboard", include_in_schema=False)

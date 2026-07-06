@@ -89,6 +89,24 @@ class Organization(Base):
     subscriptions = relationship("StationSubscription", back_populates="organization")
 
 
+class User(Base):
+    """Usuário de login da plataforma do cliente, vinculado a uma organização."""
+    __tablename__ = "users"
+
+    id = Column(String, primary_key=True, default=gen_uuid)
+    org_id = Column(String, ForeignKey("organizations.id"), nullable=False)
+    email = Column(String(200), nullable=False, unique=True)
+    password_hash = Column(String(255), nullable=False)
+    name = Column(String(120))
+    is_active = Column(Boolean, default=True)
+    last_login = Column(DateTime)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    organization = relationship("Organization")
+
+    __table_args__ = (Index("ix_users_email", "email"),)
+
+
 class AlertRecipient(Base):
     """Destinatários de alertas WhatsApp por organização."""
     __tablename__ = "alert_recipients"

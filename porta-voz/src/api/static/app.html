@@ -82,6 +82,7 @@ function diaKey(iso) {
 
 // ── State ──────────────────────────────────────────────────────────────────
 let S = {
+  token: localStorage.getItem("rp_token") || null,
   orgId: localStorage.getItem("rp_org_id") || null,
   orgName: localStorage.getItem("rp_org_name") || null,
   tab: "visao",
@@ -93,16 +94,10 @@ let S = {
 };
 
 // ── Login ──────────────────────────────────────────────────────────────────
-async function renderLogin() {
-  let orgs = [];
-  try {
-    const r = await fetch(`${API}/organizations/`);
-    orgs = await r.json();
-  } catch (e) { orgs = []; }
-  const opts = orgs.map(o => `<option value="${esc(o.id)}" data-name="${esc(o.name)}">${esc(o.name)}${o.city ? " — " + esc(o.city) : ""}</option>`).join("");
+function renderLogin(erro) {
   document.getElementById("root").innerHTML = `
     <div style="min-height: 100vh; background: linear-gradient(180deg, #0B1F3A 0%, #081729 100%); display: grid; place-items: center; padding: 24px;">
-      <div style="width: 400px; max-width: 100%; background: #FFFFFF; border-radius: 16px; padding: 40px 36px; display: flex; flex-direction: column; gap: 22px; box-shadow: 0 30px 70px rgba(0,0,0,0.4);">
+      <form id="loginForm" style="width: 400px; max-width: 100%; background: #FFFFFF; border-radius: 16px; padding: 40px 36px; display: flex; flex-direction: column; gap: 22px; box-shadow: 0 30px 70px rgba(0,0,0,0.4);">
         <div style="display: flex; align-items: center; gap: 12px;">
           ${logo(34)}
           <div style="display: flex; flex-direction: column; line-height: 1;">
@@ -114,41 +109,58 @@ async function renderLogin() {
           <div style="font-weight: 800; font-size: 21px; letter-spacing: -0.01em;">Plataforma do cliente</div>
           <div style="font-size: 14px; color: #64748B;">Acesse o monitoramento do seu município.</div>
         </div>
+        ${erro ? `<div style="background:#FEF2F2;border:1px solid #FCA5A5;color:#B91C1C;padding:10px 12px;border-radius:8px;font-size:13.5px;">${esc(erro)}</div>` : ""}
         <div style="display: flex; flex-direction: column; gap: 12px;">
           <div style="display: flex; flex-direction: column; gap: 6px;">
-            <label style="font-size: 13px; font-weight: 600; color: #334155;">Prefeitura</label>
-            <select id="orgSel" style="padding: 13px 14px; border-radius: 8px; border: 1px solid #CBD5E1; font-size: 14.5px; font-family: 'Archivo', sans-serif; outline: none; background: #F8FAFC;">
-              ${opts || '<option value="">Nenhuma organização encontrada</option>'}
-            </select>
+            <label style="font-size: 13px; font-weight: 600; color: #334155;">E-mail</label>
+            <input id="email" type="email" autocomplete="username" placeholder="voce@prefeitura.gov.br" style="padding: 13px 14px; border-radius: 8px; border: 1px solid #CBD5E1; font-size: 14.5px; font-family: 'Archivo', sans-serif; outline: none; background: #F8FAFC;">
           </div>
           <div style="display: flex; flex-direction: column; gap: 6px;">
             <label style="font-size: 13px; font-weight: 600; color: #334155;">Senha</label>
-            <input id="pwd" type="password" placeholder="••••••••" style="padding: 13px 14px; border-radius: 8px; border: 1px solid #CBD5E1; font-size: 14.5px; font-family: 'Archivo', sans-serif; outline: none; background: #F8FAFC;">
+            <input id="pwd" type="password" autocomplete="current-password" placeholder="••••••••" style="padding: 13px 14px; border-radius: 8px; border: 1px solid #CBD5E1; font-size: 14.5px; font-family: 'Archivo', sans-serif; outline: none; background: #F8FAFC;">
           </div>
         </div>
-        <button id="btnEntrar" class="cta" style="background: #00A896; color: #FFFFFF; border: none; padding: 14px; border-radius: 8px; font-weight: 800; font-size: 15.5px; cursor: pointer;">Entrar</button>
+        <button id="btnEntrar" type="submit" class="cta" style="background: #00A896; color: #FFFFFF; border: none; padding: 14px; border-radius: 8px; font-weight: 800; font-size: 15.5px; cursor: pointer;">Entrar</button>
         <div style="display: flex; justify-content: space-between; font-size: 13px;">
-          <span style="color: #94A3B8;">Acesso liberado por município</span>
+          <span style="color: #94A3B8;">Acesso exclusivo por município</span>
           <a href="https://wa.me/5547999459031" target="_blank" rel="noopener" style="color: #64748B; text-decoration: none;">Suporte via WhatsApp</a>
         </div>
-      </div>
+      </form>
     </div>`;
-  document.getElementById("btnEntrar").addEventListener("click", () => {
-    const sel = document.getElementById("orgSel");
-    const opt = sel.options[sel.selectedIndex];
-    if (!opt || !opt.value) return;
-    S.orgId = opt.value;
-    S.orgName = opt.getAttribute("data-name");
+  document.getElementById("loginForm").addEventListener("submit", doLogin);
+}
+
+async function doLogin(ev) {
+  if (ev) ev.preventDefault();
+  const email = document.getElementById("email").value.trim();
+  const pwd = document.getElementById("pwd").value;
+  const btn = document.getElementById("btnEntrar");
+  if (!email || !pwd) { renderLogin("Preencha e-mail e senha."); return; }
+  btn.textContent = "Entrando…"; btn.disabled = true;
+  try {
+    const r = await fetch(`${API}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password: pwd }),
+    });
+    if (r.status === 401) { renderLogin("E-mail ou senha inválidos."); return; }
+    if (!r.ok) { renderLogin("Erro ao entrar (HTTP " + r.status + ")."); return; }
+    const d = await r.json();
+    S.token = d.token; S.orgId = d.org_id; S.orgName = d.org_name || "";
+    localStorage.setItem("rp_token", S.token);
     localStorage.setItem("rp_org_id", S.orgId);
     localStorage.setItem("rp_org_name", S.orgName);
     loadAndRender();
-  });
+  } catch (e) {
+    renderLogin("Falha de conexão. Tente novamente.");
+  }
 }
 
 function logout() {
+  localStorage.removeItem("rp_token");
   localStorage.removeItem("rp_org_id");
   localStorage.removeItem("rp_org_name");
-  S.orgId = null; S.orgName = null; S.data = null; S.tab = "visao";
+  S.token = null; S.orgId = null; S.orgName = null; S.data = null; S.tab = "visao";
   renderLogin();
 }
 
@@ -157,7 +169,13 @@ async function loadAndRender() {
   S.loading = true; S.error = null;
   renderApp();
   try {
-    const r = await fetch(`${API}/dashboard/client/${S.orgId}`);
+    const r = await fetch(`${API}/dashboard/client/${S.orgId}`, {
+      headers: { "Authorization": "Bearer " + (S.token || "") },
+    });
+    if (r.status === 401 || r.status === 403) {
+      logout();
+      return;
+    }
     if (!r.ok) throw new Error("HTTP " + r.status);
     S.data = await r.json();
     if (S.data.org && S.data.org.name) {
@@ -471,7 +489,7 @@ function bindDynamic() {
 }
 
 // ── Boot ───────────────────────────────────────────────────────────────────
-if (S.orgId) loadAndRender();
+if (S.token && S.orgId) loadAndRender();
 else renderLogin();
 </script>
 </body>

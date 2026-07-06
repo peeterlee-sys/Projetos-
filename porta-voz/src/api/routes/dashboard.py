@@ -18,6 +18,8 @@ from src.core.models import (
     RadioStation, StationSubscription, Report,
 )
 from src.api.schemas import AlertDetailOut, SessionDetailOut
+from src.api.routes.auth import get_current_user
+from src.core.models import User
 
 router = APIRouter(tags=["Dashboard"])
 
@@ -169,13 +171,21 @@ async def dashboard_alerts(
 
 
 @router.get("/dashboard/client/{org_id}")
-async def dashboard_client_bundle(org_id: str, db: AsyncSession = Depends(get_db)):
+async def dashboard_client_bundle(
+    org_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
     """
     Pacote completo para a plataforma do cliente (org-aware): organização,
     estatísticas, alertas, relatórios e rádios assinadas por este cliente.
     Usa Alert.org_id / Analysis.org_id para dados por cliente (o cliente
     assina rádios de outro dono via StationSubscription).
+    Requer autenticação; o usuário só acessa a própria organização.
     """
+    if user.org_id != org_id:
+        raise HTTPException(status_code=403, detail="Acesso negado a esta organização")
+
     org = await db.get(Organization, org_id)
     if not org:
         raise HTTPException(status_code=404, detail="Organização não encontrada")
