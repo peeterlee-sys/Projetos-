@@ -69,57 +69,55 @@ async def build_clipping_items(
     )
     rows = result.all()
 
-    # city_filter por rádio (assinatura desta org)
-    sub_result = await db.execute(
-        select(StationSubscription.station_id, StationSubscription.city_filter)
-        .where(StationSubscription.org_id == org_id)
-    )
-    city_by_station = {sid: city for sid, city in sub_result.all()}
-
-    # Agrupa por (rádio + tema) — a janela de contexto gera análises sobrepostas
-    # do mesmo assunto; mantemos a de maior urgência, hora mais cedo e trecho mais longo.
-    groups: dict[tuple, dict] = {}
-    for analysis, trans, program, station in rows:
+    # Agrupa por ASSUNTO (tema), unindo o mesmo tema entre rádios diferentes —
+    # a janela de contexto gera análises sobrepostas e o mesmo assunto costuma
+    # ecoar em várias rádios. Mantemos a hora mais cedo, a maior urgência, o
+    # resumo mais limpo e a lista de rádios onde apareceu.
+    groups: dict[str, dict] = {}
+    for i, (analysis, trans, program, station) in enumerate(rows):
         urg = analysis.urgency.value if analysis.urgency else "low"
-        key = (station.id, _theme_key(analysis.theme))
+        sev = _URG_SEVERITY.get(urg, 0)
+        tk = _theme_key(analysis.theme)
+        key = tk if tk else f"__{i}"  # sem tema: não funde com nada
         time_str = pytz.utc.localize(trans.chunk_started_at).astimezone(_BRT).strftime("%H:%M")
-        excerpt = (analysis.excerpt or analysis.summary or "").strip()
-        if len(excerpt) > 220:
-            excerpt = excerpt[:217] + "…"
+        # usa o RESUMO (frase limpa do Claude), não o trecho bruto do Whisper
+        summary = (analysis.summary or "").strip()
+        if len(summary) > 180:
+            summary = summary[:177] + "…"
 
-        item = {
-            "time": time_str,
-            "station": station.name,
-            "program": program.name,
-            "city": city_by_station.get(station.id),
-            "theme": analysis.theme or "",
-            "urgency": urg,
-            "sentiment": analysis.sentiment.value if analysis.sentiment else "neutral",
-            "content_type": analysis.content_type.value if analysis.content_type else "other",
-            "excerpt": excerpt,
-            "_sev": _URG_SEVERITY.get(urg, 0),
-            "_sort": trans.chunk_started_at,
-        }
-        prev = groups.get(key)
-        if prev is None:
-            groups[key] = item
+        g = groups.get(key)
+        if g is None:
+            groups[key] = {
+                "time": time_str,
+                "theme": analysis.theme or "",
+                "urgency": urg,
+                "sentiment": analysis.sentiment.value if analysis.sentiment else "neutral",
+                "content_type": analysis.content_type.value if analysis.content_type else "other",
+                "summary": summary,
+                "stations": {station.name},
+                "_sev": sev,
+                "_sort": trans.chunk_started_at,
+            }
         else:
-            # mantém a hora mais cedo; promove urgência/trecho quando o novo é mais forte
-            if item["_sort"] < prev["_sort"]:
-                prev["time"] = item["time"]
-                prev["_sort"] = item["_sort"]
-            if item["_sev"] > prev["_sev"]:
-                prev["urgency"] = item["urgency"]
-                prev["_sev"] = item["_sev"]
-                prev["sentiment"] = item["sentiment"]
-                prev["content_type"] = item["content_type"]
-                if item.get("theme"):
-                    prev["theme"] = item["theme"]
-            if len(item["excerpt"]) > len(prev["excerpt"]):
-                prev["excerpt"] = item["excerpt"]
+            g["stations"].add(station.name)
+            if trans.chunk_started_at < g["_sort"]:
+                g["_sort"] = trans.chunk_started_at
+                g["time"] = time_str
+            if sev > g["_sev"]:
+                g["_sev"] = sev
+                g["urgency"] = urg
+                g["sentiment"] = analysis.sentiment.value if analysis.sentiment else "neutral"
+                g["content_type"] = analysis.content_type.value if analysis.content_type else "other"
+                if analysis.theme:
+                    g["theme"] = analysis.theme
+                if summary:
+                    g["summary"] = summary
+            elif not g["summary"] and summary:
+                g["summary"] = summary
 
-    items = sorted(groups.values(), key=lambda x: x["_sort"])
+    items = sorted(groups.values(), key=lambda x: (-x["_sev"], x["_sort"]))
     for it in items:
+        it["stations"] = sorted(it["stations"])
         it.pop("_sev", None)
         it.pop("_sort", None)
     return items

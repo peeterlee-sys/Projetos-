@@ -224,6 +224,15 @@ def format_report_message(
     return "\n".join(lines)
 
 
+def _clip_stations(stations: list, limit: int = 2) -> str:
+    stations = stations or []
+    if not stations:
+        return ""
+    if len(stations) <= limit:
+        return ", ".join(stations)
+    return ", ".join(stations[:limit]) + f" +{len(stations) - limit}"
+
+
 def format_clipping_message(
     org_name: str,
     date_str: str,
@@ -231,61 +240,71 @@ def format_clipping_message(
     max_chars: int = 3500,
 ) -> list[str]:
     """
-    Formata a CLIPAGEM DIÁRIA — toda menção relevante captada no dia, em ordem
-    cronológica (estilo clipping). Retorna uma LISTA de mensagens já dividida
-    para não estourar o limite do WhatsApp.
+    Formata a CLIPAGEM DIÁRIA — assuntos relevantes captados no dia, agrupados.
+    DESTAQUES (crítico/alto) vêm com resumo; DEMAIS (média/baixa) em uma linha.
+    Usa o RESUMO do Claude (não a citação bruta). Retorna uma LISTA de mensagens
+    já dividida para não estourar o limite do WhatsApp.
 
-    Cada item: {time, station, program, city, theme, urgency, sentiment,
-                content_type, excerpt}
+    Cada item: {time, theme, urgency, sentiment, content_type, summary, stations[]}
     """
+    footer = f"_🤖 RADAR PÚBLICO · {_now_brt().strftime('%d/%m/%Y %H:%M')} BRT_"
+
+    counts = {"critical": 0, "high": 0, "medium": 0, "low": 0}
+    for it in items:
+        counts[it.get("urgency", "low")] = counts.get(it.get("urgency", "low"), 0) + 1
+
     header = [
         "🗞️ *CLIPAGEM DIÁRIA*",
-        f"🏛️ {org_name}",
-        f"📅 {date_str}",
+        f"🏛️ {org_name} · 📅 {date_str}",
         "",
-        f"*{len(items)}* menção(ões) relevante(s) captada(s) hoje nas rádios.",
-        "─" * 28,
+        f"*{len(items)}* assunto(s) hoje · "
+        f"🔴 {counts['critical']}  🟠 {counts['high']}  🟡 {counts['medium']}  🟢 {counts['low']}",
     ]
-    footer = f"_🤖 RADAR PÚBLICO · {_now_brt().strftime('%d/%m/%Y %H:%M')} BRT_"
 
     if not items:
         return ["\n".join(header + ["", "Nenhuma menção relevante hoje.", "", footer])]
 
-    blocks: list[str] = []
-    for it in items:
-        urg = it.get("urgency", "low")
-        u_emoji = _URGENCY_EMOJI.get(urg, "🟢")
-        u_label = _URGENCY_LABEL.get(urg, "BAIXA")
-        s_label = _SENTIMENT_LABEL.get(it.get("sentiment", "neutral"), "➖ Neutro")
-        c_label = _CONTENT_TYPE_LABEL.get(it.get("content_type", "other"), "Outro")
-        loc = f" · 📍 {it['city']}" if it.get("city") else ""
-        line = [
-            f"{u_emoji} *{it.get('time','')}* · {it.get('station','')} — {it.get('program','')}{loc}",
-            f"{c_label} · {s_label} · Urgência: {u_label}",
-        ]
-        if it.get("theme"):
-            line.append(f"🏷 {it['theme']}")
-        if it.get("excerpt"):
-            line.append(f"“{it['excerpt']}”")
-        blocks.append("\n".join(line))
+    destaques = [it for it in items if it.get("urgency") in ("critical", "high")]
+    demais = [it for it in items if it.get("urgency") not in ("critical", "high")]
 
-    # Divide em várias mensagens respeitando max_chars
+    lines: list[str] = list(header)
+
+    if destaques:
+        lines += ["", "━━━ ⚠️ *DESTAQUES* ━━━"]
+        for it in destaques:
+            u = _URGENCY_EMOJI.get(it.get("urgency"), "🟠")
+            c = _CONTENT_TYPE_LABEL.get(it.get("content_type", "other"), "Outro")
+            lines.append("")
+            lines.append(f"{u} *{it.get('time','')}* · {it.get('theme','(sem tema)')}")
+            if it.get("summary"):
+                lines.append(it["summary"])
+            meta = c
+            st = _clip_stations(it.get("stations"))
+            if st:
+                meta += f" · 📻 {st}"
+            lines.append(f"_{meta}_")
+
+    if demais:
+        lines += ["", "━━━ 📋 *DEMAIS MENÇÕES* ━━━"]
+        for it in demais:
+            u = _URGENCY_EMOJI.get(it.get("urgency"), "🟢")
+            st = _clip_stations(it.get("stations"))
+            tail = f" — {st}" if st else ""
+            lines.append(f"{u} {it.get('time','')} · {it.get('theme','(sem tema)')}{tail}")
+
+    lines += ["", footer]
+
+    # Divide em várias mensagens respeitando max_chars, quebrando entre linhas
     messages: list[str] = []
-    current = list(header)
-    current_len = len("\n".join(current))
-    for i, block in enumerate(blocks):
-        add_len = len(block) + 2
-        if current_len + add_len > max_chars and len(current) > len(header):
-            current.append("")
-            current.append(f"_(continua…)_")
+    current: list[str] = []
+    for ln in lines:
+        candidate = current + [ln]
+        if len("\n".join(candidate)) > max_chars and current:
             messages.append("\n".join(current))
-            current = [f"🗞️ *CLIPAGEM DIÁRIA (continuação)* — {org_name}", "─" * 28]
-            current_len = len("\n".join(current))
-        current.append("")
-        current.append(block)
-        current_len += add_len
-
-    current.append("")
-    current.append(footer)
-    messages.append("\n".join(current))
+            current = [f"🗞️ *CLIPAGEM (continuação)* — {org_name}", ""]
+            current.append(ln)
+        else:
+            current = candidate
+    if current:
+        messages.append("\n".join(current))
     return messages
