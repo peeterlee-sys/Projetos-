@@ -1,0 +1,148 @@
+{
+  "client_id": "aegea_sc",
+  "org_name": "Grupo Aegea — Santa Catarina",
+  "client_label": "Aegea SC",
+  "state": "SC",
+  "plan": "enterprise",
+  "current_as_of": "2026-07-02",
+  "_nota": "Fonte da verdade EDITÁVEL do cliente Aegea SC. Nada de nomes hardcoded no código. Antes de uso comercial, validar gestores locais em fonte oficial/releases/cliente. Rode scripts/setup_aegea_sc.py depois de editar para aplicar no banco.",
+
+  "geo_filter": {
+    "include_state": "SC",
+    "cities": ["Bombinhas", "Camboriú", "Palhoça", "Penha", "São Francisco do Sul", "Brusque"],
+    "ignore_operations": [
+      "Águas do Rio", "Prolagos", "Águas de Manaus", "Águas de Teresina",
+      "Águas Guariroba", "Corsan", "Aegea Pará", "Aegea Piauí",
+      "Aegea Rio de Janeiro", "Aegea Rio Grande do Sul", "Aegea Mato Grosso", "Aegea Ceará"
+    ],
+    "regra": "Só alertar se o trecho tiver relação com uma unidade da Aegea em SC, uma das cidades monitoradas, uma reclamação de água/esgoto nessas cidades, ou um órgão público de SC falando da Aegea. Menções a operações fora de SC devem ser ignoradas, salvo comparação direta com operação catarinense."
+  },
+
+  "client_aliases": [
+    "Aegea", "Grupo Aegea", "Aegea Saneamento", "Aegea Saneamento e Participações",
+    "Aegea SC", "Aegea Santa Catarina", "companhia de saneamento",
+    "concessionária de saneamento", "concessionária de água", "concessionária de esgoto",
+    "empresa de saneamento", "empresa responsável pela água", "empresa responsável pelo esgoto"
+  ],
+
+  "units": [
+    {"name": "Águas de Bombinhas", "city": "Bombinhas",
+     "aliases": ["Aguas de Bombinhas", "Bombinhas Aegea", "concessionária de Bombinhas", "água de Bombinhas", "esgoto de Bombinhas"]},
+    {"name": "Águas de Camboriú", "city": "Camboriú",
+     "aliases": ["Aguas de Camboriu", "Camboriú Aegea", "concessionária de Camboriú", "água de Camboriú", "esgoto de Camboriú"]},
+    {"name": "Águas de Palhoça", "city": "Palhoça",
+     "aliases": ["Aguas de Palhoca", "Palhoça Aegea", "concessionária de Palhoça", "água de Palhoça", "esgoto de Palhoça"]},
+    {"name": "Águas de Penha", "city": "Penha",
+     "aliases": ["Aguas de Penha", "Penha Aegea", "concessionária de Penha", "água de Penha", "esgoto de Penha"]},
+    {"name": "Águas de São Francisco do Sul", "city": "São Francisco do Sul",
+     "aliases": ["Aguas de Sao Francisco do Sul", "São Francisco do Sul Aegea", "SFS Aegea", "concessionária de São Francisco do Sul", "água de São Francisco do Sul", "esgoto de São Francisco do Sul"]},
+    {"name": "Aegea Brusque", "city": "Brusque",
+     "aliases": ["concessão de Brusque", "esgotamento sanitário de Brusque", "esgoto de Brusque", "operação de esgoto em Brusque", "concessão de esgoto de Brusque", "concessionária de Brusque"]}
+  ],
+
+  "representatives_public": [
+    "Radamés Casseb", "CEO da Aegea", "presidente da Aegea", "diretor-presidente da Aegea",
+    "Ana Paula Carracedo", "Chief Integrity Officer da Aegea",
+    "Édison Carlos", "Instituto Aegea", "presidente do Instituto Aegea",
+    "Adriano Chaves", "encarregado de dados da Aegea", "DPO da Aegea",
+    "assessoria de imprensa da Aegea", "comunicação da Aegea", "relações institucionais da Aegea",
+    "diretoria da Aegea", "gerência regional da Aegea"
+  ],
+
+  "public_bodies": [
+    "Prefeitura de Bombinhas", "Prefeitura de Camboriú", "Prefeitura de Palhoça",
+    "Prefeitura de Penha", "Prefeitura de São Francisco do Sul", "Prefeitura de Brusque",
+    "Câmara de Vereadores de Bombinhas", "Câmara de Vereadores de Camboriú",
+    "Câmara de Vereadores de Palhoça", "Câmara de Vereadores de Penha",
+    "Câmara de Vereadores de São Francisco do Sul", "Câmara de Vereadores de Brusque",
+    "Procon", "Procon Municipal", "Procon SC",
+    "Ministério Público", "Ministério Público de Santa Catarina", "MPSC",
+    "Tribunal de Contas de Santa Catarina", "TCE-SC",
+    "ARESC", "ARIS", "agência reguladora", "agência intermunicipal de regulação",
+    "IMA", "Instituto do Meio Ambiente de Santa Catarina",
+    "Vigilância Sanitária", "Defesa Civil",
+    "Secretaria de Obras", "Secretaria de Meio Ambiente", "Secretaria de Saúde", "Secretaria de Planejamento"
+  ],
+
+  "comparison_only_bodies": ["Samae", "Casan", "Semasa", "ANA"],
+
+  "neighborhoods": {
+    "Bombinhas": ["Bombinhas", "Bombas", "Mariscal", "Canto Grande", "Zimbros", "Morrinhos", "Quatro Ilhas", "Praia da Sepultura", "José Amândio", "Sertãozinho", "Centro"],
+    "Camboriú": ["Camboriú", "Centro", "Monte Alegre", "Conde Vila Verde", "Tabuleiro", "Areias", "Cedro", "Santa Regina", "Rio Pequeno", "Morretes", "São Francisco de Assis", "Barranco", "Rio do Meio", "Várzea do Ranchinho", "Braço", "Macacos", "Limeira", "Caetés", "Lídia Duarte"],
+    "Palhoça": ["Palhoça", "Centro", "Pedra Branca", "Pagani", "Ponte do Imaruim", "Aririú", "Barra do Aririú", "Bela Vista", "Passa Vinte", "Jardim Eldorado", "São Sebastião", "Enseada de Brito", "Praia do Sonho", "Pinheira", "Guarda do Embaú", "Ponta do Papagaio", "Massiambu", "Rio Cubatão"],
+    "Penha": ["Penha", "Centro", "Armação", "Armação do Itapocorói", "Praia Alegre", "Gravatá", "Nossa Senhora de Fátima", "São Cristóvão", "Santa Lídia", "Beto Carrero", "Praia de Armação", "Praia Grande", "Quilombo"],
+    "São Francisco do Sul": ["São Francisco do Sul", "SFS", "Centro Histórico", "Rocio Pequeno", "Rocio Grande", "Ubatuba", "Enseada", "Praia Grande", "Ervino", "Paulas", "Acaraí", "Iperoba", "Capri", "Itaguaçu", "Vila da Glória"],
+    "Brusque": ["Brusque", "Centro", "Azambuja", "Santa Terezinha", "Primeiro de Maio", "Dom Joaquim", "São Luiz", "Souza Cruz", "Águas Claras", "Limeira", "Guarani", "Cedrinho", "Volta Grande", "Bateas", "Steffen", "Rio Branco", "Jardim Maluche", "Santa Rita", "Paquetá"]
+  },
+
+  "sensitive_themes": [
+    "falta de água", "sem água", "água acabou", "torneira seca", "baixa pressão",
+    "pressão fraca", "abastecimento irregular", "rodízio", "intermitência",
+    "caminhão-pipa", "rompimento de adutora", "manutenção emergencial",
+    "água suja", "água barrenta", "água turva", "água amarela", "água com cheiro",
+    "água com gosto estranho", "água contaminada", "suspeita de contaminação",
+    "esgoto na rua", "esgoto a céu aberto", "esgoto voltando", "esgoto dentro de casa",
+    "mau cheiro de esgoto", "boca de lobo transbordando", "poço de visita transbordando",
+    "esgoto na praia", "esgoto no rio", "estação de tratamento", "estação elevatória",
+    "balneabilidade", "praia imprópria", "lançamento irregular", "ligação irregular",
+    "vazamento", "cano estourado", "rede rompida", "buraco da obra",
+    "asfalto mal recuperado", "obra parada", "obra mal sinalizada", "reparo mal feito",
+    "0800 não atende", "aplicativo fora do ar", "agência lotada", "demora no atendimento",
+    "protocolo sem resposta", "religação", "corte de água",
+    "conta alta", "conta de água", "fatura de água", "cobrança", "cobrança indevida",
+    "cobrança abusiva", "tarifa alta", "tarifa de água",
+    "reajuste de tarifa", "taxa de esgoto", "hidrômetro", "leitura errada", "tarifa social",
+    "revisão tarifária", "contrato de concessão", "universalização", "audiência pública",
+    "CPI", "descumprimento de contrato", "meta não cumprida", "fiscalização", "notificação"
+  ],
+
+  "institutional_terms": [
+    "concessão", "contrato de concessão", "subconcessão", "PPP", "parceria público-privada",
+    "saneamento básico", "universalização do saneamento", "marco legal do saneamento",
+    "metas de universalização", "investimento em saneamento", "cobertura de esgoto",
+    "cobertura de água", "índice de perdas", "micromedição", "reajuste tarifário",
+    "plano de saneamento", "regulação", "indicadores de qualidade"
+  ],
+
+  "positive_opportunity_terms": [
+    "obra entregue", "nova rede implantada", "ampliação de esgoto", "melhoria no abastecimento",
+    "investimento anunciado", "parceria com prefeitura", "ação social", "educação ambiental",
+    "elogio ao atendimento", "resposta rápida", "programa em escola", "mutirão de negociação"
+  ],
+
+  "dedup_windows_minutes": {"URGENTE": 10, "ALTA": 30, "MEDIA": 60, "BAIXA": 0},
+
+  "service_areas": [
+    "water_supply", "water_quality", "sewage_collection", "sewage_treatment",
+    "leak_repair", "road_repair_after_work", "customer_service", "billing",
+    "tariff", "regulatory", "environmental", "institutional", "social_project", "unknown"
+  ],
+  "risk_types": [
+    "operational", "reputational", "regulatory", "political", "environmental",
+    "sanitary", "customer_service", "financial", "legal", "positive_opportunity", "unknown"
+  ],
+
+  "recipients_by_theme": {
+    "_nota": "Roteamento sugerido por tema. Preencher com telefones reais (formato 5547999999999) quando o cliente indicar. Vazio = usa a lista geral de alert_recipients.",
+    "water_supply": [], "water_quality": [], "sewage": [], "leak_work": [],
+    "customer_service": [], "billing_tariff": [], "political_regulatory": [],
+    "environmental": [], "positive_opportunity": []
+  },
+
+  "alert_recipients": [],
+
+  "stations": [
+    {"name": "", "city": "Bombinhas", "state": "SC", "stream_url": "", "youtube_url": "",
+     "programs": [{"name": "", "days": ["monday","tuesday","wednesday","thursday","friday"], "start": "", "end": ""}]},
+    {"name": "", "city": "Camboriú", "state": "SC", "stream_url": "", "youtube_url": "",
+     "programs": [{"name": "", "days": ["monday","tuesday","wednesday","thursday","friday"], "start": "", "end": ""}]},
+    {"name": "", "city": "Palhoça", "state": "SC", "stream_url": "", "youtube_url": "",
+     "programs": [{"name": "", "days": ["monday","tuesday","wednesday","thursday","friday"], "start": "", "end": ""}]},
+    {"name": "", "city": "Penha", "state": "SC", "stream_url": "", "youtube_url": "",
+     "programs": [{"name": "", "days": ["monday","tuesday","wednesday","thursday","friday"], "start": "", "end": ""}]},
+    {"name": "", "city": "São Francisco do Sul", "state": "SC", "stream_url": "", "youtube_url": "",
+     "programs": [{"name": "", "days": ["monday","tuesday","wednesday","thursday","friday"], "start": "", "end": ""}]},
+    {"name": "", "city": "Brusque", "state": "SC", "stream_url": "", "youtube_url": "",
+     "programs": [{"name": "", "days": ["monday","tuesday","wednesday","thursday","friday"], "start": "", "end": ""}]}
+  ]
+}
