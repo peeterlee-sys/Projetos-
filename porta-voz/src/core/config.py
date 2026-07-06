@@ -44,6 +44,11 @@ class Settings(BaseSettings):
 
     # Monitoramento
     CHUNK_DURATION_SECONDS: int = 30
+    # Janela de contexto da ANÁLISE: quantos blocos consecutivos (incl. o atual)
+    # são enviados juntos ao Claude. Evita subestimar a urgência de um assunto
+    # que foi cortado entre blocos de 30s (ex.: denúncia que "começa" num bloco e
+    # revela a gravidade no seguinte). 3 blocos ≈ 90s de contexto.
+    CHUNK_CONTEXT_WINDOW: int = 3
     DEDUP_WINDOW_MINUTES: int = 60
     # Agregação de alertas por assunto: junta blocos consecutivos do mesmo
     # assunto num único alerta com o áudio completo.

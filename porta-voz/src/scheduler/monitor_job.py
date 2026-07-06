@@ -5,6 +5,7 @@ Suporta múltiplos clientes monitorando a mesma rádio simultaneamente.
 """
 import asyncio
 import time
+from collections import deque
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
@@ -54,6 +55,10 @@ class MonitorJob:
         self._pending: dict[str, dict] = {}     # assuntos aguardando envio
         self._alerted_keys: set[str] = set()    # assuntos já alertados nesta sessão
         self._pending_lock = asyncio.Lock()
+        # Janela de contexto da análise: textos dos últimos N blocos (incl. atual).
+        # A análise roda sobre a janela inteira para não perder a gravidade de um
+        # assunto cortado entre blocos de 30s.
+        self._ctx_window: deque = deque(maxlen=max(1, settings.CHUNK_CONTEXT_WINDOW))
 
     async def run(self) -> None:
         async with AsyncSessionLocal() as db:
@@ -218,19 +223,26 @@ class MonitorJob:
 
             text = transcription_result.text
 
+            # Janela de contexto: análise roda sobre os últimos N blocos juntos,
+            # mas a transcrição é salva por bloco (para relatório/timeline).
+            self._ctx_window.append(text)
+            window_text = " ".join(t for t in self._ctx_window if t)
+
             # 2. Coleta todos os orgs que devem processar este chunk
             org_ids = await self._get_subscriber_org_ids(db, station.id, station.org_id)
 
-            # 3. Verifica se ALGUM org tem match de keyword
+            # 3. Verifica se ALGUM org tem match de keyword — na JANELA, para que um
+            # bloco de continuação (a gravidade) seja analisado mesmo que a keyword
+            # tenha ficado no bloco anterior.
             any_match = False
             for org_id in org_ids:
                 keywords_db = await self._load_keywords(db, org_id, program.id)
-                has_match, _ = check_keywords(text, custom_keywords=keywords_db)
+                has_match, _ = check_keywords(window_text, custom_keywords=keywords_db)
                 if has_match:
                     any_match = True
                     break
 
-            # 4. Salva transcrição uma vez (compartilhada)
+            # 4. Salva transcrição uma vez (compartilhada) — só o texto do bloco atual
             transcription_row = Transcription(
                 session_id=self.session_id,
                 chunk_index=chunk.index,
@@ -251,14 +263,14 @@ class MonitorJob:
             if not any_match:
                 return
 
-            # 5. Processa para cada org independentemente
+            # 5. Processa para cada org independentemente — analisa a JANELA de contexto
             for org_id in org_ids:
                 try:
                     await self._process_for_org(
                         org_id=org_id,
                         transcription_id=transcription_row.id,
                         session_id=self.session_id,
-                        text=text,
+                        text=window_text,
                         station=station,
                         program=program,
                         chunk_time=chunk_time,
