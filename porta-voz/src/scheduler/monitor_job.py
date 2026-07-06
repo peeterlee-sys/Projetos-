@@ -317,6 +317,7 @@ class MonitorJob:
                 matched_keywords=matched,
                 city_context=city_context,
                 org_system_prompt=org_system_prompt,
+                monitored_city=city_filter,
             )
 
             if not analysis_result:

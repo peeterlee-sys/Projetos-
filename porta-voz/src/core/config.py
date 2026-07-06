@@ -47,8 +47,10 @@ class Settings(BaseSettings):
     # Janela de contexto da ANÁLISE: quantos blocos consecutivos (incl. o atual)
     # são enviados juntos ao Claude. Evita subestimar a urgência de um assunto
     # que foi cortado entre blocos de 30s (ex.: denúncia que "começa" num bloco e
-    # revela a gravidade no seguinte). 3 blocos ≈ 90s de contexto.
-    CHUNK_CONTEXT_WINDOW: int = 3
+    # revela a gravidade no seguinte). 2 blocos ≈ 60s: religa um assunto cortado
+    # entre blocos sem misturar segmentos distantes (que podiam trazer conteúdo
+    # de outra cidade numa rádio regional).
+    CHUNK_CONTEXT_WINDOW: int = 2
     DEDUP_WINDOW_MINUTES: int = 60
     # Agregação de alertas por assunto: junta blocos consecutivos do mesmo
     # assunto num único alerta com o áudio completo.

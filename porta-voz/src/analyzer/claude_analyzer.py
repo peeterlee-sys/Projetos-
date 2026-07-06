@@ -174,6 +174,7 @@ async def analyze_transcription(
     matched_keywords: list[str],
     city_context: Optional[str] = None,
     org_system_prompt: Optional[str] = None,
+    monitored_city: Optional[str] = None,
 ) -> Optional[AnalysisResult]:
     """
     Analisa um trecho transcrito com Claude.
@@ -184,6 +185,9 @@ async def analyze_transcription(
         program_name: Nome do programa
         chunk_time: Horário do trecho (HH:MM:SS)
         matched_keywords: Keywords encontradas no pré-filtro
+        monitored_city: Cidade monitorada por este cliente. A mesma rádio pode
+            cobrir vários municípios, então este filtro impede que conteúdo de
+            cidade vizinha "cole" no cliente errado.
 
     Returns:
         AnalysisResult ou None se falhar
@@ -198,6 +202,16 @@ async def analyze_transcription(
         keywords=", ".join(matched_keywords) if matched_keywords else "nenhuma detectada",
         text=text,
     )
+
+    if monitored_city:
+        user_message = (
+            f"FILTRO GEOGRÁFICO OBRIGATÓRIO: esta rádio cobre mais de um município. "
+            f"Só marque is_relevant=true se o conteúdo for especificamente sobre o "
+            f"município de {monitored_city} (ou uma autoridade/órgão/bairro de "
+            f"{monitored_city}). Se o trecho for sobre OUTRA cidade — mesmo citando "
+            f"prefeito, prefeita, obra, buraco, saneamento ou serviço público —, "
+            f"marque is_relevant=false. Na dúvida sobre a cidade, is_relevant=false.\n\n"
+        ) + user_message
 
     # Bloco de sistema com CACHE DE PROMPT: o prompt-base e o contexto da cidade
     # são estáveis entre chamadas (mudam por org, não por trecho). Marcamos o fim
