@@ -64,7 +64,7 @@ RÁDIO: {station_name}
 PROGRAMA: {program_name}
 HORÁRIO DO TRECHO: {chunk_time}
 PALAVRAS-CHAVE DETECTADAS: {keywords}
-{city_context_section}
+
 TRANSCRIÇÃO:
 {text}
 
@@ -191,19 +191,26 @@ async def analyze_transcription(
     if not text or not text.strip():
         return None
 
-    city_context_section = (
-        f"CONTEXTO DO MUNICÍPIO MONITORADO:\n{city_context}\n"
-        if city_context else ""
-    )
-
     user_message = USER_PROMPT_TEMPLATE.format(
         station_name=station_name,
         program_name=program_name,
         chunk_time=chunk_time,
         keywords=", ".join(matched_keywords) if matched_keywords else "nenhuma detectada",
-        city_context_section=city_context_section,
         text=text,
     )
+
+    # Bloco de sistema com CACHE DE PROMPT: o prompt-base e o contexto da cidade
+    # são estáveis entre chamadas (mudam por org, não por trecho). Marcamos o fim
+    # do prefixo estável com cache_control ephemeral; as chamadas seguintes do
+    # mesmo programa (a cada 30s) leem esse prefixo do cache a ~0,1x do preço de
+    # entrada, em vez de reenviá-lo como tokens novos toda vez.
+    system_blocks = [{"type": "text", "text": org_system_prompt or SYSTEM_PROMPT}]
+    if city_context:
+        system_blocks.append({
+            "type": "text",
+            "text": f"CONTEXTO DO MUNICÍPIO MONITORADO:\n{city_context}",
+        })
+    system_blocks[-1]["cache_control"] = {"type": "ephemeral"}
 
     start = time.monotonic()
 
@@ -212,7 +219,7 @@ async def analyze_transcription(
         response = await client.messages.create(
             model=settings.CLAUDE_MODEL,
             max_tokens=1536,
-            system=org_system_prompt or SYSTEM_PROMPT,
+            system=system_blocks,
             messages=[{"role": "user", "content": user_message}],
         )
 
@@ -247,6 +254,7 @@ async def analyze_transcription(
             raw_response=parsed,
         )
 
+        usage = getattr(response, "usage", None)
         logger.info(
             "analyzer.result",
             is_relevant=result.is_relevant,
@@ -254,6 +262,11 @@ async def analyze_transcription(
             theme=result.theme,
             confidence=result.confidence_score,
             duration_ms=duration_ms,
+            model=settings.CLAUDE_MODEL,
+            input_tokens=getattr(usage, "input_tokens", None),
+            output_tokens=getattr(usage, "output_tokens", None),
+            cache_read=getattr(usage, "cache_read_input_tokens", None),
+            cache_write=getattr(usage, "cache_creation_input_tokens", None),
         )
 
         return result
