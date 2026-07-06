@@ -222,3 +222,70 @@ def format_report_message(
     lines.append(f"_🤖 RADAR PÚBLICO · {_now_brt().strftime('%d/%m/%Y %H:%M')} BRT_")
 
     return "\n".join(lines)
+
+
+def format_clipping_message(
+    org_name: str,
+    date_str: str,
+    items: list[dict],
+    max_chars: int = 3500,
+) -> list[str]:
+    """
+    Formata a CLIPAGEM DIÁRIA — toda menção relevante captada no dia, em ordem
+    cronológica (estilo clipping). Retorna uma LISTA de mensagens já dividida
+    para não estourar o limite do WhatsApp.
+
+    Cada item: {time, station, program, city, theme, urgency, sentiment,
+                content_type, excerpt}
+    """
+    header = [
+        "🗞️ *CLIPAGEM DIÁRIA*",
+        f"🏛️ {org_name}",
+        f"📅 {date_str}",
+        "",
+        f"*{len(items)}* menção(ões) relevante(s) captada(s) hoje nas rádios.",
+        "─" * 28,
+    ]
+    footer = f"_🤖 RADAR PÚBLICO · {_now_brt().strftime('%d/%m/%Y %H:%M')} BRT_"
+
+    if not items:
+        return ["\n".join(header + ["", "Nenhuma menção relevante hoje.", "", footer])]
+
+    blocks: list[str] = []
+    for it in items:
+        urg = it.get("urgency", "low")
+        u_emoji = _URGENCY_EMOJI.get(urg, "🟢")
+        u_label = _URGENCY_LABEL.get(urg, "BAIXA")
+        s_label = _SENTIMENT_LABEL.get(it.get("sentiment", "neutral"), "➖ Neutro")
+        c_label = _CONTENT_TYPE_LABEL.get(it.get("content_type", "other"), "Outro")
+        loc = f" · 📍 {it['city']}" if it.get("city") else ""
+        line = [
+            f"{u_emoji} *{it.get('time','')}* · {it.get('station','')} — {it.get('program','')}{loc}",
+            f"{c_label} · {s_label} · Urgência: {u_label}",
+        ]
+        if it.get("theme"):
+            line.append(f"🏷 {it['theme']}")
+        if it.get("excerpt"):
+            line.append(f"“{it['excerpt']}”")
+        blocks.append("\n".join(line))
+
+    # Divide em várias mensagens respeitando max_chars
+    messages: list[str] = []
+    current = list(header)
+    current_len = len("\n".join(current))
+    for i, block in enumerate(blocks):
+        add_len = len(block) + 2
+        if current_len + add_len > max_chars and len(current) > len(header):
+            current.append("")
+            current.append(f"_(continua…)_")
+            messages.append("\n".join(current))
+            current = [f"🗞️ *CLIPAGEM DIÁRIA (continuação)* — {org_name}", "─" * 28]
+            current_len = len("\n".join(current))
+        current.append("")
+        current.append(block)
+        current_len += add_len
+
+    current.append("")
+    current.append(footer)
+    messages.append("\n".join(current))
+    return messages

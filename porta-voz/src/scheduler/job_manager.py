@@ -68,6 +68,23 @@ class JobManager:
 
         logger.info("job_manager.programs_loaded", count=len(programs))
 
+        self.schedule_daily_clipping()
+
+    def schedule_daily_clipping(self) -> None:
+        """Agenda a clipagem diária (resumo de todas as menções) por organização."""
+        from src.core.config import settings
+        from src.reports.daily_clipping import run_daily_clipping_all
+
+        if not settings.DAILY_CLIPPING_ENABLED:
+            return
+        self._scheduler.add_job(
+            run_daily_clipping_all,
+            CronTrigger(hour=settings.DAILY_CLIPPING_HOUR, minute=0, timezone="America/Sao_Paulo"),
+            id="daily_clipping",
+            replace_existing=True,
+        )
+        logger.info("job_manager.daily_clipping_scheduled", hour=settings.DAILY_CLIPPING_HOUR)
+
     async def recover_on_startup(self) -> None:
         """
         Recuperação pós-reinício:

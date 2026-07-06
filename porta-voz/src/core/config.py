@@ -54,6 +54,10 @@ class Settings(BaseSettings):
     # assunto num único alerta com o áudio completo.
     ALERT_AGG_QUIET_SECONDS: int = 75      # tempo sem novas menções antes de enviar
     ALERT_AGG_MAX_WINDOW_SECONDS: int = 300  # janela máxima de agregação por assunto
+    # Clipagem diária: resumo com TODA menção relevante do dia (estilo clipping),
+    # enviado uma vez por dia por organização, no horário abaixo (BRT).
+    DAILY_CLIPPING_ENABLED: bool = True
+    DAILY_CLIPPING_HOUR: int = 20
     STREAM_RECONNECT_DELAY_SECONDS: int = 10
     MAX_RECONNECT_ATTEMPTS: int = 10
     MIN_CLIP_CONTEXT_SECONDS: int = 30  # segundos de contexto antes/depois do trecho relevante
