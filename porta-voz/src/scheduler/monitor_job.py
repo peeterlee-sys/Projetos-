@@ -4,6 +4,7 @@ Coordena captura → transcrição → filtro → análise → alerta para um pr
 Suporta múltiplos clientes monitorando a mesma rádio simultaneamente.
 """
 import asyncio
+import time
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
@@ -35,6 +36,7 @@ from src.core.logging_config import get_logger
 logger = get_logger(__name__)
 
 ALERT_URGENCIES = {"critical", "high"}
+_URG_SEVERITY = {"low": 0, "medium": 1, "high": 2, "critical": 3}
 
 
 class MonitorJob:
@@ -48,6 +50,10 @@ class MonitorJob:
         self.session_id = session_id
         self._capture: Optional[StreamCapture] = None
         self._running = False
+        # Agregação de alertas por assunto (chave = dedup_hash):
+        self._pending: dict[str, dict] = {}     # assuntos aguardando envio
+        self._alerted_keys: set[str] = set()    # assuntos já alertados nesta sessão
+        self._pending_lock = asyncio.Lock()
 
     async def run(self) -> None:
         async with AsyncSessionLocal() as db:
@@ -327,35 +333,18 @@ class MonitorJob:
                 await db.commit()
                 return
 
-            # 3. Deduplicação por org — usa content_type + primeiras palavras do tema
-            # (não o texto completo, que varia a cada chunk mesmo para o mesmo assunto)
+            # 3. Chave do assunto (org + tema + tipo + rádio) para agregar/deduplicar
             theme_key = " ".join((analysis_result.theme or "").lower().split()[:4])
             dedup_hash = f"{org_id}:{build_dedup_hash(theme_key, analysis_result.content_type, station.name)}"
 
-            if await is_duplicate(db, session_id, dedup_hash):
-                alert_row = Alert(
-                    session_id=session_id,
-                    analysis_id=analysis_row.id,
-                    org_id=org_id,
-                    status=AlertStatus.suppressed,
-                    dedup_hash=dedup_hash,
-                    message_text="[SUPRIMIDO - DEDUPLICADO]",
-                    recipients=[],
-                )
-                db.add(alert_row)
-                await db.commit()
-                return
-
-            # 4. Verifica urgência mínima
+            # 4. Só assuntos ALTA/CRÍTICO viram alerta (o resto entra só no relatório)
             if analysis_result.urgency not in ALERT_URGENCIES:
                 await db.commit()
                 return
 
-            # 5. Enriquece alerta com contexto histórico e cruzado
+            # 5. Enriquece e formata a mensagem deste bloco
             recurrence_count = await self._count_theme_recurrence(db, dedup_hash)
             cross_radio = await self._get_cross_radio_stations(db, org_id, station.id)
-
-            # 6. Formata e envia alerta
             message = format_alert_message(
                 analysis=analysis_result,
                 station_name=station.name,
@@ -365,34 +354,21 @@ class MonitorJob:
                 cross_radio_stations=cross_radio,
                 dashboard_url=settings.DASHBOARD_URL,
             )
-
             recipients = await self._get_recipients(db, org_id, program, analysis_result.urgency)
-
-            alert_row = Alert(
-                session_id=session_id,
-                analysis_id=analysis_row.id,
-                org_id=org_id,
-                status=AlertStatus.pending,
-                dedup_hash=dedup_hash,
-                message_text=message,
-                recipients=recipients,
-            )
-            db.add(alert_row)
-            await db.flush()
-
-            clip_path = await self._prepare_audio_clip(audio_path, alert_row.id)
-            asyncio.create_task(
-                self._send_alert(alert_row.id, recipients, message, clip_path)
-            )
-
             await db.commit()
 
-            logger.info(
-                "monitor_job.alert_triggered",
-                org_id=org_id,
-                theme=analysis_result.theme,
-                urgency=analysis_result.urgency,
-            )
+        # 6. Agrega por assunto: junta blocos consecutivos e envia um alerta só
+        await self._enqueue_alert(
+            key=dedup_hash,
+            org_id=org_id,
+            session_id=session_id,
+            analysis_id=analysis_row.id,
+            message=message,
+            recipients=recipients,
+            audio_path=audio_path,
+            urgency=analysis_result.urgency,
+            theme=analysis_result.theme,
+        )
 
     # ─── Helpers ──────────────────────────────────────────────────────────────
 
@@ -571,6 +547,159 @@ class MonitorJob:
             logger.error("monitor_job.audio_convert_error", error=str(e))
         return None
 
+    # ─── Agregação de alertas por assunto ──────────────────────────────────────
+
+    async def _enqueue_alert(
+        self, key: str, org_id: str, session_id: str, analysis_id: str,
+        message: str, recipients: list, audio_path: Optional[Path],
+        urgency: str, theme: Optional[str],
+    ) -> None:
+        """
+        Adiciona o bloco a um buffer por assunto. O primeiro bloco abre a janela;
+        blocos seguintes do mesmo assunto acumulam o áudio e adiam o envio.
+        """
+        quiet = settings.ALERT_AGG_QUIET_SECONDS
+        maxwin = settings.ALERT_AGG_MAX_WINDOW_SECONDS
+        now = time.monotonic()
+
+        async with self._pending_lock:
+            # Assunto já alertado nesta sessão → não repete (fica só no relatório)
+            if key in self._alerted_keys:
+                return
+
+            buf = self._pending.get(key)
+            if buf is None:
+                buf = {
+                    "org_id": org_id,
+                    "session_id": session_id,
+                    "analysis_id": analysis_id,
+                    "message": message,
+                    "recipients": recipients,
+                    "urgency": urgency,
+                    "theme": theme,
+                    "chunk_paths": [audio_path] if audio_path else [],
+                    "started": now,
+                    "last_update": now,
+                    "flush_task": None,
+                }
+                self._pending[key] = buf
+                logger.info("monitor_job.alert_buffering_started", org_id=org_id, theme=theme, urgency=urgency)
+            else:
+                if audio_path:
+                    buf["chunk_paths"].append(audio_path)
+                buf["last_update"] = now
+                # Mantém a mensagem/análise do bloco de maior urgência
+                if _URG_SEVERITY.get(urgency, 0) > _URG_SEVERITY.get(buf["urgency"], 0):
+                    buf["message"] = message
+                    buf["analysis_id"] = analysis_id
+                    buf["urgency"] = urgency
+
+            # (Re)agenda o envio
+            if buf["flush_task"]:
+                buf["flush_task"].cancel()
+            delay = 0 if (now - buf["started"]) >= maxwin else quiet
+            buf["flush_task"] = asyncio.create_task(self._flush_after(key, delay))
+
+    async def _flush_after(self, key: str, delay: float) -> None:
+        try:
+            if delay > 0:
+                await asyncio.sleep(delay)
+        except asyncio.CancelledError:
+            return
+        quiet = settings.ALERT_AGG_QUIET_SECONDS
+        maxwin = settings.ALERT_AGG_MAX_WINDOW_SECONDS
+        async with self._pending_lock:
+            buf = self._pending.get(key)
+            if not buf:
+                return
+            now = time.monotonic()
+            quiet_ok = (now - buf["last_update"]) >= (quiet - 0.5)
+            max_ok = (now - buf["started"]) >= maxwin
+            if not (quiet_ok or max_ok):
+                return  # um bloco mais novo reagendou; o próximo flush cuida
+            self._pending.pop(key, None)
+            self._alerted_keys.add(key)
+        await self._send_buffered_alert(key, buf)
+
+    async def _flush_all_pending(self) -> None:
+        """Envia todos os assuntos pendentes (chamado ao encerrar a sessão)."""
+        async with self._pending_lock:
+            items = list(self._pending.items())
+            self._pending.clear()
+            for k, _ in items:
+                self._alerted_keys.add(k)
+                if _.get("flush_task"):
+                    _["flush_task"].cancel()
+        for key, buf in items:
+            try:
+                await self._send_buffered_alert(key, buf)
+            except Exception as e:
+                logger.error("monitor_job.flush_error", key=key, error=str(e))
+
+    async def _send_buffered_alert(self, key: str, buf: dict) -> None:
+        """Cria o alerta agregado, concatena o áudio do assunto e envia."""
+        async with AsyncSessionLocal() as db:
+            alert_row = Alert(
+                session_id=buf["session_id"],
+                analysis_id=buf["analysis_id"],
+                org_id=buf["org_id"],
+                status=AlertStatus.pending,
+                dedup_hash=key,
+                message_text=buf["message"],
+                recipients=buf["recipients"],
+            )
+            db.add(alert_row)
+            await db.flush()
+            alert_id = alert_row.id
+            await db.commit()
+
+        clip_path = await self._prepare_concat_clip(buf["chunk_paths"], alert_id)
+        await self._send_alert(alert_id, buf["recipients"], buf["message"], clip_path)
+
+        logger.info(
+            "monitor_job.alert_triggered",
+            org_id=buf["org_id"],
+            theme=buf.get("theme"),
+            urgency=buf["urgency"],
+            chunks=len(buf["chunk_paths"]),
+        )
+
+    async def _prepare_concat_clip(
+        self, chunk_paths: list, alert_id: str
+    ) -> Optional[Path]:
+        """Concatena os WAVs do assunto (em ordem) num único OGG Opus."""
+        paths = [Path(p) for p in chunk_paths if p and Path(p).exists()]
+        if not paths:
+            return None
+        if len(paths) == 1:
+            return await self._prepare_audio_clip(paths[0], alert_id)
+        try:
+            settings.CLIPS_DIR.mkdir(parents=True, exist_ok=True)
+            list_file = settings.CLIPS_DIR / f"concat_{alert_id}.txt"
+            with open(list_file, "w") as f:
+                for p in paths:
+                    f.write(f"file '{p.resolve()}'\n")
+            ogg_path = settings.CLIPS_DIR / f"alert_{alert_id}.ogg"
+            proc = await asyncio.create_subprocess_exec(
+                "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(list_file),
+                "-c:a", "libopus", "-b:a", "32k", "-ar", "24000", "-ac", "1",
+                str(ogg_path),
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.DEVNULL,
+            )
+            await proc.wait()
+            try:
+                list_file.unlink(missing_ok=True)
+            except Exception:
+                pass
+            if ogg_path.exists() and ogg_path.stat().st_size > 0:
+                return ogg_path
+            logger.warning("monitor_job.concat_failed", alert_id=alert_id, n=len(paths))
+        except Exception as e:
+            logger.error("monitor_job.concat_error", error=str(e))
+        # Fallback: manda pelo menos o primeiro bloco
+        return await self._prepare_audio_clip(paths[0], alert_id)
+
     async def _send_alert(
         self,
         alert_id: str,
@@ -609,6 +738,9 @@ class MonitorJob:
         logger.error("monitor_job.failed", session_id=self.session_id, reason=reason)
 
     async def _finalize(self) -> None:
+        # Envia qualquer assunto ainda em buffer antes de fechar e relatar
+        await self._flush_all_pending()
+
         async with AsyncSessionLocal() as db:
             result = await db.execute(
                 select(MonitoringSession)

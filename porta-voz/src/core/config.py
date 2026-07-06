@@ -43,6 +43,10 @@ class Settings(BaseSettings):
     # Monitoramento
     CHUNK_DURATION_SECONDS: int = 30
     DEDUP_WINDOW_MINUTES: int = 60
+    # Agregação de alertas por assunto: junta blocos consecutivos do mesmo
+    # assunto num único alerta com o áudio completo.
+    ALERT_AGG_QUIET_SECONDS: int = 75      # tempo sem novas menções antes de enviar
+    ALERT_AGG_MAX_WINDOW_SECONDS: int = 300  # janela máxima de agregação por assunto
     STREAM_RECONNECT_DELAY_SECONDS: int = 10
     MAX_RECONNECT_ATTEMPTS: int = 10
     MIN_CLIP_CONTEXT_SECONDS: int = 30  # segundos de contexto antes/depois do trecho relevante
