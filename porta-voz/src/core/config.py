@@ -26,7 +26,9 @@ class Settings(BaseSettings):
 
     # Anthropic
     ANTHROPIC_API_KEY: str = ""
-    CLAUDE_MODEL: str = "claude-sonnet-4-6"
+    # Haiku 4.5 ($1/$5 por milhão) dá conta da classificação por ~1/3 do custo
+    # do Sonnet 4.6. Para voltar ao Sonnet, defina CLAUDE_MODEL no .env.
+    CLAUDE_MODEL: str = "claude-haiku-4-5"
 
     # YouTube (captura de rádios via YouTube Live)
     YOUTUBE_COOKIES_FILE: str = ""
