@@ -9,6 +9,8 @@ from collections import Counter
 from difflib import SequenceMatcher
 from typing import Optional
 
+import pytz
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -146,7 +148,10 @@ async def generate_session_report(
         sentiments = [a.sentiment.value if a.sentiment else "neutral" for a in analyses]
         overall_sentiment = Counter(sentiments).most_common(1)[0][0] if sentiments else "neutral"
 
-        # Timeline — colapsa entradas do mesmo tema canônico próximas no tempo
+        # Timeline — colapsa entradas do mesmo tema canônico próximas no tempo.
+        # chunk_started_at é UTC (naive); converte para o fuso do programa (BRT).
+        program = session.program
+        tz = pytz.timezone((program.timezone if program else None) or "America/Sao_Paulo")
         timeline = []
         seen_recent: dict[str, str] = {}  # tema canônico → "HH:MM" da última entrada
         for a in analyses:
@@ -154,7 +159,7 @@ async def generate_session_report(
             if not trans or not trans.chunk_started_at:
                 continue
             canonical = theme_map.get(a.theme or "", a.theme or "")
-            time_str = trans.chunk_started_at.strftime("%H:%M")
+            time_str = pytz.utc.localize(trans.chunk_started_at).astimezone(tz).strftime("%H:%M")
             # Evita repetir o mesmo assunto no mesmo minuto
             if seen_recent.get(canonical) == time_str:
                 continue

@@ -24,6 +24,14 @@ from src.core.models import User
 router = APIRouter(tags=["Dashboard"])
 
 
+def _iso_utc(dt) -> Optional[str]:
+    """Serializa um datetime UTC (naive) como ISO com sufixo Z, para o
+    navegador interpretar corretamente como UTC e converter para o fuso local."""
+    if not dt:
+        return None
+    return dt.isoformat() + "Z"
+
+
 @router.get("/audio/{transcription_id}", include_in_schema=False)
 async def serve_audio(transcription_id: str, db: AsyncSession = Depends(get_db)):
     """Serve o arquivo WAV original de um trecho transcrito."""
@@ -333,7 +341,12 @@ async def dashboard_client_bundle(
             "suggested_action": analysis.suggested_action if analysis else None,
             "radio": info.get("radio", "—"),
             "programa": info.get("programa", "—"),
-            "created_at": a.created_at.isoformat() if a.created_at else None,
+            # Horário da fala no ar (mesmo que vai no alerta do WhatsApp);
+            # cai para o horário de criação do alerta se não houver transcrição.
+            "created_at": _iso_utc(
+                transcription.chunk_started_at if transcription and transcription.chunk_started_at
+                else a.created_at
+            ),
             "transcription_id": transcription.id if transcription else None,
             "has_audio": has_audio,
         })
@@ -375,7 +388,7 @@ async def dashboard_client_bundle(
                 "programa": prog.name,
                 "radio": stn.name,
                 "sigla": _sigla(stn.name),
-                "generated_at": rep.generated_at.isoformat() if rep.generated_at else None,
+                "generated_at": _iso_utc(rep.generated_at),
                 "duracao_min": dur_min,
                 "total_mentions": rep.total_mentions,
                 "alert_count": rep.alert_count,
