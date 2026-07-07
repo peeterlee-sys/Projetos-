@@ -90,6 +90,9 @@ def format_alert_message(
     ]
     if org_name:
         lines.append(f"🏛️ *Cliente:* {org_name}")
+    city = getattr(analysis, "city_mentioned", "") or ""
+    if city and city.lower() != "incerta":
+        lines.append(f"🏙️ *Cidade:* {city}")
     lines += [
         f"📻 *Programa:* {program_name}",
         f"🕐 *Horário:* {chunk_time}",

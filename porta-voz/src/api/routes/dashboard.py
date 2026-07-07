@@ -53,6 +53,23 @@ async def serve_audio(transcription_id: str, db: AsyncSession = Depends(get_db))
     )
 
 
+@router.get("/audio/alert/{alert_id}", include_in_schema=False)
+async def serve_alert_audio(alert_id: str, db: AsyncSession = Depends(get_db)):
+    """Serve o áudio COMPLETO (OGG) de um alerta — o assunto inteiro concatenado."""
+    from src.core.config import settings as cfg
+    alert = await db.get(Alert, alert_id)
+    if not alert:
+        raise HTTPException(status_code=404, detail="Alerta não encontrado")
+    ogg_path = Path(cfg.CLIPS_DIR) / f"alert_{alert_id}.ogg"
+    if not ogg_path.exists():
+        raise HTTPException(status_code=404, detail="Áudio do alerta não disponível")
+    return FileResponse(
+        path=str(ogg_path),
+        media_type="audio/ogg",
+        filename=f"radar_publico_alerta_{alert_id[:8]}.ogg",
+    )
+
+
 @router.get("/dashboard/sessions", response_model=List[SessionDetailOut])
 async def dashboard_sessions(
     limit: int = 30,

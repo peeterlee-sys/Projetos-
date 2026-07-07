@@ -434,6 +434,29 @@ class MonitorJob:
                 await db.commit()
                 return
 
+            # 4b. Confiança baixa não dispara automático — fica no relatório/clipagem.
+            if (analysis_result.confidence_score or 0) < settings.ALERT_MIN_CONFIDENCE:
+                logger.info(
+                    "alert.low_confidence_suppressed",
+                    org_id=org_id,
+                    confidence=analysis_result.confidence_score,
+                    theme=analysis_result.theme,
+                )
+                await db.commit()
+                return
+
+            # Rastreabilidade da decisão de roteamento (auditoria: por que enviou)
+            logger.info(
+                "alert.routing",
+                org_id=org_id,
+                monitored_city=city_filter,
+                city_mentioned=analysis_result.city_mentioned,
+                confidence=analysis_result.confidence_score,
+                urgency=analysis_result.urgency,
+                theme=analysis_result.theme,
+                station=station.name,
+            )
+
             # 5. Enriquece e formata a mensagem deste bloco
             recurrence_count = await self._count_theme_recurrence(db, dedup_hash)
             cross_radio = await self._get_cross_radio_stations(db, org_id, station.id)
@@ -771,7 +794,14 @@ class MonitorJob:
             await db.commit()
 
         clip_path = await self._prepare_concat_clip(buf["chunk_paths"], alert_id)
-        await self._send_alert(alert_id, buf["recipients"], buf["message"], clip_path)
+        message = buf["message"]
+        if clip_path and clip_path.exists() and settings.PUBLIC_BASE_URL:
+            # Link permanente do áudio completo (fallback se o anexo falhar/cortar)
+            message += (
+                f"\n🎧 *Áudio completo:* "
+                f"{settings.PUBLIC_BASE_URL.rstrip('/')}/api/v1/audio/alert/{alert_id}"
+            )
+        await self._send_alert(alert_id, buf["recipients"], message, clip_path)
 
         logger.info(
             "monitor_job.alert_triggered",
@@ -832,10 +862,8 @@ class MonitorJob:
                 phone_str = phone if isinstance(phone, str) else phone.get("phone", "")
                 if phone_str:
                     await send_audio(phone_str, audio_path)
-            try:
-                audio_path.unlink(missing_ok=True)
-            except Exception:
-                pass
+            # O OGG fica em clips/ como registro permanente do alerta — é o que
+            # permite o link "áudio completo" e a auditoria posterior.
 
         async with AsyncSessionLocal() as db:
             result = await db.execute(select(Alert).where(Alert.id == alert_id))
@@ -857,9 +885,16 @@ class MonitorJob:
         program = session.program
         station = program.station if program else None
         label = f"{station.name if station else '?'} — {program.name if program else '?'}"
+        if "resolver url" in reason.lower():
+            hint = (
+                "Provável: URL do stream morta ou live/cookies do YouTube vencidos "
+                "(ação humana). Diagnóstico: python3 scripts/radio_health.py"
+            )
+        else:
+            hint = "Pode ser instabilidade temporária; se repetir, rode scripts/radio_health.py"
         await notify_admin(
             f"capture_failed:{self.program_id}",
-            f"❌ *Captura FALHOU*\n📻 {label}\nMotivo: {reason}",
+            f"❌ *Captura FALHOU*\n📻 {label}\nMotivo: {reason}\n{hint}",
         )
 
     async def _finalize(self) -> None:

@@ -77,11 +77,16 @@ class Settings(BaseSettings):
     MAX_RECONNECT_ATTEMPTS: int = 10
     MIN_CLIP_CONTEXT_SECONDS: int = 30  # segundos de contexto antes/depois do trecho relevante
 
+    # Confiança mínima para alerta automático: abaixo disso, mesmo urgente,
+    # o trecho fica só no relatório/clipagem (não dispara WhatsApp).
+    ALERT_MIN_CONFIDENCE: float = 0.6
+
     # API
     API_HOST: str = "0.0.0.0"
     API_PORT: int = 8000
     API_SECRET_KEY: str = "dev-secret-change-in-production"
     DASHBOARD_URL: str = ""  # ex: http://147.182.211.211:8000/dashboard
+    PUBLIC_BASE_URL: str = "https://radarpublico.ia.br"  # links públicos (áudio etc.)
 
     # Paths
     AUDIO_CHUNKS_DIR: Path = Path("audio_chunks")
