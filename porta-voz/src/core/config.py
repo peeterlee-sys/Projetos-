@@ -15,7 +15,13 @@ class Settings(BaseSettings):
 
     # OpenAI
     OPENAI_API_KEY: str = ""
-    WHISPER_MODEL: str = "whisper-1"
+    # gpt-4o-mini-transcribe: ~metade do preço do whisper-1 por minuto, qualidade
+    # igual/melhor em PT-BR. Para voltar: WHISPER_MODEL=whisper-1 no .env.
+    WHISPER_MODEL: str = "gpt-4o-mini-transcribe"
+    # Gate de silêncio: blocos praticamente mudos (transmissor fora, madrugada,
+    # falha de captura parcial) são descartados ANTES de pagar transcrição.
+    SKIP_SILENT_CHUNKS: bool = True
+    SILENCE_MEAN_DB: float = -45.0  # volume médio abaixo disso = silêncio
     WHISPER_LANGUAGE: str = "pt"
     WHISPER_PROMPT: str = (
         "Prefeitura de Itapema, secretaria municipal, prefeito Alexandre Xepa, "

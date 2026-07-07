@@ -31,6 +31,44 @@ class TranscriptionResult:
     chunk_index: int = 0
 
 
+# Assinaturas clássicas de ALUCINAÇÃO do Whisper em música/vinheta/silêncio —
+# frases que o modelo "inventa" quando não há fala real no áudio.
+_HALLUCINATION_SIGNATURES = (
+    "legendas pela comunidade",
+    "amara.org",
+    "legendado por",
+    "transcrição por",
+    "obrigado por assistir",
+    "não se esqueça de se inscrever",
+    "inscreva-se no canal",
+)
+
+
+def _looks_hallucinated(text: str) -> bool:
+    """
+    Detecta texto fantasma: assinaturas conhecidas ou a mesma frase curta
+    repetida ocupando o bloco inteiro (padrão típico do Whisper em música).
+    """
+    t = text.strip().lower()
+    if not t:
+        return False
+    if any(sig in t for sig in _HALLUCINATION_SIGNATURES):
+        return True
+    # Frase curta repetida ≥4x cobrindo praticamente o texto todo
+    words = t.split()
+    if len(words) >= 8:
+        for size in (1, 2, 3, 4):
+            if len(words) >= size * 4:
+                first = words[:size]
+                reps = sum(
+                    1 for i in range(0, len(words) - size + 1, size)
+                    if words[i:i + size] == first
+                )
+                if reps * size >= len(words) * 0.8:
+                    return True
+    return False
+
+
 async def transcribe_audio(
     audio_path: Path,
     chunk_index: int = 0,
@@ -74,10 +112,21 @@ async def transcribe_audio(
         duration_ms = int((time.monotonic() - start) * 1000)
         text = str(response).strip()
 
+        if _looks_hallucinated(text):
+            # Música/vinheta transcrita como texto fantasma: descarta antes que
+            # vire keyword match (e análise paga / alerta falso).
+            logger.info(
+                "transcriber.hallucination_dropped",
+                chunk_index=chunk_index,
+                preview=text[:100],
+            )
+            return None
+
         logger.info(
             "transcriber.success",
             chunk_index=chunk_index,
             duration_ms=duration_ms,
+            model=settings.WHISPER_MODEL,
             text_length=len(text),
             preview=text[:100],
         )

@@ -26,6 +26,7 @@ from src.core.models import (
 from src.capture.stream_capture import StreamCapture, AudioChunk
 from src.capture.youtube import resolve_stream_url, build_ytdlp_stream_cmd, is_youtube_url
 from src.transcriber.whisper_client import transcribe_audio
+from src.transcriber.audio_gate import should_transcribe
 from src.analyzer.keyword_filter import check_keywords, _normalize
 from src.analyzer.claude_analyzer import analyze_transcription, AnalysisResult
 from src.analyzer.deduplicator import build_dedup_hash, is_duplicate
@@ -221,7 +222,13 @@ class MonitorJob:
             tz = pytz.timezone(program.timezone or "America/Sao_Paulo")
             chunk_time = chunk.started_at.replace(tzinfo=pytz.utc).astimezone(tz).strftime("%H:%M:%S")
 
-            # 1. Transcrição única para todos os clientes
+            # 1a. Gate de silêncio: bloco mudo não paga transcrição
+            if not await should_transcribe(chunk.file_path, chunk.index):
+                session.total_chunks += 1
+                await db.commit()
+                return
+
+            # 1b. Transcrição única para todos os clientes
             transcription_result = await transcribe_audio(
                 audio_path=chunk.file_path,
                 chunk_index=chunk.index,
