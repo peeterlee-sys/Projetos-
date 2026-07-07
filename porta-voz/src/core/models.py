@@ -64,7 +64,17 @@ class AlertStatus(str, enum.Enum):
     pending = "pending"
     sent = "sent"
     failed = "failed"
-    suppressed = "suppressed"  # Deduplicado
+    suppressed = "suppressed"      # Deduplicado
+    needs_review = "needs_review"  # Baixa confiança — retido para revisão interna
+    blocked = "blocked"            # Bloqueado pelo roteamento por cidade
+
+
+class CaptureEventType(str, enum.Enum):
+    capture_started = "capture_started"
+    capture_success = "capture_success"
+    capture_failed = "capture_failed"
+    reconnect = "reconnect"
+    resolve_failed = "resolve_failed"
 
 
 # ─── Models ───────────────────────────────────────────────────────────────────
@@ -231,6 +241,20 @@ class Analysis(Base):
     suggested_action = Column(Text)
     raw_response = Column(JSON)               # resposta bruta do Claude
     claude_duration_ms = Column(Integer)
+
+    # Classificação por cidade (roteamento)
+    primary_city = Column(String(100))        # cidade principal do assunto
+    mentioned_cities = Column(JSON, default=list)   # todas as cidades citadas
+    affected_cities = Column(JSON, default=list)    # cidades direta e justificadamente afetadas
+    related_department = Column(String(200))  # órgão/secretaria relacionada
+    city_confidence = Column(Float)           # 0.0 - 1.0
+    city_reasoning = Column(Text)             # justificativa curta da classificação
+
+    # Custos
+    input_tokens = Column(Integer)
+    output_tokens = Column(Integer)
+    estimated_cost_usd = Column(Float)
+
     created_at = Column(DateTime, default=datetime.utcnow)
 
     transcription = relationship("Transcription", back_populates="analysis")
@@ -255,6 +279,21 @@ class Alert(Base):
     dedup_hash = Column(String(64))           # hash para deduplicação
     sent_at = Column(DateTime)
     error_message = Column(Text)
+
+    # Rastreabilidade de roteamento por cidade
+    contracted_city = Column(String(100))     # cidade do cliente que receberia o alerta
+    detected_city = Column(String(100))       # cidade detectada pela análise
+    routing_decision = Column(String(20))     # send | review | block
+    routing_reason = Column(Text)             # por que foi enviado ou bloqueado
+
+    # Áudio vinculado
+    clip_file_path = Column(String(500))      # arquivo de áudio completo do trecho
+    audio_status = Column(String(50))         # sent | sent_partial | link_only | failed | none
+    audio_url = Column(String(1000))          # link público do áudio, quando disponível
+
+    # Custo estimado do alerta (transcrição + análise + envio)
+    estimated_cost_usd = Column(Float)
+
     created_at = Column(DateTime, default=datetime.utcnow)
 
     session = relationship("MonitoringSession", back_populates="alerts")
@@ -280,6 +319,25 @@ class StationSubscription(Base):
     __table_args__ = (
         Index("ix_subscriptions_station", "station_id", "is_active"),
         Index("ix_subscriptions_station_org", "station_id", "org_id", unique=True),
+    )
+
+
+class CaptureEvent(Base):
+    """Histórico operacional de captura por rádio/programa — alimenta o relatório de saúde."""
+    __tablename__ = "capture_events"
+
+    id = Column(String, primary_key=True, default=gen_uuid)
+    station_id = Column(String, ForeignKey("radio_stations.id"), nullable=False)
+    program_id = Column(String, ForeignKey("programs.id"), nullable=True)
+    session_id = Column(String, ForeignKey("monitoring_sessions.id"), nullable=True)
+    event_type = Column(SAEnum(CaptureEventType), nullable=False)
+    error_class = Column(String(50))    # dns_failure | timeout | invalid_url | http_error | format_error | stream_offline | system_error | unknown
+    message = Column(Text)
+    attempt = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        Index("ix_capture_events_station", "station_id", "created_at"),
     )
 
 

@@ -109,7 +109,10 @@ def check_keywords(
         return False, []
 
     all_keywords = []
-    if include_defaults:
+    # DEFAULT_KEYWORDS contém termos específicos de Itapema — só entram quando a
+    # org NÃO tem keywords próprias cadastradas, para não vazar gatilhos de uma
+    # cidade para clientes de outra.
+    if include_defaults and not custom_keywords:
         all_keywords.extend(DEFAULT_KEYWORDS)
     if custom_keywords:
         all_keywords.extend(custom_keywords)

@@ -1,11 +1,25 @@
 """
 Formatação das mensagens de alerta WhatsApp.
-Cria mensagens ricas com emojis e estrutura clara.
+Cria mensagens ricas com emojis e estrutura clara. Horários em BRT.
 """
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from typing import Optional
 
 from src.analyzer.claude_analyzer import AnalysisResult
+
+_BRT = timezone(timedelta(hours=-3))
+
+
+def _now_brt() -> str:
+    return datetime.now(tz=_BRT).strftime("%d/%m/%Y %H:%M")
+
+
+def utc_to_brt_str(dt: Optional[datetime]) -> str:
+    """Converte um datetime UTC (naive) para string BRT dd/mm HH:MM."""
+    if not dt:
+        return _now_brt()
+    aware = dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt
+    return aware.astimezone(_BRT).strftime("%d/%m/%Y %H:%M")
 
 
 _URGENCY_EMOJI = {
@@ -45,64 +59,95 @@ def format_alert_message(
     station_name: str,
     program_name: str,
     chunk_time: str,
+    city: Optional[str] = None,
+    routing_reason: Optional[str] = None,
+    audio_note: Optional[str] = None,
+    audio_url: Optional[str] = None,
+    transcription_note: Optional[str] = None,
 ) -> str:
     """
-    Formata mensagem de alerta WhatsApp com emojis e estrutura clara.
-
-    Returns:
-        Texto formatado para WhatsApp (sem markdown complexo, só emojis e newlines)
+    Formata o alerta de mídia no modelo padrão do RADAR PÚBLICO:
+    cidade correta, contexto, justificativa de envio e referência de áudio.
     """
     urgency = analysis.urgency
     emoji = _URGENCY_EMOJI.get(urgency, "🟡")
     urgency_label = _URGENCY_LABEL.get(urgency, urgency.upper())
-    sentiment_label = _SENTIMENT_LABEL.get(analysis.sentiment, analysis.sentiment)
-    content_label = _CONTENT_TYPE_LABEL.get(analysis.content_type, analysis.content_type)
-    confidence_pct = int(analysis.confidence_score * 100)
-
-    entities = ", ".join(analysis.entities_mentioned[:6]) if analysis.entities_mentioned else "—"
 
     lines = [
-        f"{emoji} *ALERTA {urgency_label} — {station_name.upper()}*",
+        f"{emoji} *RADAR PÚBLICO — ALERTA DE MÍDIA*",
         "",
-        f"📻 *Programa:* {program_name}",
-        f"🕐 *Horário:* {chunk_time}",
-        f"📌 *Tema:* {analysis.theme}",
-        f"💬 *Tipo:* {content_label} | *Tom:* {sentiment_label}",
-        f"⚡ *Urgência:* {urgency_label} (confiança: {confidence_pct}%)",
+        f"*Cidade:* {city or '—'}",
+        f"*Rádio:* {station_name}",
+        f"*Programa:* {program_name}",
+        f"*Horário:* {chunk_time} BRT",
+        f"*Tema:* {analysis.theme or '—'}",
+        f"*Órgão relacionado:* {analysis.related_department or '—'}",
+        f"*Nível de relevância:* {urgency_label}",
         "",
     ]
 
     if analysis.summary:
-        lines += [
-            "📝 *Resumo:*",
-            analysis.summary,
-            "",
-        ]
+        lines += ["*Resumo:*", analysis.summary, ""]
 
     if analysis.excerpt:
-        lines += [
-            "🎯 *Trecho:*",
-            f'_{analysis.excerpt[:400]}_',
-            "",
-        ]
+        lines += ["*Trecho relevante:*", f'_"{analysis.excerpt[:400]}"_', ""]
 
-    if analysis.reason:
-        lines += [
-            "⚠️ *Por que importa:*",
-            analysis.reason,
-            "",
-        ]
+    why = routing_reason or analysis.reason
+    if why:
+        lines += ["*Por que este alerta foi enviado:*", why, ""]
 
     if analysis.suggested_action:
-        lines += [
-            "✅ *Ação sugerida:*",
-            analysis.suggested_action,
-            "",
-        ]
+        lines += ["*Ação sugerida:*", analysis.suggested_action, ""]
 
-    lines.append(f"👥 *Mencionados:* {entities}")
-    lines.append(f"\n_🤖 PORTA VOZ · {datetime.utcnow().strftime('%d/%m %H:%M')} UTC_")
+    audio_lines = []
+    if audio_note:
+        audio_lines.append(audio_note)
+    if audio_url:
+        audio_lines.append(f"Áudio completo: {audio_url}")
+    if audio_lines:
+        lines += ["*Áudio:*"] + audio_lines + [""]
 
+    if transcription_note:
+        lines += ["*Transcrição:*", transcription_note, ""]
+
+    lines.append(f"_🤖 RADAR PÚBLICO · {_now_brt()} BRT_")
+
+    return "\n".join(lines)
+
+
+# Classificação de falha → texto amigável + ação recomendada
+_FAILURE_LABELS = {
+    "dns_failure": ("URL inválida ou DNS fora do ar", "Verificar/atualizar a URL do stream"),
+    "invalid_url": ("URL do stream inválida", "Cadastrar nova URL de stream"),
+    "timeout": ("Falha temporária (timeout de conexão)", "Aguardar — o sistema tentará reconectar"),
+    "http_error": ("Servidor da rádio recusou a conexão", "Confirmar se o stream mudou de endereço"),
+    "format_error": ("Formato de stream incompatível", "Verificar codec/formato do stream"),
+    "stream_offline": ("Rádio realmente fora do ar", "Confirmar com a emissora"),
+    "system_error": ("Erro do nosso sistema", "Precisa de ação humana — verificar logs"),
+    "unknown": ("Falha não classificada", "Precisa de ação humana — verificar logs"),
+}
+
+
+def format_operational_message(
+    station_name: str,
+    program_name: str,
+    error_class: str,
+    detail: str,
+    event_id: str,
+    when: Optional[datetime] = None,
+) -> str:
+    """Aviso operacional classificado (falha temporária vs URL inválida vs ação humana)."""
+    label, action = _FAILURE_LABELS.get(error_class, _FAILURE_LABELS["unknown"])
+    lines = [
+        "⚙️ *RADAR PÚBLICO — AVISO OPERACIONAL*",
+        "",
+        f"*Rádio/Programa:* {station_name} — {program_name}",
+        f"*Diagnóstico:* {label}",
+        f"*Detalhe:* {detail[:200]}",
+        f"*Ação recomendada:* {action}",
+        "",
+        f"_{utc_to_brt_str(when)} BRT · evento: {event_id}_",
+    ]
     return "\n".join(lines)
 
 

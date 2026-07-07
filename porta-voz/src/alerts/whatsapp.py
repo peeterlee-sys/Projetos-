@@ -1,6 +1,9 @@
 """
-Envio de alertas via Z-API (WhatsApp Business).
+Envio de alertas via Z-API (WhatsApp Business) — texto e áudio.
 """
+import base64
+from pathlib import Path
+
 import httpx
 from typing import List, Optional
 
@@ -10,6 +13,7 @@ from src.core.logging_config import get_logger
 logger = get_logger(__name__)
 
 _HTTP_TIMEOUT = 20.0
+_AUDIO_HTTP_TIMEOUT = 120.0  # upload de áudio pode ser grande
 
 
 async def send_text(phone: str, message: str) -> bool:
@@ -63,6 +67,81 @@ async def send_text(phone: str, message: str) -> bool:
     except Exception as e:
         logger.error("whatsapp.error", phone=phone[-4:], error=str(e))
         return False
+
+
+async def send_audio(
+    phone: str,
+    audio_path: Optional[Path] = None,
+    audio_url: Optional[str] = None,
+) -> bool:
+    """
+    Envia áudio via Z-API. Aceita arquivo local (enviado como base64 data-URI)
+    ou URL pública. O Z-API entrega como mensagem de áudio no WhatsApp.
+    """
+    if not settings.ZAPI_INSTANCE_ID or not settings.ZAPI_TOKEN:
+        logger.warning("whatsapp.audio_not_configured", phone=phone[-4:])
+        return False
+
+    if audio_url:
+        audio_payload = audio_url
+    elif audio_path and audio_path.exists():
+        size = audio_path.stat().st_size
+        if size > settings.MAX_AUDIO_MB * 1024 * 1024:
+            logger.error(
+                "whatsapp.audio_too_large",
+                phone=phone[-4:],
+                size_mb=round(size / 1024 / 1024, 1),
+            )
+            return False
+        encoded = base64.b64encode(audio_path.read_bytes()).decode("ascii")
+        audio_payload = f"data:audio/mpeg;base64,{encoded}"
+    else:
+        logger.error("whatsapp.audio_missing", phone=phone[-4:])
+        return False
+
+    headers = {
+        "Content-Type": "application/json",
+        "Client-Token": settings.ZAPI_CLIENT_TOKEN,
+    }
+    payload = {"phone": phone, "audio": audio_payload}
+
+    try:
+        async with httpx.AsyncClient(timeout=_AUDIO_HTTP_TIMEOUT) as client:
+            response = await client.post(
+                settings.zapi_send_audio_url,
+                json=payload,
+                headers=headers,
+            )
+        if response.status_code in (200, 201):
+            logger.info("whatsapp.audio_sent", phone=phone[-4:])
+            return True
+        logger.error(
+            "whatsapp.audio_send_failed",
+            phone=phone[-4:],
+            status=response.status_code,
+            body=response.text[:300],
+        )
+        return False
+    except httpx.TimeoutException:
+        logger.error("whatsapp.audio_timeout", phone=phone[-4:])
+        return False
+    except Exception as e:
+        logger.error("whatsapp.audio_error", phone=phone[-4:], error=str(e))
+        return False
+
+
+async def send_audio_to_recipients(
+    phones: List[str],
+    audio_path: Optional[Path] = None,
+    audio_url: Optional[str] = None,
+) -> dict[str, bool]:
+    results: dict[str, bool] = {}
+    for phone in phones:
+        phone = phone.strip()
+        if not phone:
+            continue
+        results[phone] = await send_audio(phone, audio_path=audio_path, audio_url=audio_url)
+    return results
 
 
 async def send_to_recipients(

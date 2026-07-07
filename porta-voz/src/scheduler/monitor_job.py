@@ -1,9 +1,11 @@
 """
 Orquestrador principal de monitoramento.
-Coordena captura → transcrição → filtro → análise → alerta para um programa de rádio.
+Coordena captura → transcrição → filtro → análise → roteamento por cidade →
+alerta (texto + áudio completo) para um programa de rádio.
 Suporta múltiplos clientes monitorando a mesma rádio simultaneamente.
 """
 import asyncio
+from collections import deque
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -18,15 +20,21 @@ from src.core.models import (
     MonitoringSession, Program, RadioStation, Transcription,
     Analysis, Alert, AlertStatus, SessionStatus, Sentiment,
     Urgency, ContentType, AlertRecipient, StationSubscription, Organization,
+    CaptureEvent, CaptureEventType,
 )
+from src.core.costs import estimate_whisper_cost, estimate_whatsapp_cost
 from src.capture.stream_capture import StreamCapture, AudioChunk
 from src.capture.youtube import resolve_stream_url
+from src.capture.silence import is_silent_chunk
+from src.capture.clip_builder import build_clip, wait_for_post_context
 from src.transcriber.whisper_client import transcribe_audio
 from src.analyzer.keyword_filter import check_keywords
 from src.analyzer.claude_analyzer import analyze_transcription, AnalysisResult
-from src.analyzer.deduplicator import build_dedup_hash, is_duplicate
-from src.alerts.formatter import format_alert_message
-from src.alerts.whatsapp import send_to_recipients, filter_by_urgency
+from src.analyzer.deduplicator import build_dedup_hash, is_duplicate, is_similar_duplicate
+from src.analyzer.city_router import decide_routing, ACTION_SEND, ACTION_REVIEW
+from src.alerts.formatter import format_alert_message, format_operational_message, utc_to_brt_str
+from src.alerts.whatsapp import send_to_recipients, send_audio_to_recipients, filter_by_urgency
+from src.health.failure_classifier import classify_failure
 from src.reports.generator import generate_session_report
 from src.core.logging_config import get_logger
 
@@ -46,6 +54,13 @@ class MonitorJob:
         self.session_id = session_id
         self._capture: Optional[StreamCapture] = None
         self._running = False
+        self._station_id: Optional[str] = None
+        self._station_name: str = ""
+        self._program_name: str = ""
+        # Buffer rolante de transcrições para análise com contexto de bloco
+        self._recent_texts: deque = deque(maxlen=max(settings.ANALYSIS_CONTEXT_CHUNKS, 1))
+        self._first_chunk_seen = False
+        self._ops_notified_classes: set = set()
 
     async def run(self) -> None:
         async with AsyncSessionLocal() as db:
@@ -55,9 +70,20 @@ class MonitorJob:
 
             program = session.program
             station: RadioStation = program.station
+            self._station_id = station.id
+            self._station_name = station.name
+            self._program_name = program.name
 
             stream_url = await resolve_stream_url(station.stream_url, station.youtube_url)
             if not stream_url:
+                await self._record_capture_event(
+                    CaptureEventType.resolve_failed,
+                    error_class="invalid_url",
+                    message="Não foi possível resolver URL do stream",
+                )
+                await self._notify_operations(
+                    "invalid_url", "Não foi possível resolver URL do stream"
+                )
                 await self._fail_session(db, session, "Não foi possível resolver URL do stream")
                 return
 
@@ -72,6 +98,8 @@ class MonitorJob:
                 station=station.name,
             )
 
+        await self._record_capture_event(CaptureEventType.capture_started)
+
         self._running = True
 
         self._capture = StreamCapture(
@@ -79,6 +107,7 @@ class MonitorJob:
             session_id=self.session_id,
             chunk_duration=settings.CHUNK_DURATION_SECONDS,
             on_chunk=self._handle_chunk,
+            on_error=self._handle_capture_error,
         )
 
         try:
@@ -96,13 +125,88 @@ class MonitorJob:
         if self._capture:
             await self._capture.stop()
 
+    # ─── Saúde / eventos de captura ───────────────────────────────────────────
+
+    async def _handle_capture_error(self, error_text: str, attempt: int) -> None:
+        classification = classify_failure(error_text)
+        await self._record_capture_event(
+            CaptureEventType.reconnect if attempt <= settings.MAX_RECONNECT_ATTEMPTS
+            else CaptureEventType.capture_failed,
+            error_class=classification.error_class,
+            message=error_text[:500],
+            attempt=attempt,
+        )
+        # Notifica operações no primeiro erro de cada classe e no esgotamento
+        should_notify = (
+            classification.error_class not in self._ops_notified_classes
+            or attempt > settings.MAX_RECONNECT_ATTEMPTS
+        )
+        if should_notify and (classification.needs_human or attempt > settings.MAX_RECONNECT_ATTEMPTS):
+            self._ops_notified_classes.add(classification.error_class)
+            await self._notify_operations(classification.error_class, error_text)
+
+    async def _record_capture_event(
+        self,
+        event_type: CaptureEventType,
+        error_class: Optional[str] = None,
+        message: Optional[str] = None,
+        attempt: int = 0,
+    ) -> None:
+        if not self._station_id:
+            return
+        try:
+            async with AsyncSessionLocal() as db:
+                db.add(CaptureEvent(
+                    station_id=self._station_id,
+                    program_id=self.program_id,
+                    session_id=self.session_id,
+                    event_type=event_type,
+                    error_class=error_class,
+                    message=message,
+                    attempt=attempt,
+                ))
+                await db.commit()
+        except Exception as e:
+            logger.warning("monitor_job.capture_event_write_failed", error=str(e))
+
+    async def _notify_operations(self, error_class: str, detail: str) -> None:
+        phones = settings.operations_recipients_list
+        if not phones:
+            return
+        message = format_operational_message(
+            station_name=self._station_name,
+            program_name=self._program_name,
+            error_class=error_class,
+            detail=detail,
+            event_id=f"capture:{self.session_id[:8]}",
+        )
+        try:
+            await send_to_recipients(phones, message)
+        except Exception as e:
+            logger.warning("monitor_job.ops_notify_failed", error=str(e))
+
     # ─── Chunk handler ────────────────────────────────────────────────────────
 
     async def _handle_chunk(self, chunk: AudioChunk) -> None:
         """
         Processa um chunk de áudio para TODOS os clientes assinantes da rádio.
-        transcreve (1x) → para cada org: filtra → analisa → dedup → alerta
+        silêncio? → descarta | transcreve (1x) → para cada org:
+        filtra → analisa (com contexto de bloco) → roteia por cidade →
+        dedup → alerta com áudio completo
         """
+        if not self._first_chunk_seen:
+            self._first_chunk_seen = True
+            await self._record_capture_event(CaptureEventType.capture_success)
+
+        # 0. Pula silêncio/sinal morto — economiza Whisper
+        if await is_silent_chunk(chunk.file_path):
+            async with AsyncSessionLocal() as db:
+                session = await self._load_session(db)
+                if session:
+                    session.total_chunks += 1
+                    await db.commit()
+            return
+
         async with AsyncSessionLocal() as db:
             session = await self._load_session(db)
             if not session:
@@ -110,7 +214,7 @@ class MonitorJob:
 
             program: Program = session.program
             station: RadioStation = program.station
-            chunk_time = chunk.started_at.strftime("%H:%M:%S")
+            chunk_time = utc_to_brt_str(chunk.started_at)
 
             # 1. Transcrição única para todos os clientes
             transcription_result = await transcribe_audio(
@@ -124,15 +228,19 @@ class MonitorJob:
                 return
 
             text = transcription_result.text
+            self._recent_texts.append((chunk.index, text))
+            # Bloco de contexto: chunks anteriores + atual (a menção pode
+            # começar antes do chunk que disparou a keyword)
+            context_text = " ".join(t for _, t in self._recent_texts)
 
             # 2. Coleta todos os orgs que devem processar este chunk
             org_ids = await self._get_subscriber_org_ids(db, station.id, station.org_id)
 
-            # 3. Verifica se ALGUM org tem match de keyword
+            # 3. Verifica se ALGUM org tem match de keyword (no bloco de contexto)
             any_match = False
             for org_id in org_ids:
                 keywords_db = await self._load_keywords(db, org_id, program.id)
-                has_match, _ = check_keywords(text, custom_keywords=keywords_db)
+                has_match, _ = check_keywords(context_text, custom_keywords=keywords_db)
                 if has_match:
                     any_match = True
                     break
@@ -158,6 +266,8 @@ class MonitorJob:
             if not any_match:
                 return
 
+            whisper_cost = estimate_whisper_cost(chunk.duration_seconds)
+
             # 5. Processa para cada org independentemente
             for org_id in org_ids:
                 try:
@@ -165,11 +275,13 @@ class MonitorJob:
                         org_id=org_id,
                         transcription_id=transcription_row.id,
                         session_id=self.session_id,
-                        text=text,
+                        text=context_text,
                         station=station,
                         program=program,
                         chunk_time=chunk_time,
                         program_id=program.id,
+                        chunk=chunk,
+                        whisper_cost=whisper_cost,
                     )
                 except Exception as e:
                     logger.error("monitor_job.org_processing_error", org_id=org_id, error=str(e))
@@ -186,10 +298,14 @@ class MonitorJob:
         program: Program,
         chunk_time: str,
         program_id: str,
+        chunk: AudioChunk,
+        whisper_cost: float,
     ) -> None:
-        """Executa o pipeline completo (filtro → análise → alerta) para um cliente específico."""
+        """Pipeline completo (filtro → análise → roteamento → dedup → alerta) por cliente."""
         async with AsyncSessionLocal() as db:
             city_filter = await self._get_city_filter(db, station.id, org_id)
+            org = await db.get(Organization, org_id)
+            contracted_city = city_filter or (org.city if org else None)
 
             # 1. Filtro por palavras-chave do cliente
             keywords_db = await self._load_keywords(db, org_id, program_id)
@@ -198,7 +314,7 @@ class MonitorJob:
             if not has_match:
                 return
 
-            # 2. Análise Claude com contexto do cliente
+            # 2. Análise Claude com contexto do cliente + classificação de cidade
             station_label = f"{station.name} ({city_filter})" if city_filter else station.name
             city_context = await self._get_org_city_context(db, org_id)
             analysis_result: Optional[AnalysisResult] = await analyze_transcription(
@@ -208,6 +324,7 @@ class MonitorJob:
                 chunk_time=chunk_time,
                 matched_keywords=matched,
                 city_context=city_context,
+                contracted_city=contracted_city,
             )
 
             if not analysis_result:
@@ -228,6 +345,15 @@ class MonitorJob:
                 suggested_action=analysis_result.suggested_action,
                 raw_response=analysis_result.raw_response,
                 claude_duration_ms=analysis_result.duration_ms,
+                primary_city=analysis_result.primary_city,
+                mentioned_cities=analysis_result.mentioned_cities or [],
+                affected_cities=analysis_result.affected_cities or [],
+                related_department=analysis_result.related_department,
+                city_confidence=analysis_result.city_confidence,
+                city_reasoning=analysis_result.city_reasoning,
+                input_tokens=analysis_result.input_tokens,
+                output_tokens=analysis_result.output_tokens,
+                estimated_cost_usd=analysis_result.estimated_cost_usd,
             )
             db.add(analysis_row)
             await db.flush()
@@ -236,13 +362,57 @@ class MonitorJob:
                 await db.commit()
                 return
 
-            # 3. Deduplicação por org — usa content_type + primeiras palavras do tema
-            # (não o texto completo, que varia a cada chunk mesmo para o mesmo assunto)
+            estimated_cost = whisper_cost + (analysis_result.estimated_cost_usd or 0.0)
+
+            # 3. Roteamento por cidade — NUNCA enviar só por keyword
+            routing = decide_routing(
+                contracted_city=contracted_city,
+                primary_city=analysis_result.primary_city,
+                affected_cities=analysis_result.affected_cities,
+                city_confidence=analysis_result.city_confidence,
+            )
+
+            if not routing.should_send:
+                status = (
+                    AlertStatus.needs_review if routing.action == ACTION_REVIEW
+                    else AlertStatus.blocked
+                )
+                db.add(Alert(
+                    session_id=session_id,
+                    analysis_id=analysis_row.id,
+                    org_id=org_id,
+                    status=status,
+                    message_text=f"[{status.value.upper()}] {analysis_result.theme}",
+                    recipients=[],
+                    contracted_city=contracted_city,
+                    detected_city=analysis_result.primary_city,
+                    routing_decision=routing.action,
+                    routing_reason=routing.reason,
+                    estimated_cost_usd=estimated_cost,
+                ))
+                await db.commit()
+                logger.info(
+                    "monitor_job.alert_routed_out",
+                    org_id=org_id,
+                    action=routing.action,
+                    contracted_city=contracted_city,
+                    detected_city=analysis_result.primary_city,
+                    reason=routing.reason,
+                )
+                return
+
+            # 4. Deduplicação por org — hash exato + similaridade textual
             theme_key = " ".join((analysis_result.theme or "").lower().split()[:4])
             dedup_hash = f"{org_id}:{build_dedup_hash(theme_key, analysis_result.content_type, station.name)}"
 
-            if await is_duplicate(db, session_id, dedup_hash):
-                alert_row = Alert(
+            duplicate = await is_duplicate(db, session_id, dedup_hash)
+            if not duplicate:
+                duplicate = await is_similar_duplicate(
+                    db, org_id, analysis_result.theme or "", analysis_result.summary or ""
+                )
+
+            if duplicate:
+                db.add(Alert(
                     session_id=session_id,
                     analysis_id=analysis_row.id,
                     org_id=org_id,
@@ -250,25 +420,39 @@ class MonitorJob:
                     dedup_hash=dedup_hash,
                     message_text="[SUPRIMIDO - DEDUPLICADO]",
                     recipients=[],
-                )
-                db.add(alert_row)
+                    contracted_city=contracted_city,
+                    detected_city=analysis_result.primary_city,
+                    routing_decision="suppressed",
+                    routing_reason="Mesmo assunto já alertado dentro da janela de deduplicação.",
+                    estimated_cost_usd=estimated_cost,
+                ))
                 await db.commit()
                 return
 
-            # 4. Verifica urgência mínima
+            # 5. Verifica urgência mínima
             if analysis_result.urgency not in ALERT_URGENCIES:
                 await db.commit()
                 return
 
-            # 5. Formata e envia alerta
+            # 6. Formata e envia alerta (texto agora, áudio completo em seguida)
+            recipients = await self._get_recipients(db, org_id, program, analysis_result.urgency)
+
+            audio_url = None
+            if settings.PUBLIC_BASE_URL:
+                audio_url = f"{settings.PUBLIC_BASE_URL.rstrip('/')}/api/v1/clips/{transcription_id}"
+
             message = format_alert_message(
                 analysis=analysis_result,
                 station_name=station.name,
                 program_name=program.name,
                 chunk_time=chunk_time,
+                city=contracted_city,
+                routing_reason=routing.reason,
+                audio_note="O áudio completo do trecho chega em seguida nesta conversa.",
+                audio_url=audio_url,
             )
 
-            recipients = await self._get_recipients(db, org_id, program, analysis_result.urgency)
+            estimated_cost += estimate_whatsapp_cost(len(recipients) * 2)  # texto + áudio
 
             alert_row = Alert(
                 session_id=session_id,
@@ -278,12 +462,28 @@ class MonitorJob:
                 dedup_hash=dedup_hash,
                 message_text=message,
                 recipients=recipients,
+                contracted_city=contracted_city,
+                detected_city=analysis_result.primary_city,
+                routing_decision=ACTION_SEND,
+                routing_reason=routing.reason,
+                audio_url=audio_url,
+                audio_status="pending",
+                estimated_cost_usd=estimated_cost,
             )
             db.add(alert_row)
             await db.flush()
+            alert_id = alert_row.id
 
             asyncio.create_task(
-                self._send_alert(alert_row.id, recipients, message)
+                self._send_alert_with_audio(
+                    alert_id=alert_id,
+                    recipients=recipients,
+                    message=message,
+                    transcription_id=transcription_id,
+                    chunk_dir=chunk.file_path.parent,
+                    chunk_index=chunk.index,
+                    audio_url=audio_url,
+                )
             )
 
             await db.commit()
@@ -293,7 +493,85 @@ class MonitorJob:
                 org_id=org_id,
                 theme=analysis_result.theme,
                 urgency=analysis_result.urgency,
+                contracted_city=contracted_city,
+                detected_city=analysis_result.primary_city,
+                cost_usd=estimated_cost,
             )
+
+    # ─── Envio: texto + áudio completo ────────────────────────────────────────
+
+    async def _send_alert_with_audio(
+        self,
+        alert_id: str,
+        recipients: list,
+        message: str,
+        transcription_id: str,
+        chunk_dir: Path,
+        chunk_index: int,
+        audio_url: Optional[str],
+    ) -> None:
+        # 1. Texto imediatamente
+        results = await send_to_recipients(recipients, message)
+        any_success = any(results.values())
+
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(select(Alert).where(Alert.id == alert_id))
+            alert = result.scalar_one_or_none()
+            if alert:
+                alert.status = AlertStatus.sent if any_success else AlertStatus.failed
+                alert.sent_at = datetime.utcnow()
+                if not any_success:
+                    alert.error_message = "Nenhum destinatário recebeu a mensagem"
+                await db.commit()
+
+        # 2. Aguarda o contexto posterior e monta o clip completo
+        audio_status = "none"
+        clip_path_str = None
+        try:
+            await wait_for_post_context(chunk_dir, chunk_index)
+            clip = await build_clip(chunk_dir, chunk_index, self.session_id)
+            if clip:
+                clip_path_str = str(clip.file_path)
+                if clip.truncated:
+                    # Limite técnico: envia link (se houver) e registra a limitação
+                    audio_status = "link_only" if audio_url else "failed"
+                    logger.warning(
+                        "alert.audio_over_limit",
+                        alert_id=alert_id,
+                        size_bytes=clip.size_bytes,
+                    )
+                    if audio_url:
+                        note = f"⚠️ Áudio excede o limite do WhatsApp — ouça completo em: {audio_url}"
+                        await send_to_recipients(recipients, note)
+                else:
+                    audio_results = await send_audio_to_recipients(
+                        recipients, audio_path=clip.file_path
+                    )
+                    audio_status = "sent" if any(audio_results.values()) else "failed"
+                    if audio_status == "failed" and audio_url:
+                        note = f"⚠️ Falha no envio do áudio — ouça completo em: {audio_url}"
+                        await send_to_recipients(recipients, note)
+                        audio_status = "link_only"
+            else:
+                audio_status = "failed"
+        except Exception as e:
+            logger.error("alert.audio_pipeline_error", alert_id=alert_id, error=str(e))
+            audio_status = "failed"
+
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(select(Alert).where(Alert.id == alert_id))
+            alert = result.scalar_one_or_none()
+            if alert:
+                alert.audio_status = audio_status
+                alert.clip_file_path = clip_path_str
+                await db.commit()
+
+            # vincula o clip à transcrição para o endpoint público de download
+            if clip_path_str:
+                t = await db.get(Transcription, transcription_id)
+                if t:
+                    t.clip_file_path = clip_path_str
+                    await db.commit()
 
     # ─── Helpers ──────────────────────────────────────────────────────────────
 
@@ -402,20 +680,6 @@ class MonitorJob:
             filtered = settings.alert_recipients_list
 
         return filtered
-
-    async def _send_alert(self, alert_id: str, recipients: list, message: str) -> None:
-        results = await send_to_recipients(recipients, message)
-        any_success = any(results.values())
-
-        async with AsyncSessionLocal() as db:
-            result = await db.execute(select(Alert).where(Alert.id == alert_id))
-            alert = result.scalar_one_or_none()
-            if alert:
-                alert.status = AlertStatus.sent if any_success else AlertStatus.failed
-                alert.sent_at = datetime.utcnow()
-                if not any_success:
-                    alert.error_message = "Nenhum destinatário recebeu a mensagem"
-                await db.commit()
 
     async def _fail_session(self, db: AsyncSession, session: MonitoringSession, reason: str) -> None:
         session.status = SessionStatus.failed
