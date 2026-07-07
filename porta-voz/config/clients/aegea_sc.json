@@ -129,7 +129,12 @@
     "environmental": [], "positive_opportunity": []
   },
 
-  "alert_recipients": [],
+  "alert_recipients": [
+    {"name": "Peeter (calibração)", "phone": "5547999459031", "urgency_filter": "low"}
+  ],
+
+  "subscribe_to_existing_radios": true,
+  "_nota_assinaturas": "Com subscribe_to_existing_radios=true, o setup assina a Aegea em TODAS as rádios ativas já cadastradas (litoral norte SC), sem city_filter — a geografia multi-cidade é tratada pelo system_prompt. O gating de rádio compartilhada garante que a Aegea só paga análise quando cidade/unidade/tema dela aparece no trecho.",
 
   "stations": [
     {"name": "", "city": "Bombinhas", "state": "SC", "stream_url": "", "youtube_url": "",

@@ -308,13 +308,31 @@ def main():
         print(f"  ⚠ {s['city']} — SEM stream_url/youtube_url no JSON (não capturada ainda)")
 
     # 5. Assinaturas (AEGEA nas suas próprias rádios, com city_filter = cidade)
-    print(f"\n[5/5] Assinaturas ({len(created_stations)})...")
+    print(f"\n[5/6] Assinaturas nas rádios próprias ({len(created_stations)})...")
     for station_id, s in created_stations:
         code, res = req("POST", "/subscriptions/", {
             "station_id": station_id, "org_id": org_id, "city_filter": s["city"],
         })
         state = "criada" if code == 201 else ("já existe" if code == 409 else f"HTTP {code}")
         print(f"  ✓ {s['city']} → assinatura ({state})")
+
+    # 6. Assinaturas nas rádios JÁ EXISTENTES no sistema (rádios regionais que
+    # cobrem as cidades da Aegea). Sem city_filter: a geografia multi-cidade é
+    # tratada pelo system_prompt; o gating de rádio compartilhada garante que a
+    # Aegea só analisa trechos com cidade/unidade/tema dela.
+    if cfg.get("subscribe_to_existing_radios"):
+        code, stations = req("GET", "/stations/")
+        existing = [s for s in stations if s.get("is_active")] if isinstance(stations, list) else []
+        own_ids = {sid for sid, _ in created_stations}
+        print(f"\n[6/6] Assinaturas nas rádios existentes ({len(existing)})...")
+        for s in existing:
+            if s["id"] in own_ids:
+                continue
+            code, res = req("POST", "/subscriptions/", {
+                "station_id": s["id"], "org_id": org_id, "city_filter": None,
+            })
+            state = "criada" if code == 201 else ("já existe" if code == 409 else f"HTTP {code}")
+            print(f"  ✓ {s['name']} ({s.get('city','?')}) → assinatura ({state})")
 
     print("\n" + "=" * 60)
     print("  ✅ Setup Aegea SC concluído")
