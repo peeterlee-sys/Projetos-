@@ -26,7 +26,7 @@ from src.core.models import (
 from src.capture.stream_capture import StreamCapture, AudioChunk
 from src.capture.youtube import resolve_stream_url, build_ytdlp_stream_cmd, is_youtube_url
 from src.transcriber.whisper_client import transcribe_audio
-from src.analyzer.keyword_filter import check_keywords
+from src.analyzer.keyword_filter import check_keywords, _normalize
 from src.analyzer.claude_analyzer import analyze_transcription, AnalysisResult
 from src.analyzer.deduplicator import build_dedup_hash, is_duplicate
 from src.alerts.formatter import format_alert_message
@@ -230,17 +230,31 @@ class MonitorJob:
 
             # 2. Coleta todos os orgs que devem processar este chunk
             org_ids = await self._get_subscriber_org_ids(db, station.id, station.org_id)
+            shared_station = len(org_ids) > 1
+            norm_text = _normalize(window_text)
 
-            # 3. Verifica se ALGUM org tem match de keyword — na JANELA, para que um
-            # bloco de continuação (a gravidade) seja analisado mesmo que a keyword
-            # tenha ficado no bloco anterior.
-            any_match = False
+            # 3. Decide QUAIS orgs analisar. Numa rádio compartilhada por vários
+            # clientes, só analisa a org cuja CIDADE (ou palavra-chave própria dela)
+            # aparece no trecho — evita pagar N análises quando o assunto é de uma
+            # cidade só (as palavras genéricas casavam para todas). Em rádio
+            # dedicada (1 assinante), mantém o filtro amplo com defaults.
+            orgs_to_process: list[str] = []
             for org_id in org_ids:
                 keywords_db = await self._load_keywords(db, org_id, program.id)
-                has_match, _ = check_keywords(window_text, custom_keywords=keywords_db)
-                if has_match:
-                    any_match = True
-                    break
+                if shared_station:
+                    city = await self._get_city_filter(db, station.id, org_id)
+                    city_hit = bool(city) and _normalize(city) in norm_text
+                    kw_hit, _ = check_keywords(
+                        window_text, custom_keywords=keywords_db, include_defaults=False
+                    )
+                    if city_hit or kw_hit:
+                        orgs_to_process.append(org_id)
+                else:
+                    has_match, _ = check_keywords(window_text, custom_keywords=keywords_db)
+                    if has_match:
+                        orgs_to_process.append(org_id)
+
+            any_match = bool(orgs_to_process)
 
             # 4. Salva transcrição uma vez (compartilhada) — só o texto do bloco atual
             transcription_row = Transcription(
@@ -263,8 +277,8 @@ class MonitorJob:
             if not any_match:
                 return
 
-            # 5. Processa para cada org independentemente — analisa a JANELA de contexto
-            for org_id in org_ids:
+            # 5. Processa só as orgs selecionadas — analisa a JANELA de contexto
+            for org_id in orgs_to_process:
                 try:
                     await self._process_for_org(
                         org_id=org_id,
