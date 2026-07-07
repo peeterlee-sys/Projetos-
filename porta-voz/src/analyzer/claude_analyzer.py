@@ -82,7 +82,8 @@ Responda EXATAMENTE com este JSON (sem markdown, sem explicação, apenas o JSON
   "reason": "por que isso importa para a prefeitura: risco ou oportunidade em até 150 caracteres",
   "suggested_action": "ação prática sugerida para a equipe de comunicação em até 150 caracteres",
   "response_draft": "minuta de nota institucional pronta para enviar ao veículo ou publicar, em até 300 caracteres. Só preencha se is_relevant=true, senão retorne string vazia.",
-  "entities_mentioned": ["lista", "de", "pessoas", "lugares", "programas", "citados"]
+  "entities_mentioned": ["lista", "de", "pessoas", "lugares", "programas", "citados"],
+  "city_mentioned": "cidade a que o conteúdo se refere — explícita no trecho ou dedutível por bairro/equipamento público citado. Se não houver evidência da cidade, use a cidade-sede da rádio. Se nem isso for possível, 'incerta'."
 }}"""
 
 
@@ -103,6 +104,7 @@ class AnalysisResult:
     entities_mentioned: list
     duration_ms: int
     raw_response: dict
+    city_mentioned: str = ""
 
 
 SUMMARY_SYSTEM_PROMPT = """Você é um assistente que resume programas de rádio de forma objetiva e concisa.
@@ -175,6 +177,7 @@ async def analyze_transcription(
     city_context: Optional[str] = None,
     org_system_prompt: Optional[str] = None,
     monitored_city: Optional[str] = None,
+    station_city: Optional[str] = None,
 ) -> Optional[AnalysisResult]:
     """
     Analisa um trecho transcrito com Claude.
@@ -204,13 +207,22 @@ async def analyze_transcription(
     )
 
     if monitored_city:
+        home = (
+            f"A rádio é SEDIADA em {station_city}: conteúdo local sem cidade "
+            f"explícita (hospital, UPA, obra, bairro não identificado) refere-se "
+            f"por padrão a {station_city}, NÃO a {monitored_city}. "
+            if station_city and station_city.strip().lower() != monitored_city.strip().lower()
+            else ""
+        )
         user_message = (
-            f"FILTRO GEOGRÁFICO OBRIGATÓRIO: esta rádio cobre mais de um município. "
-            f"Só marque is_relevant=true se o conteúdo for especificamente sobre o "
-            f"município de {monitored_city} (ou uma autoridade/órgão/bairro de "
-            f"{monitored_city}). Se o trecho for sobre OUTRA cidade — mesmo citando "
-            f"prefeito, prefeita, obra, buraco, saneamento ou serviço público —, "
-            f"marque is_relevant=false. Na dúvida sobre a cidade, is_relevant=false.\n\n"
+            f"FILTRO GEOGRÁFICO OBRIGATÓRIO: esta rádio cobre mais de um município, "
+            f"mas este cliente monitora APENAS {monitored_city}. {home}"
+            f"Só marque is_relevant=true se o conteúdo for especificamente sobre "
+            f"{monitored_city} (cidade nomeada, ou bairro/autoridade/equipamento "
+            f"público que você saiba ser de {monitored_city}). Se for sobre outra "
+            f"cidade — mesmo citando prefeito, obra, hospital ou serviço público — "
+            f"marque is_relevant=false. Na dúvida sobre a cidade, is_relevant=false "
+            f"e city_mentioned='incerta'.\n\n"
         ) + user_message
 
     # Bloco de sistema com CACHE DE PROMPT: o prompt-base e o contexto da cidade
@@ -266,6 +278,7 @@ async def analyze_transcription(
             entities_mentioned=parsed.get("entities_mentioned", []),
             duration_ms=duration_ms,
             raw_response=parsed,
+            city_mentioned=str(parsed.get("city_mentioned", ""))[:80],
         )
 
         usage = getattr(response, "usage", None)

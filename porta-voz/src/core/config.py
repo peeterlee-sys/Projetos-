@@ -65,9 +65,10 @@ class Settings(BaseSettings):
     CHUNK_CONTEXT_WINDOW: int = 2
     DEDUP_WINDOW_MINUTES: int = 60
     # Agregação de alertas por assunto: junta blocos consecutivos do mesmo
-    # assunto num único alerta com o áudio completo.
-    ALERT_AGG_QUIET_SECONDS: int = 75      # tempo sem novas menções antes de enviar
-    ALERT_AGG_MAX_WINDOW_SECONDS: int = 300  # janela máxima de agregação por assunto
+    # assunto num único alerta com o áudio completo. O sistema OUVE o assunto
+    # inteiro (até 2 min de silêncio sobre o tema, máx. 10 min) antes de enviar.
+    ALERT_AGG_QUIET_SECONDS: int = 120     # tempo sem novas menções antes de enviar
+    ALERT_AGG_MAX_WINDOW_SECONDS: int = 600  # janela máxima de agregação por assunto
     # Clipagem diária: resumo com TODA menção relevante do dia (estilo clipping),
     # enviado uma vez por dia por organização, no horário abaixo (BRT).
     DAILY_CLIPPING_ENABLED: bool = True

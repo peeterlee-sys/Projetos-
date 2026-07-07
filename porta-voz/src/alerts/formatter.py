@@ -66,6 +66,7 @@ def format_alert_message(
     recurrence_count: int = 0,
     cross_radio_stations: Optional[list] = None,
     dashboard_url: str = "",
+    org_name: Optional[str] = None,
 ) -> str:
     """
     Formata mensagem de alerta WhatsApp com emojis e estrutura clara.
@@ -86,6 +87,10 @@ def format_alert_message(
     lines = [
         f"{emoji} *ALERTA {urgency_label} — {station_name.upper()}*",
         "",
+    ]
+    if org_name:
+        lines.append(f"🏛️ *Cliente:* {org_name}")
+    lines += [
         f"📻 *Programa:* {program_name}",
         f"🕐 *Horário:* {chunk_time}",
         f"🎙️ *Fonte:* {source_label}",

@@ -32,7 +32,9 @@ from src.analyzer.claude_analyzer import analyze_transcription, AnalysisResult
 from src.analyzer.deduplicator import build_dedup_hash, is_duplicate
 from src.alerts.formatter import format_alert_message
 from src.alerts.whatsapp import send_to_recipients, send_audio, filter_by_urgency
-from src.reports.generator import generate_session_report
+from src.reports.generator import (
+    generate_session_report, _themes_similar, _normalize_theme, _THEME_STOPWORDS,
+)
 from src.core.admin_notify import notify_admin
 from src.core.logging_config import get_logger
 
@@ -40,6 +42,28 @@ logger = get_logger(__name__)
 
 ALERT_URGENCIES = {"critical", "high"}
 _URG_SEVERITY = {"low": 0, "medium": 1, "high": 2, "critical": 3}
+
+
+def _alert_theme_match(a: str, b: str) -> bool:
+    """
+    Similaridade de tema para FUNDIR alertas do mesmo assunto na sessão.
+    Um pouco mais agressiva que a dos relatórios: aceita tokens curtos (UPA,
+    ETE) e usa contenção no conjunto menor — o modelo redige o mesmo assunto
+    com palavras diferentes a cada bloco.
+    """
+    if _themes_similar(a, b):
+        return True
+    ta = {w for w in _normalize_theme(a).split() if len(w) >= 3 and w not in _THEME_STOPWORDS}
+    tb = {w for w in _normalize_theme(b).split() if len(w) >= 3 and w not in _THEME_STOPWORDS}
+    if not ta or not tb:
+        return False
+
+    def _tok_eq(x: str, y: str) -> bool:
+        # casa flexões simples: obra/obras, prejudica/prejudicam
+        return x == y or (min(len(x), len(y)) >= 4 and (x.startswith(y) or y.startswith(x)))
+
+    inter = sum(1 for x in ta if any(_tok_eq(x, y) for y in tb))
+    return inter >= 2 and inter / min(len(ta), len(tb)) >= 0.6
 
 
 class MonitorJob:
@@ -56,6 +80,7 @@ class MonitorJob:
         # Agregação de alertas por assunto (chave = dedup_hash):
         self._pending: dict[str, dict] = {}     # assuntos aguardando envio
         self._alerted_keys: set[str] = set()    # assuntos já alertados nesta sessão
+        self._alerted_themes: dict[str, tuple] = {}  # key → (org_id, theme) p/ merge
         self._pending_lock = asyncio.Lock()
         # Janela de contexto da análise: textos dos últimos N blocos (incl. atual).
         # A análise roda sobre a janela inteira para não perder a gravidade de um
@@ -337,8 +362,13 @@ class MonitorJob:
             if not has_match:
                 return
 
-            # 2. Análise Claude com contexto do cliente
-            station_label = f"{station.name} ({city_filter})" if city_filter else station.name
+            # 2. Análise Claude com contexto do cliente.
+            # O rótulo da rádio usa a cidade REAL dela (não a do assinante!) —
+            # rotular "Menina FM (Itapema)" induzia o modelo a atribuir conteúdo
+            # de Balneário Camboriú ao cliente errado.
+            station_label = (
+                f"{station.name} (rádio de {station.city})" if station.city else station.name
+            )
             city_context = await self._get_org_city_context(db, org_id)
             org_system_prompt = await self._get_org_system_prompt(db, org_id)
             analysis_result: Optional[AnalysisResult] = await analyze_transcription(
@@ -350,10 +380,27 @@ class MonitorJob:
                 city_context=city_context,
                 org_system_prompt=org_system_prompt,
                 monitored_city=city_filter,
+                station_city=station.city,
             )
 
             if not analysis_result:
                 return
+
+            # 2b. Checagem MECÂNICA de cidade: se este cliente monitora uma cidade
+            # específica, o conteúdo só é dele se o modelo atribuiu essa cidade.
+            # "incerta" ou outra cidade → não é deste cliente (nem alerta, nem
+            # clipagem) — mata o alerta de hospital de BC entregue como Itapema.
+            if city_filter and analysis_result.is_relevant:
+                attributed = _normalize(analysis_result.city_mentioned or "")
+                wanted = _normalize(city_filter)
+                if wanted not in attributed:
+                    logger.info(
+                        "analyzer.city_mismatch_suppressed",
+                        org_city=city_filter,
+                        city_mentioned=analysis_result.city_mentioned,
+                        theme=analysis_result.theme,
+                    )
+                    analysis_result.is_relevant = False
 
             analysis_row = Analysis(
                 transcription_id=transcription_id,
@@ -390,6 +437,7 @@ class MonitorJob:
             # 5. Enriquece e formata a mensagem deste bloco
             recurrence_count = await self._count_theme_recurrence(db, dedup_hash)
             cross_radio = await self._get_cross_radio_stations(db, org_id, station.id)
+            org_row = await db.get(Organization, org_id)
             message = format_alert_message(
                 analysis=analysis_result,
                 station_name=station.name,
@@ -398,6 +446,7 @@ class MonitorJob:
                 recurrence_count=recurrence_count,
                 cross_radio_stations=cross_radio,
                 dashboard_url=settings.DASHBOARD_URL,
+                org_name=org_row.name if org_row else None,
             )
             recipients = await self._get_recipients(db, org_id, program, analysis_result.urgency)
             await db.commit()
@@ -608,6 +657,15 @@ class MonitorJob:
         now = time.monotonic()
 
         async with self._pending_lock:
+            # O modelo redige o tema com palavras diferentes a cada bloco
+            # ("Falta de raio-x na UPA" / "Reclamação sobre raio-x no hospital"),
+            # o que fragmentava o assunto em vários alertas. Antes de abrir um
+            # buffer novo, procura um assunto SIMILAR já em andamento (ou já
+            # alertado) deste mesmo cliente e funde neste.
+            merge_key = self._find_merge_key(org_id, theme)
+            if merge_key:
+                key = merge_key
+
             # Assunto já alertado nesta sessão → não repete (fica só no relatório)
             if key in self._alerted_keys:
                 return
@@ -645,6 +703,18 @@ class MonitorJob:
             delay = 0 if (now - buf["started"]) >= maxwin else quiet
             buf["flush_task"] = asyncio.create_task(self._flush_after(key, delay))
 
+    def _find_merge_key(self, org_id: str, theme: Optional[str]) -> Optional[str]:
+        """Chave de um assunto similar já em buffer/alertado para o mesmo cliente."""
+        if not theme:
+            return None
+        for k, buf in self._pending.items():
+            if buf["org_id"] == org_id and buf.get("theme") and _alert_theme_match(theme, buf["theme"]):
+                return k
+        for k, (oid, t) in self._alerted_themes.items():
+            if oid == org_id and t and _alert_theme_match(theme, t):
+                return k
+        return None
+
     async def _flush_after(self, key: str, delay: float) -> None:
         try:
             if delay > 0:
@@ -664,6 +734,7 @@ class MonitorJob:
                 return  # um bloco mais novo reagendou; o próximo flush cuida
             self._pending.pop(key, None)
             self._alerted_keys.add(key)
+            self._alerted_themes[key] = (buf["org_id"], buf.get("theme"))
         await self._send_buffered_alert(key, buf)
 
     async def _flush_all_pending(self) -> None:
@@ -671,10 +742,11 @@ class MonitorJob:
         async with self._pending_lock:
             items = list(self._pending.items())
             self._pending.clear()
-            for k, _ in items:
+            for k, b in items:
                 self._alerted_keys.add(k)
-                if _.get("flush_task"):
-                    _["flush_task"].cancel()
+                self._alerted_themes[k] = (b["org_id"], b.get("theme"))
+                if b.get("flush_task"):
+                    b["flush_task"].cancel()
         for key, buf in items:
             try:
                 await self._send_buffered_alert(key, buf)
