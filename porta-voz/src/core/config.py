@@ -41,6 +41,9 @@ class Settings(BaseSettings):
 
     # Alertas
     DEFAULT_ALERT_RECIPIENTS: str = ""
+    # WhatsApp do ADMINISTRADOR do sistema (watchdog: falha de captura, org sem
+    # destinatário, disco...). Se vazio, usa o primeiro de DEFAULT_ALERT_RECIPIENTS.
+    ADMIN_ALERT_PHONE: str = ""
 
     # Monitoramento
     # 60s por bloco (era 30s): metade dos blocos = metade das chamadas de análise

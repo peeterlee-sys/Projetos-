@@ -1,7 +1,9 @@
 """
 Autenticação da plataforma do cliente: login por e-mail/senha e emissão de
 token de sessão assinado. Protege endpoints por organização.
+Também define require_admin: proteção por token dos endpoints administrativos.
 """
+import hmac
 from datetime import datetime
 from typing import Optional
 
@@ -10,6 +12,7 @@ from pydantic import BaseModel
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.core.config import settings
 from src.core.database import get_db
 from src.core.models import User, Organization
 from src.core.security import verify_password, create_token, verify_token
@@ -57,6 +60,19 @@ async def login(payload: LoginIn, db: AsyncSession = Depends(get_db)):
 
 
 # ─── Dependency de autorização ──────────────────────────────────────────────
+
+async def require_admin(x_admin_token: str = Header(default="")) -> None:
+    """
+    Protege endpoints ADMINISTRATIVOS (criar/alterar/apagar clientes, rádios,
+    keywords etc.). Exige o header 'X-Admin-Token' igual ao API_SECRET_KEY.
+    Scripts internos leem a chave do .env e enviam o header.
+    """
+    expected = settings.API_SECRET_KEY or ""
+    if not expected or expected == "dev-secret-change-in-production":
+        # Sem chave forte configurada, nega tudo — falhar fechado.
+        raise HTTPException(status_code=503, detail="API_SECRET_KEY não configurada no servidor")
+    if not hmac.compare_digest(x_admin_token, expected):
+        raise HTTPException(status_code=401, detail="Token administrativo inválido")
 
 async def get_current_user(
     authorization: Optional[str] = Header(default=None),

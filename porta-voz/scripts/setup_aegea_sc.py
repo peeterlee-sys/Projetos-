@@ -33,6 +33,25 @@ CONFIG_PATH = os.path.join(
 )
 
 
+def _admin_token() -> str:
+    """Token dos endpoints administrativos: env ADMIN_TOKEN ou API_SECRET_KEY do .env."""
+    tok = os.environ.get("ADMIN_TOKEN", "")
+    if tok:
+        return tok
+    env_path = os.path.join(os.path.dirname(CONFIG_PATH), "..", "..", ".env")
+    try:
+        with open(os.path.normpath(env_path), encoding="utf-8") as f:
+            for line in f:
+                if line.strip().startswith("API_SECRET_KEY="):
+                    return line.split("=", 1)[1].strip().strip('"').strip("'")
+    except FileNotFoundError:
+        pass
+    return ""
+
+
+ADMIN_TOKEN = _admin_token()
+
+
 def load_config() -> dict:
     with open(CONFIG_PATH, encoding="utf-8") as f:
         return json.load(f)
@@ -150,6 +169,8 @@ def req(method, path, data=None):
     url = BASE + path
     body = json.dumps(data).encode() if data is not None else None
     headers = {"Content-Type": "application/json"} if body else {}
+    if ADMIN_TOKEN:
+        headers["X-Admin-Token"] = ADMIN_TOKEN
     r = urllib.request.Request(url, data=body, headers=headers, method=method)
     try:
         with urllib.request.urlopen(r) as resp:

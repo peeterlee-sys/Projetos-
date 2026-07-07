@@ -13,6 +13,7 @@ from src.api.schemas import (
     MonitorStartRequest, MonitorStatusOut, MessageOut,
 )
 from src.scheduler.job_manager import job_manager
+from src.api.routes.auth import require_admin
 
 router = APIRouter(prefix="/programs", tags=["Programas"])
 
@@ -29,7 +30,7 @@ async def list_programs(
     return result.scalars().all()
 
 
-@router.post("/", response_model=ProgramOut, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=ProgramOut, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_admin)])
 async def create_program(payload: ProgramCreate, db: AsyncSession = Depends(get_db)):
     station = await db.get(RadioStation, payload.station_id)
     if not station:
@@ -54,7 +55,7 @@ async def get_program(program_id: str, db: AsyncSession = Depends(get_db)):
     return program
 
 
-@router.patch("/{program_id}", response_model=ProgramOut)
+@router.patch("/{program_id}", response_model=ProgramOut, dependencies=[Depends(require_admin)])
 async def update_program(
     program_id: str,
     payload: ProgramUpdate,
@@ -79,7 +80,7 @@ async def update_program(
     return program
 
 
-@router.delete("/{program_id}", response_model=MessageOut)
+@router.delete("/{program_id}", response_model=MessageOut, dependencies=[Depends(require_admin)])
 async def delete_program(program_id: str, db: AsyncSession = Depends(get_db)):
     program = await db.get(Program, program_id)
     if not program:
@@ -93,7 +94,7 @@ async def delete_program(program_id: str, db: AsyncSession = Depends(get_db)):
 
 # ─── Controle de monitoramento ────────────────────────────────────────────────
 
-@router.post("/{program_id}/monitor/start", response_model=MonitorStatusOut)
+@router.post("/{program_id}/monitor/start", response_model=MonitorStatusOut, dependencies=[Depends(require_admin)])
 async def start_monitoring(program_id: str, db: AsyncSession = Depends(get_db)):
     program = await db.get(Program, program_id)
     if not program:
@@ -113,7 +114,7 @@ async def start_monitoring(program_id: str, db: AsyncSession = Depends(get_db)):
     )
 
 
-@router.post("/{program_id}/monitor/stop", response_model=MonitorStatusOut)
+@router.post("/{program_id}/monitor/stop", response_model=MonitorStatusOut, dependencies=[Depends(require_admin)])
 async def stop_monitoring(program_id: str):
     if not job_manager.is_monitoring(program_id):
         raise HTTPException(status_code=404, detail="Nenhum monitoramento ativo para este programa")

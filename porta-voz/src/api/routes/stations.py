@@ -9,6 +9,7 @@ from src.core.database import get_db
 from src.core.models import RadioStation
 from src.api.schemas import StationCreate, StationUpdate, StationOut, MessageOut
 from src.scheduler.job_manager import job_manager
+from src.api.routes.auth import require_admin
 
 router = APIRouter(prefix="/stations", tags=["Rádios"])
 
@@ -22,7 +23,7 @@ async def list_stations(org_id: str | None = None, db: AsyncSession = Depends(ge
     return result.scalars().all()
 
 
-@router.post("/", response_model=StationOut, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=StationOut, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_admin)])
 async def create_station(payload: StationCreate, db: AsyncSession = Depends(get_db)):
     station = RadioStation(**payload.model_dump())
     db.add(station)
@@ -39,7 +40,7 @@ async def get_station(station_id: str, db: AsyncSession = Depends(get_db)):
     return station
 
 
-@router.patch("/{station_id}", response_model=StationOut)
+@router.patch("/{station_id}", response_model=StationOut, dependencies=[Depends(require_admin)])
 async def update_station(
     station_id: str,
     payload: StationUpdate,
@@ -57,7 +58,7 @@ async def update_station(
     return station
 
 
-@router.delete("/{station_id}", response_model=MessageOut)
+@router.delete("/{station_id}", response_model=MessageOut, dependencies=[Depends(require_admin)])
 async def delete_station(station_id: str, db: AsyncSession = Depends(get_db)):
     station = await db.get(RadioStation, station_id)
     if not station:

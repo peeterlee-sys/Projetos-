@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.database import get_db
 from src.core.models import Keyword
 from src.api.schemas import KeywordCreate, KeywordOut, MessageOut
+from src.api.routes.auth import require_admin
 
 router = APIRouter(prefix="/keywords", tags=["Palavras-chave"])
 
@@ -28,7 +29,7 @@ async def list_keywords(
     return result.scalars().all()
 
 
-@router.post("/", response_model=KeywordOut, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=KeywordOut, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_admin)])
 async def create_keyword(payload: KeywordCreate, db: AsyncSession = Depends(get_db)):
     keyword = Keyword(**payload.model_dump())
     db.add(keyword)
@@ -37,7 +38,7 @@ async def create_keyword(payload: KeywordCreate, db: AsyncSession = Depends(get_
     return keyword
 
 
-@router.post("/bulk", response_model=list[KeywordOut], status_code=status.HTTP_201_CREATED)
+@router.post("/bulk", response_model=list[KeywordOut], status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_admin)])
 async def create_keywords_bulk(
     payload: list[KeywordCreate],
     db: AsyncSession = Depends(get_db),
@@ -50,7 +51,7 @@ async def create_keywords_bulk(
     return keywords
 
 
-@router.delete("/{keyword_id}", response_model=MessageOut)
+@router.delete("/{keyword_id}", response_model=MessageOut, dependencies=[Depends(require_admin)])
 async def delete_keyword(keyword_id: str, db: AsyncSession = Depends(get_db)):
     keyword = await db.get(Keyword, keyword_id)
     if not keyword:

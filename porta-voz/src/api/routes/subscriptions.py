@@ -8,11 +8,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.database import get_db
 from src.core.models import StationSubscription
 from src.api.schemas import SubscriptionCreate, SubscriptionOut
+from src.api.routes.auth import require_admin
 
 router = APIRouter(prefix="/subscriptions", tags=["Subscriptions"])
 
 
-@router.post("/", response_model=SubscriptionOut, status_code=201)
+@router.post("/", response_model=SubscriptionOut, status_code=201, dependencies=[Depends(require_admin)])
 async def create_subscription(data: SubscriptionCreate, db: AsyncSession = Depends(get_db)):
     """Assina uma rádio para um cliente. Permite múltiplos clientes na mesma rádio."""
     existing = await db.execute(
@@ -52,7 +53,7 @@ async def list_subscriptions(
     return result.scalars().all()
 
 
-@router.delete("/{subscription_id}", status_code=204)
+@router.delete("/{subscription_id}", status_code=204, dependencies=[Depends(require_admin)])
 async def delete_subscription(subscription_id: str, db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(StationSubscription).where(StationSubscription.id == subscription_id)

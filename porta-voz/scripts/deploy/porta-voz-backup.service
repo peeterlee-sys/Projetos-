@@ -1,0 +1,7 @@
+[Unit]
+Description=Radar Publico - backup diario do banco SQLite
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/projetos-/porta-voz
+ExecStart=/usr/bin/bash scripts/backup_db.sh

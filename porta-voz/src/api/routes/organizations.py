@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.database import get_db
 from src.core.models import Organization, AlertRecipient
 from src.api.schemas import OrganizationCreate, OrganizationUpdate, OrganizationOut, RecipientCreate, RecipientOut, MessageOut
+from src.api.routes.auth import require_admin
 
 router = APIRouter(prefix="/organizations", tags=["Organizações"])
 
@@ -18,7 +19,7 @@ async def list_organizations(db: AsyncSession = Depends(get_db)):
     return result.scalars().all()
 
 
-@router.post("/", response_model=OrganizationOut, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=OrganizationOut, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_admin)])
 async def create_organization(payload: OrganizationCreate, db: AsyncSession = Depends(get_db)):
     org = Organization(**payload.model_dump())
     db.add(org)
@@ -35,7 +36,7 @@ async def get_organization(org_id: str, db: AsyncSession = Depends(get_db)):
     return org
 
 
-@router.patch("/{org_id}", response_model=OrganizationOut)
+@router.patch("/{org_id}", response_model=OrganizationOut, dependencies=[Depends(require_admin)])
 async def update_organization(
     org_id: str,
     payload: OrganizationUpdate,
@@ -66,7 +67,7 @@ async def list_recipients(org_id: str, db: AsyncSession = Depends(get_db)):
     return result.scalars().all()
 
 
-@router.post("/{org_id}/recipients", response_model=RecipientOut, status_code=status.HTTP_201_CREATED)
+@router.post("/{org_id}/recipients", response_model=RecipientOut, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_admin)])
 async def create_recipient(
     org_id: str,
     payload: RecipientCreate,
@@ -81,7 +82,7 @@ async def create_recipient(
     return recipient
 
 
-@router.delete("/{org_id}/recipients/{recipient_id}", response_model=MessageOut)
+@router.delete("/{org_id}/recipients/{recipient_id}", response_model=MessageOut, dependencies=[Depends(require_admin)])
 async def delete_recipient(
     org_id: str,
     recipient_id: str,

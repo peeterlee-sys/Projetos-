@@ -25,6 +25,8 @@ async def lifespan(app: FastAPI):
     job_manager.start()
     await job_manager.load_programs()
     await job_manager.recover_on_startup()
+    from src.core.startup_checks import audit_recipients
+    await audit_recipients()
     logger.info("app.started", version=settings.APP_VERSION)
     yield
     # Shutdown

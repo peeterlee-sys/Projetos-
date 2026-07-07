@@ -32,6 +32,7 @@ from src.analyzer.deduplicator import build_dedup_hash, is_duplicate
 from src.alerts.formatter import format_alert_message
 from src.alerts.whatsapp import send_to_recipients, send_audio, filter_by_urgency
 from src.reports.generator import generate_session_report
+from src.core.admin_notify import notify_admin
 from src.core.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -184,6 +185,16 @@ class MonitorJob:
                     attempts=attempt,
                 )
                 return None
+
+            # Watchdog: avisa o admin já na 3ª tentativa (não espera o fim da
+            # janela) — dá tempo de agir enquanto o programa ainda está no ar.
+            if attempt == 3:
+                await notify_admin(
+                    f"stream_unavailable:{self.program_id}",
+                    f"⚠️ *Stream fora do ar* (3 tentativas)\n"
+                    f"Sessão {self.session_id[:8]} — seguirei tentando a cada "
+                    f"{retry_interval}s até o fim da janela do programa.",
+                )
 
             logger.warning(
                 "monitor_job.stream_unavailable_retrying",
@@ -763,6 +774,14 @@ class MonitorJob:
         session.ended_at = datetime.utcnow()
         await db.commit()
         logger.error("monitor_job.failed", session_id=self.session_id, reason=reason)
+        # Watchdog: falha de captura nunca pode ser silenciosa
+        program = session.program
+        station = program.station if program else None
+        label = f"{station.name if station else '?'} — {program.name if program else '?'}"
+        await notify_admin(
+            f"capture_failed:{self.program_id}",
+            f"❌ *Captura FALHOU*\n📻 {label}\nMotivo: {reason}",
+        )
 
     async def _finalize(self) -> None:
         # Envia qualquer assunto ainda em buffer antes de fechar e relatar
@@ -796,6 +815,15 @@ class MonitorJob:
                 logger.info(
                     "monitor_job.report_skipped_no_audio",
                     session_id=self.session_id,
+                )
+                # Watchdog: sessão terminou sem capturar NADA — cobertura zerada
+                program = session.program
+                station = program.station if program else None
+                label = f"{station.name if station else '?'} — {program.name if program else '?'}"
+                await notify_admin(
+                    f"zero_chunks:{self.program_id}",
+                    f"⚠️ *Programa terminou com 0 blocos capturados*\n📻 {label}\n"
+                    f"O stream provavelmente ficou fora do ar durante toda a janela.",
                 )
 
             logger.info(

@@ -11,11 +11,12 @@ from src.core.database import get_db
 from src.core.models import Report
 from src.api.schemas import ReportOut
 from src.reports.daily_clipping import generate_and_send_daily_clipping
+from src.api.routes.auth import require_admin
 
 router = APIRouter(prefix="/reports", tags=["Relatórios"])
 
 
-@router.post("/clipping/{org_id}")
+@router.post("/clipping/{org_id}", dependencies=[Depends(require_admin)])
 async def send_daily_clipping(
     org_id: str,
     day: Optional[str] = None,   # AAAA-MM-DD; padrão = hoje (BRT)
