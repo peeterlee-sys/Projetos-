@@ -816,15 +816,22 @@ class MonitorJob:
                     "monitor_job.report_skipped_no_audio",
                     session_id=self.session_id,
                 )
-                # Watchdog: sessão terminou sem capturar NADA — cobertura zerada
-                program = session.program
-                station = program.station if program else None
-                label = f"{station.name if station else '?'} — {program.name if program else '?'}"
-                await notify_admin(
-                    f"zero_chunks:{self.program_id}",
-                    f"⚠️ *Programa terminou com 0 blocos capturados*\n📻 {label}\n"
-                    f"O stream provavelmente ficou fora do ar durante toda a janela.",
-                )
+                # Watchdog: sessão terminou sem capturar NADA — cobertura zerada.
+                # Só avisa se a sessão cobriu um período relevante (>= 10 min);
+                # sessão retomada no fim da janela com 0 blocos é ruído esperado.
+                duration_min = 0.0
+                if session.started_at and session.ended_at:
+                    duration_min = (session.ended_at - session.started_at).total_seconds() / 60
+                if duration_min >= 10:
+                    program = session.program
+                    station = program.station if program else None
+                    label = f"{station.name if station else '?'} — {program.name if program else '?'}"
+                    await notify_admin(
+                        f"zero_chunks:{self.program_id}",
+                        f"⚠️ *Programa terminou com 0 blocos capturados*\n📻 {label}\n"
+                        f"Janela monitorada: {duration_min:.0f} min. O stream "
+                        f"provavelmente ficou fora do ar.",
+                    )
 
             logger.info(
                 "monitor_job.finalized",
