@@ -43,7 +43,10 @@ class Settings(BaseSettings):
     DEFAULT_ALERT_RECIPIENTS: str = ""
 
     # Monitoramento
-    CHUNK_DURATION_SECONDS: int = 30
+    # 60s por bloco (era 30s): metade dos blocos = metade das chamadas de análise
+    # e transcrição, e cada bloco já traz um assunto mais completo (menos
+    # fragmentação). Latência do alerta sobe ~30s, ainda em "tempo real".
+    CHUNK_DURATION_SECONDS: int = 60
     # Janela de contexto da ANÁLISE: quantos blocos consecutivos (incl. o atual)
     # são enviados juntos ao Claude. Evita subestimar a urgência de um assunto
     # que foi cortado entre blocos de 30s (ex.: denúncia que "começa" num bloco e
