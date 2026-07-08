@@ -142,6 +142,34 @@ class JobManager:
                     "job_manager.resume_error", program_id=program.id, error=str(e)
                 )
 
+    def _program_in_window(self, program: Program) -> bool:
+        """True se o programa deveria estar capturando AGORA."""
+        try:
+            tz = pytz.timezone(program.timezone or "America/Sao_Paulo")
+            now = datetime.now(tz)
+            weekdays = ["monday", "tuesday", "wednesday", "thursday",
+                        "friday", "saturday", "sunday"]
+            if weekdays[now.weekday()] not in (program.days_of_week or []):
+                return False
+            sh, sm = map(int, program.start_time.split(":"))
+            eh, em = map(int, program.end_time.split(":"))
+            start_dt = now.replace(hour=sh, minute=sm, second=0, microsecond=0)
+            end_dt = now.replace(hour=eh, minute=em, second=0, microsecond=0)
+            return start_dt <= now < end_dt
+        except Exception:
+            return False
+
+    async def activate_program(self, program: Program) -> None:
+        """
+        Agenda o programa E inicia a captura imediatamente se ele já estiver
+        dentro da janela agora. Usado ao cadastrar/editar rádios pela API, para
+        não precisar reiniciar o serviço nem esperar o próximo dia.
+        """
+        self.schedule_program(program)
+        if self._program_in_window(program) and not self.is_monitoring(program.id):
+            logger.info("job_manager.activate_now", program_id=program.id, name=program.name)
+            await self._start_monitoring(program.id)
+
     def schedule_program(self, program: Program) -> None:
         """Agenda start e stop de um programa com base em seu horário."""
         if not program.days_of_week or not program.start_time or not program.end_time:

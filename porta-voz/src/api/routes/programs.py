@@ -41,8 +41,8 @@ async def create_program(payload: ProgramCreate, db: AsyncSession = Depends(get_
     await db.commit()
     await db.refresh(program)
 
-    # Agenda automaticamente no scheduler
-    job_manager.schedule_program(program)
+    # Agenda e, se já estiver no horário do programa, começa a capturar agora
+    await job_manager.activate_program(program)
 
     return program
 
@@ -71,9 +71,9 @@ async def update_program(
     await db.commit()
     await db.refresh(program)
 
-    # Re-agenda com novos horários
+    # Re-agenda com novos horários (e inicia agora se já estiver na janela)
     if program.is_active:
-        job_manager.schedule_program(program)
+        await job_manager.activate_program(program)
     else:
         job_manager.unschedule_program(program_id)
 
