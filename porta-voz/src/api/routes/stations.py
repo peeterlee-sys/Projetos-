@@ -77,7 +77,8 @@ async def stations_health(db: AsyncSession = Depends(get_db)):
             "programa": program.name,
             "janela": f"{program.start_time}–{program.end_time}",
             "stream_type": station.stream_type,
-            "url": station.youtube_url or station.stream_url,
+            # mesma preferência da captura: stream direto primeiro
+            "url": station.stream_url or station.youtube_url,
             "ultima_sessao": {
                 "status": last.status.value if last else None,
                 "inicio": last.started_at.isoformat() + "Z" if last and last.started_at else None,

@@ -3,6 +3,8 @@ Extrai URL de stream de YouTube Live usando yt-dlp.
 """
 import asyncio
 import json
+import shutil
+import sys
 from pathlib import Path
 from typing import Optional
 
@@ -10,6 +12,21 @@ from src.core.config import settings
 from src.core.logging_config import get_logger
 
 logger = get_logger(__name__)
+
+
+def _ytdlp_bin() -> str:
+    """
+    Caminho do yt-dlp: PATH do processo ou, como o binário costuma estar no
+    venv (venv/bin/yt-dlp), ao lado do interpretador atual. Assim scripts e
+    serviço funcionam mesmo sem o venv ativado no shell.
+    """
+    found = shutil.which("yt-dlp")
+    if found:
+        return found
+    sibling = Path(sys.executable).parent / "yt-dlp"
+    if sibling.exists():
+        return str(sibling)
+    return "yt-dlp"  # deixa o erro aparecer com o nome esperado
 
 
 def _cookies_args() -> list[str]:
@@ -40,7 +57,7 @@ def build_ytdlp_stream_cmd(youtube_url: str, quality: str = "91") -> list[str]:
     Formato 91 = HLS 144p (~290k) com áudio; o ffmpeg extrai só o áudio.
     """
     return [
-        "yt-dlp",
+        _ytdlp_bin(),
         "--no-playlist",
         "--quiet",
         "--no-warnings",
@@ -64,7 +81,7 @@ async def get_youtube_stream_url(youtube_url: str, quality: str = "worst") -> Op
     áudio na captura, então baixar vídeo em baixa resolução economiza banda.
     """
     cmd = [
-        "yt-dlp",
+        _ytdlp_bin(),
         "--no-playlist",
         "--format", quality,
         "--get-url",

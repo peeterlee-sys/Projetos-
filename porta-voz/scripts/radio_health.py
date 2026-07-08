@@ -91,12 +91,14 @@ async def main():
 
         probed: dict[str, tuple[str, str]] = {}
         for station, program in rows:
-            url = station.youtube_url or station.stream_url or ""
+            # Mesma ordem da produção (resolve_stream_url): stream direto
+            # primeiro; YouTube só quando não há stream_url.
+            url = station.stream_url or station.youtube_url or ""
             if url not in probed:
-                if station.youtube_url:
-                    probed[url] = await probe_youtube(url)
-                elif station.stream_url:
+                if station.stream_url:
                     probed[url] = await probe_stream(url)
+                elif station.youtube_url:
+                    probed[url] = await probe_youtube(url)
                 else:
                     probed[url] = ("SEM_URL", "cadastro sem stream_url/youtube_url")
 

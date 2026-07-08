@@ -73,11 +73,16 @@ class StreamCapture:
             "-reconnect_at_eof", "1",
             "-reconnect_streamed", "1",
             "-reconnect_delay_max", "5",
+            # Streams Icecast/MP3 com timestamps quebrados fazem o segmentador
+            # cortar cedo (blocos de ~12s em vez do configurado). Regenera os
+            # timestamps a partir da duração dos frames.
+            "-fflags", "+genpts+igndts",
             "-i", self.stream_url,
             # Saída segmentada
             "-f", "segment",
             "-segment_time", str(self.chunk_duration),
             "-reset_timestamps", "1",
+            "-avoid_negative_ts", "make_zero",
             # Áudio otimizado para Whisper: 16kHz, mono, PCM
             "-ar", "16000",
             "-ac", "1",
