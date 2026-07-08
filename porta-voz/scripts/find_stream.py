@@ -45,14 +45,24 @@ def fetch(url: str) -> str:
         return ""
 
 
+# formatos que o ffprobe reconhece mas NÃO são stream de rádio (imagens/estáticos)
+_NOT_AUDIO = {"image2", "png_pipe", "mjpeg", "jpeg_pipe", "webp_pipe", "gif", "ico"}
+_IMG_EXT = (".jpg", ".jpeg", ".png", ".gif", ".webp", ".ico", ".svg", ".css", ".js")
+
+
 def probe(url: str) -> str | None:
+    if url.lower().split("?")[0].endswith(_IMG_EXT):
+        return None
     try:
         r = subprocess.run(
             ["ffprobe", "-v", "error", "-show_entries", "format=format_name",
              "-of", "csv=p=0", url],
             capture_output=True, text=True, timeout=18,
         )
-        return r.stdout.strip() if r.returncode == 0 and r.stdout.strip() else None
+        fmt = r.stdout.strip() if r.returncode == 0 else ""
+        if not fmt or fmt in _NOT_AUDIO:
+            return None
+        return fmt
     except Exception:
         return None
 
