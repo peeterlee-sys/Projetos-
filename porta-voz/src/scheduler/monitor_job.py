@@ -921,10 +921,14 @@ class MonitorJob:
             # Não envia relatório quando nada foi capturado (0 chunks) — isso
             # indica falha de captura (ex.: stream fora do ar, rate-limit), e
             # um relatório vazio parece defeito para o cliente.
-            if session.total_chunks > 0:
+            if session.total_chunks > 0 and settings.PROGRAM_REPORT_ENABLED:
                 report = await generate_session_report(db, session)
                 if report:
                     await self._send_report(session, report)
+            elif session.total_chunks > 0:
+                # Relatórios de fim de programa desligados: não gera (poupa a
+                # chamada de resumo ao Claude) nem envia.
+                logger.info("monitor_job.report_disabled", session_id=self.session_id)
             else:
                 logger.info(
                     "monitor_job.report_skipped_no_audio",

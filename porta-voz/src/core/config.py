@@ -69,9 +69,12 @@ class Settings(BaseSettings):
     # inteiro (até 2 min de silêncio sobre o tema, máx. 10 min) antes de enviar.
     ALERT_AGG_QUIET_SECONDS: int = 120     # tempo sem novas menções antes de enviar
     ALERT_AGG_MAX_WINDOW_SECONDS: int = 600  # janela máxima de agregação por assunto
+    # Relatório de fim de programa (resumo enviado ao cliente ao encerrar cada
+    # sessão). Desligado: não gera o resumo do Claude nem envia por WhatsApp.
+    PROGRAM_REPORT_ENABLED: bool = False
     # Clipagem diária: resumo com TODA menção relevante do dia (estilo clipping),
     # enviado uma vez por dia por organização, no horário abaixo (BRT).
-    DAILY_CLIPPING_ENABLED: bool = True
+    DAILY_CLIPPING_ENABLED: bool = False
     DAILY_CLIPPING_HOUR: int = 20
     STREAM_RECONNECT_DELAY_SECONDS: int = 10
     MAX_RECONNECT_ATTEMPTS: int = 10
