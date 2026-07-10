@@ -1,0 +1,21 @@
+name: portavoz-site
+# Spec do DigitalOcean App Platform para publicar www.portavoz.ia.br
+# como site estatico (sem servidor, sem build). Serve o arquivo
+# portavoz-site/index.html direto pelo CDN da DigitalOcean, com HTTPS automatico.
+region: nyc
+static_sites:
+  - name: portavoz
+    github:
+      repo: peeterlee-sys/Projetos-
+      branch: claude/portavoz-ia-digitalocean-yhcu17
+      deploy_on_push: true
+    # Pasta do repositorio onde esta o site. Nao ha etapa de build.
+    source_dir: portavoz-site
+    index_document: index.html
+    # Qualquer rota desconhecida cai no index (single page).
+    catchall_document: index.html
+domains:
+  - domain: www.portavoz.ia.br
+    type: PRIMARY
+  - domain: portavoz.ia.br
+    type: ALIAS
