@@ -2,13 +2,15 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Bundled Page</title>
+  <title>Porta Voz</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHZpZXdCb3g9JzAgMCAxMDAgMTAwJz48cmVjdCB3aWR0aD0nMTAwJyBoZWlnaHQ9JzEwMCcgcng9JzIyJyBmaWxsPScjMWU2ZmQ5Jy8+PGcgc3Ryb2tlPScjZmZmJyBzdHJva2Utd2lkdGg9JzQuMicgc3Ryb2tlLWxpbmVjYXA9J3JvdW5kJz48bGluZSB4MT0nMzQnIHkxPSc0NCcgeDI9JzM0JyB5Mj0nNTYnLz48bGluZSB4MT0nNDInIHkxPSczOCcgeDI9JzQyJyB5Mj0nNjInLz48bGluZSB4MT0nNTAnIHkxPSczMCcgeDI9JzUwJyB5Mj0nNzAnLz48bGluZSB4MT0nNTgnIHkxPSczOCcgeDI9JzU4JyB5Mj0nNjInLz48bGluZSB4MT0nNjYnIHkxPSc0NCcgeDI9JzY2JyB5Mj0nNTYnLz48L2c+PC9zdmc+">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { background: #faf9f5; display: flex; align-items: center; justify-content: center; min-height: 100vh; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
-    #__bundler_loading { position: fixed; bottom: 20px; right: 20px; font: 13px/1.4 -apple-system, BlinkMacSystemFont, sans-serif; color: #666; background: #fff; padding: 8px 14px; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.12); z-index: 10000; }
+    #__bundler_loading { display: none; position: fixed; bottom: 20px; right: 20px; font: 13px/1.4 -apple-system, BlinkMacSystemFont, sans-serif; color: #666; background: #fff; padding: 8px 14px; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.12); z-index: 10000; }
     #__bundler_thumbnail { position: fixed; inset: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: #faf9f5; z-index: 9999; }
-    #__bundler_thumbnail svg { width: 100%; height: 100%; object-fit: contain; }
+    #__bundler_thumbnail svg { width: 92px; height: 92px; animation: __pv_pulse 1.2s ease-in-out infinite; }
+    @keyframes __pv_pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .72; transform: scale(.93); } }
     #__bundler_placeholder { color: #999; font-size: 14px; }
   </style>
   <noscript>
