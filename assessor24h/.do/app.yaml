@@ -1,0 +1,18 @@
+name: assessor24h
+region: nyc
+static_sites:
+  - name: landing
+    github:
+      repo: peeterlee-sys/Projetos-
+      branch: claude/assessor-24h-landing-deploy-013r2v
+      deploy_on_push: true
+    source_dir: /assessor24h
+    index_document: index.html
+    catchall_document: index.html
+    error_document: index.html
+    routes:
+      - path: /
+domains:
+  - domain: assessor24h.ia.br
+    type: PRIMARY
+    zone: assessor24h.ia.br
