@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth/session";
 import { Card, Button } from "@/components/ui";
+import { getStimulus } from "@/lib/behavior/detect";
 import { startContent } from "./actions";
 
 const FORMAT_LABEL: Record<string, string> = {
@@ -50,12 +51,18 @@ export default async function HojePage() {
   const target = goal?.target ?? prefs?.weekly_goal ?? 0;
   const published = goal?.published_count ?? 0;
 
+  const { message: stimulus } = await getStimulus(supabase, user.id, target, Boolean(opportunity));
+
   return (
     <main className="px-5 pt-8">
       <header className="mb-6">
         <p className="text-sm text-ink-500">{greeting(user.full_name)}</p>
         <h1 className="mt-1 font-serif text-3xl text-ink-900">Hoje no seu radar</h1>
       </header>
+
+      <div className="mb-5 rounded-2xl border border-gold-300 bg-white/60 px-4 py-3">
+        <p className="text-sm text-ink-700">{stimulus}</p>
+      </div>
 
       {target > 0 ? (
         <Card className="mb-5 flex items-center justify-between">

@@ -1,5 +1,6 @@
 import { requireUser } from "@/lib/auth/session";
 import { Card, Button } from "@/components/ui";
+import { EnableNotifications } from "@/components/push/EnableNotifications";
 
 const ROLE_LABEL: Record<string, string> = {
   super_admin: "Super administrador",
@@ -28,6 +29,11 @@ export default async function PerfilPage() {
           <p className="text-ink-900">{ROLE_LABEL[user.role] ?? user.role}</p>
         </div>
       </Card>
+
+      <div className="mt-5">
+        <p className="mb-2 text-xs uppercase tracking-wide text-ink-400">Notificações</p>
+        <EnableNotifications />
+      </div>
 
       <form action="/auth/signout" method="post" className="mt-5">
         <Button type="submit" variant="secondary" full>

@@ -4,8 +4,8 @@ Plataforma de **inteligência editorial**: do radar de pautas à gravação e pu
 com a cara de cada cliente. App **mobile-first**, instalável como **PWA**, multicliente
 com isolamento por RLS.
 
-> Estado atual: **Fase 3 — Conteúdo** concluída (tela Hoje, camada de IA, 5 formatos,
-> biblioteca, integração Make). A Fase 2 (fundação) já estava concluída.
+> Estado atual: **Fase 5 — Comportamento** concluída (metas, progresso, estímulos,
+> Web Push, relatório semanal). Fases 1-4 já concluídas (fundação, conteúdo, teleprompter).
 > O roteiro completo de fases está em `../DIAGNOSTICO-MOTOR-AUTORIDADE.md`.
 
 ## Stack
@@ -135,9 +135,31 @@ motor-autoridade/
   com **idempotency_key**, logs de execução e controle de duplicidade. Ações:
   `deliver_opportunity`, `get_profile`, `get_history`, `register_error`.
 
+## Fase 5 — Comportamento (implementado)
+
+- **Progresso** (MÓD 9): cálculo real a partir de dados (`content_items`, `deliveries`,
+  `behavior_events`) — publicados, taxa de execução, sequência atual/melhor, formato
+  preferido, comparação com a semana anterior. Métrica principal = publicado.
+- **Motor de estímulos** (MÓD 8): mensagens sem culpa na tela Hoje, adaptadas à situação
+  (vídeo gravado e não publicado, próximo da meta, retorno após pausa, radar quieto…).
+- **Relatório semanal** (MÓD 10): geração automática em `/relatorio` + job
+  `POST /api/cron/weekly` (protegido por `CRON_SECRET`) que gera o relatório de cada cliente.
+- **Web Push** (MÓD 12): ativar em Perfil (`/api/push/subscribe` registra o dispositivo),
+  envio via `web-push` no job semanal; o service worker já trata `push`/`notificationclick`.
+
+### Configurar Web Push (VAPID)
+
+```bash
+npx web-push generate-vapid-keys
+```
+
+Preencha em `.env.local`: `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`,
+`VAPID_SUBJECT` (mailto:) e `CRON_SECRET`. No iOS, o Web Push exige o app instalado
+na tela inicial (PWA).
+
 ## Próximas fases
 
-- **Fase 4 — Teleprompter**: câmera, rolagem, gravação local, salvamento no dispositivo.
+- **Fase 6 — Dashboard administrativo**: clientes, saúde, custos, erros.
 - **Fase 5 — Comportamento**: metas, progresso, estímulos, Web Push, relatório semanal.
 - **Fase 6 — Administração**: dashboard, clientes, logs, custos, erros.
 - **Fase 7 — Testes & entrega**.
