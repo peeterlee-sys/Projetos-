@@ -4,7 +4,8 @@ Plataforma de **inteligência editorial**: do radar de pautas à gravação e pu
 com a cara de cada cliente. App **mobile-first**, instalável como **PWA**, multicliente
 com isolamento por RLS.
 
-> Estado atual: **Fase 2 — Fundação** concluída (auth + banco + RLS + onboarding + shell + PWA).
+> Estado atual: **Fase 3 — Conteúdo** concluída (tela Hoje, camada de IA, 5 formatos,
+> biblioteca, integração Make). A Fase 2 (fundação) já estava concluída.
 > O roteiro completo de fases está em `../DIAGNOSTICO-MOTOR-AUTORIDADE.md`.
 
 ## Stack
@@ -117,9 +118,25 @@ motor-autoridade/
 | `npm run lint` | ESLint |
 | `npm run typecheck` | `tsc --noEmit` |
 
+## Fase 3 — Conteúdo (implementado)
+
+- **Camada de IA abstrata** (`src/lib/ai/`): provedores Anthropic e OpenAI trocáveis
+  (`AI_DEFAULT_PROVIDER`), saída estruturada validada com Zod, retries controlados e
+  registro de custo/tokens em `cost_logs`. Modelo menor (Haiku) para classificação,
+  maior (Opus) para geração.
+- **Geração dos 5 formatos** (vídeo, carrossel, post, story, LinkedIn) a partir do
+  `contexto_mestre` do cliente — cada formato adaptado, com a cara do cliente.
+- **Tela Hoje** com a oportunidade do dia, ações e voz sem culpa; **workspace de conteúdo**
+  (`/conteudo/[id]`) para gerar e visualizar cada formato e marcar como publicado.
+- **Biblioteca** com busca e filtros por status.
+- **Eventos comportamentais** (MÓDULO 7) registrados ao longo do fluxo.
+- **Integração Make** (`POST /api/make`): endpoint único autenticado por **assinatura HMAC**
+  (`x-motor-signature: sha256=<hex>` sobre o corpo bruto, segredo `MAKE_WEBHOOK_SECRET`),
+  com **idempotency_key**, logs de execução e controle de duplicidade. Ações:
+  `deliver_opportunity`, `get_profile`, `get_history`, `register_error`.
+
 ## Próximas fases
 
-- **Fase 3 — Conteúdo**: tela Hoje com pautas reais, 5 formatos, biblioteca, endpoints Make.
 - **Fase 4 — Teleprompter**: câmera, rolagem, gravação local, salvamento no dispositivo.
 - **Fase 5 — Comportamento**: metas, progresso, estímulos, Web Push, relatório semanal.
 - **Fase 6 — Administração**: dashboard, clientes, logs, custos, erros.

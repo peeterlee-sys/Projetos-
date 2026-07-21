@@ -1,6 +1,15 @@
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth/session";
-import { Card } from "@/components/ui";
+import { Card, Button } from "@/components/ui";
+import { startContent } from "./actions";
+
+const FORMAT_LABEL: Record<string, string> = {
+  video: "Vídeo",
+  carousel: "Carrossel",
+  post: "Post",
+  story: "Story",
+  linkedin: "LinkedIn",
+};
 
 function greeting(name: string | null) {
   const h = new Date().getHours();
@@ -30,7 +39,7 @@ export default async function HojePage() {
       .maybeSingle(),
     supabase
       .from("daily_opportunities")
-      .select("id, title, theme, reason, recommended_format, estimated_duration, status")
+      .select("id, title, theme, reason, recommended_format, estimated_duration, relevance_score, status")
       .eq("user_id", user.id)
       .eq("opportunity_date", new Date().toISOString().slice(0, 10))
       .order("relevance_score", { ascending: false })
@@ -72,8 +81,29 @@ export default async function HojePage() {
           {opportunity.reason ? (
             <p className="mt-2 text-sm text-ink-700">{opportunity.reason}</p>
           ) : null}
-          <p className="mt-4 text-xs text-ink-400">
-            Formato recomendado: {opportunity.recommended_format}
+          <div className="mt-4 flex flex-wrap gap-2 text-xs text-ink-500">
+            <span className="rounded-full bg-sand-100 px-3 py-1">
+              Formato: {FORMAT_LABEL[opportunity.recommended_format] ?? opportunity.recommended_format}
+            </span>
+            {opportunity.estimated_duration ? (
+              <span className="rounded-full bg-sand-100 px-3 py-1">
+                ~{Math.round(opportunity.estimated_duration / 60)} min
+              </span>
+            ) : null}
+            {opportunity.relevance_score != null ? (
+              <span className="rounded-full bg-sand-100 px-3 py-1">
+                Relevância {Math.round(opportunity.relevance_score * 100)}%
+              </span>
+            ) : null}
+          </div>
+          <form action={startContent} className="mt-5">
+            <input type="hidden" name="opportunity_id" value={opportunity.id} />
+            <Button type="submit" full>
+              Começar conteúdo
+            </Button>
+          </form>
+          <p className="mt-3 text-center text-xs text-ink-400">
+            Nenhuma opção gera culpa. Escolher um caminho mais leve também conta como presença.
           </p>
         </Card>
       ) : (
