@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Motor de Autoridade">
+  <rect width="512" height="512" rx="112" fill="#143627"/>
+  <!-- radar de pautas -->
+  <g fill="none" stroke="#e9c87b" stroke-width="10" opacity="0.7">
+    <circle cx="256" cy="268" r="150"/>
+    <circle cx="256" cy="268" r="100"/>
+    <circle cx="256" cy="268" r="50"/>
+  </g>
+  <!-- ponto de autoridade -->
+  <circle cx="256" cy="268" r="26" fill="#c9a94e"/>
+  <!-- inicial editorial serifada -->
+  <text x="256" y="180" text-anchor="middle" font-family="Georgia, 'Newsreader', serif" font-size="128" font-weight="600" fill="#faf7f2">M</text>
+</svg>

@@ -1,0 +1,78 @@
+@import "tailwindcss";
+
+/*
+ * Design system do Motor de Autoridade.
+ * Tokens extraídos do protótipo (motor-app.html): estética editorial,
+ * quente e premium — fundo creme, verde floresta, acento dourado.
+ * Tipografia: Newsreader (títulos serifados) + Instrument Sans (UI/corpo).
+ */
+
+@theme {
+  /* Marca — verde floresta */
+  --color-brand-900: #143627;
+  --color-brand-800: #1c3f2f;
+  --color-brand-700: #1d4a38;
+  --color-brand-600: #22352b;
+  --color-brand-500: #2f5a44;
+
+  /* Acento — dourado "autoridade" */
+  --color-gold-700: #a87b2f;
+  --color-gold-500: #c9a94e;
+  --color-gold-300: #e9c87b;
+
+  /* Superfícies — creme / areia */
+  --color-sand-50: #faf7f2;
+  --color-sand-100: #f3efe7;
+  --color-sand-200: #e7e1d6;
+  --color-sand-300: #d8d0c0;
+
+  /* Neutros / texto */
+  --color-ink-900: #1c1a16;
+  --color-ink-700: #57503f;
+  --color-ink-500: #6e675c;
+  --color-ink-400: #9a927f;
+
+  /* Estados */
+  --color-danger-600: #e04b3a;
+  --color-danger-700: #b4482e;
+  --color-success-100: #e8efe9;
+
+  /* Tipografia (variáveis injetadas por next/font em layout.tsx) */
+  --font-sans: var(--font-instrument-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-newsreader), ui-serif, Georgia, serif;
+
+  /* Raio e sombra editoriais */
+  --radius-card: 1.25rem;
+  --shadow-card: 0 1px 2px rgba(28, 26, 22, 0.06), 0 8px 24px rgba(28, 26, 22, 0.06);
+}
+
+:root {
+  --background: var(--color-sand-50);
+  --foreground: var(--color-ink-900);
+}
+
+html,
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Área segura para PWA (notch / home indicator) */
+body {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-serif);
+  letter-spacing: -0.01em;
+}
+
+/* Rolagem suave e sem "bounce" horizontal no mobile */
+* {
+  -webkit-tap-highlight-color: transparent;
+}

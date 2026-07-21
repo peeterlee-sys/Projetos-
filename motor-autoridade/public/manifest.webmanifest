@@ -1,0 +1,21 @@
+{
+  "name": "Motor de Autoridade",
+  "short_name": "Autoridade",
+  "description": "Inteligência editorial: do radar de pautas à gravação e publicação, com a sua cara.",
+  "start_url": "/hoje",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#faf7f2",
+  "theme_color": "#143627",
+  "lang": "pt-BR",
+  "categories": ["productivity", "business"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

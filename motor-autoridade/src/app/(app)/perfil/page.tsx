@@ -1,0 +1,39 @@
+import { requireUser } from "@/lib/auth/session";
+import { Card, Button } from "@/components/ui";
+
+const ROLE_LABEL: Record<string, string> = {
+  super_admin: "Super administrador",
+  admin: "Administrador",
+  client: "Cliente",
+  collaborator: "Colaborador",
+};
+
+export default async function PerfilPage() {
+  const user = await requireUser();
+
+  return (
+    <main className="px-5 pt-8">
+      <h1 className="mb-6 font-serif text-3xl text-ink-900">Perfil</h1>
+      <Card className="space-y-3">
+        <div>
+          <p className="text-xs uppercase tracking-wide text-ink-400">Nome</p>
+          <p className="text-ink-900">{user.full_name ?? "—"}</p>
+        </div>
+        <div>
+          <p className="text-xs uppercase tracking-wide text-ink-400">E-mail</p>
+          <p className="text-ink-900">{user.email}</p>
+        </div>
+        <div>
+          <p className="text-xs uppercase tracking-wide text-ink-400">Papel</p>
+          <p className="text-ink-900">{ROLE_LABEL[user.role] ?? user.role}</p>
+        </div>
+      </Card>
+
+      <form action="/auth/signout" method="post" className="mt-5">
+        <Button type="submit" variant="secondary" full>
+          Sair
+        </Button>
+      </form>
+    </main>
+  );
+}
