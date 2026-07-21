@@ -1,25 +1,7 @@
 import "server-only";
-import crypto from "crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-/**
- * Verifica a assinatura HMAC-SHA256 do webhook do Make.
- * O Make deve enviar o header `x-motor-signature: sha256=<hex>` calculado sobre
- * o corpo bruto com o segredo compartilhado MAKE_WEBHOOK_SECRET.
- */
-export function verifyMakeSignature(rawBody: string, signature: string | null): boolean {
-  const secret = process.env.MAKE_WEBHOOK_SECRET;
-  if (!secret || !signature) return false;
-
-  const expected = crypto.createHmac("sha256", secret).update(rawBody).digest("hex");
-  const provided = signature.replace(/^sha256=/, "");
-
-  // Comparação em tempo constante.
-  const a = Buffer.from(expected);
-  const b = Buffer.from(provided);
-  if (a.length !== b.length) return false;
-  return crypto.timingSafeEqual(a, b);
-}
+export { verifyMakeSignature } from "./signature";
 
 /**
  * Controle de idempotência: registra a chave em execution_logs (índice único).

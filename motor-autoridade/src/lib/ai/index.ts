@@ -32,6 +32,7 @@ export type GenerateOptions<T> = {
  * registro de custo/tokens em cost_logs. Ponto único de acesso à IA.
  */
 export async function generate<T>(opts: GenerateOptions<T>): Promise<T> {
+  await enforceBudget(opts.cost?.tenantId ?? null);
   const provider = pickProvider(opts.provider);
   const req: StructuredRequest<T> = {
     scenario: opts.scenario,
@@ -59,6 +60,35 @@ export async function generate<T>(opts: GenerateOptions<T>): Promise<T> {
     }
   }
   throw lastError instanceof Error ? lastError : new Error("Falha na geração de IA.");
+}
+
+/**
+ * Enforcement de limite de custo (MÓDULO 18). Bloqueia a geração se o tenant
+ * já ultrapassou o teto mensal configurável (AI_MONTHLY_COST_LIMIT_USD).
+ */
+async function enforceBudget(tenantId: string | null): Promise<void> {
+  const limit = Number(process.env.AI_MONTHLY_COST_LIMIT_USD ?? 0);
+  if (!limit || !tenantId || !process.env.SUPABASE_SERVICE_ROLE_KEY) return;
+
+  const monthStart = new Date();
+  monthStart.setUTCDate(1);
+  monthStart.setUTCHours(0, 0, 0, 0);
+
+  const supabase = createServiceClient();
+  const { data } = await supabase
+    .from("cost_logs")
+    .select("cost_usd")
+    .eq("tenant_id", tenantId)
+    .gte("created_at", monthStart.toISOString())
+    .limit(10000);
+
+  const spent = (data ?? []).reduce(
+    (s: number, r: { cost_usd: number | null }) => s + Number(r.cost_usd ?? 0),
+    0
+  );
+  if (spent >= limit) {
+    throw new Error(`Limite mensal de custo de IA atingido (US$ ${spent.toFixed(2)} / ${limit}).`);
+  }
 }
 
 async function logCost<T>(result: AiResult<T>, opts: GenerateOptions<T>): Promise<void> {

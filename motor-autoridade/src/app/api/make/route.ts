@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { createServiceClient } from "@/lib/supabase/server";
 import { claimIdempotency, finishExecution, verifyMakeSignature } from "@/lib/make/security";
+import { rateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -17,6 +18,13 @@ const envelopeSchema = z.object({
  */
 export async function POST(request: NextRequest) {
   const started = Date.now();
+
+  // Rate limit por origem (best-effort): 60 req/min.
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  if (!rateLimit(`make:${ip}`, 60, 60_000)) {
+    return NextResponse.json({ error: "muitas requisições" }, { status: 429 });
+  }
+
   const rawBody = await request.text();
   const signature = request.headers.get("x-motor-signature");
 

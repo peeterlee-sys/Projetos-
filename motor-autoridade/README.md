@@ -4,8 +4,7 @@ Plataforma de **inteligência editorial**: do radar de pautas à gravação e pu
 com a cara de cada cliente. App **mobile-first**, instalável como **PWA**, multicliente
 com isolamento por RLS.
 
-> Estado atual: **Fase 6 — Administração** concluída (dashboard admin, saúde de clientes,
-> custos, erros). Fases 1-5 já concluídas.
+> Estado atual: **Fase 7 — Testes & polimento** concluída. Todas as 7 fases prontas.
 > O roteiro completo de fases está em `../DIAGNOSTICO-MOTOR-AUTORIDADE.md`.
 
 ## Stack
@@ -168,11 +167,50 @@ na tela inicial (PWA).
   escopo — admin vê o tenant, super_admin vê tudo). Admins não passam pelo onboarding
   editorial. Link para o dashboard aparece no Perfil para esses papéis.
 
-## Próximas fases
+## Fase 7 — Testes & polimento (implementado)
 
-- **Fase 7 — Testes** e polimento: testes automatizados, testes em dispositivos reais,
-  arestas (tabelas-filhas dos formatos, render de imagem por template, ações restantes do
-  Make, rate limiting, enforcement de limite de custo de IA).
+Testes automatizados (Vitest) dos módulos críticos — rode com:
+
+```bash
+npm test
+```
+
+Cobertura atual (21 testes):
+- `tests/stimulus.test.ts` — motor de estímulos sem culpa (MÓD 8).
+- `tests/signature.test.ts` — verificação HMAC do webhook Make (MÓD 14).
+- `tests/json.test.ts` — parsing robusto da saída da IA.
+- `tests/schemas.test.ts` — validação Zod dos 5 formatos (MÓD 4).
+- `tests/cost.test.ts` — estimativa de custo de IA (MÓD 18).
+
+**Isolamento multicliente / RLS** (o teste mais crítico do MÓD 20) — script SQL
+executável contra o seu Supabase (faz ROLLBACK ao final, não polui dados):
+
+```bash
+psql "$DATABASE_URL" -f supabase/tests/rls_isolation.sql
+# sucesso = nenhuma exceção; qualquer vazamento aborta com erro
+```
+
+Polimento de segurança nesta fase:
+- **Enforcement de limite de custo de IA** (MÓD 18): `AI_MONTHLY_COST_LIMIT_USD`
+  bloqueia a geração quando o tenant excede o teto mensal.
+- **Rate limiting** (MÓD 17) no webhook do Make (best-effort em memória; para limite
+  global rígido, migrar para um store compartilhado tipo Redis).
+
+## Pendências futuras (backlog)
+
+Itens intencionalmente adiados para pós-MVP:
+- **Testes em dispositivos reais** (iPhone/Android/Safari/Chrome) do teleprompter/gravação.
+- **Testes e2e** do fluxo completo (Playwright) — o Chromium já está disponível no ambiente.
+- **Formatos**: popular as tabelas-filhas dedicadas (`carousel_slides`, `static_posts`,
+  `stories`, `linkedin_posts`) e `content_versions`; hoje o payload vive em `content_formats`.
+- **MÓD 6/16**: render/preview/download de imagens por template (canvas/DOM → imagem).
+- **Make**: implementar as ações restantes do dispatcher (`solicitar_ajuste`,
+  `registrar_entrega`, `enviar_relatorio`, `disparar_notificacao`, etc.) e montar o
+  cenário na plataforma make.com.
+- **Radar automático**: pipeline de coleta/curadoria (integrar com o `porta-voz`).
+- **Rate limit distribuído** e **preferências de notificação** (níveis leve/equilibrado/intenso,
+  horário permitido, limite diário — colunas já existem em `client_preferences`).
+- **Ícones PWA em PNG** (192/512) e apple-touch-icon para instalação plena no iOS.
 - **Fase 5 — Comportamento**: metas, progresso, estímulos, Web Push, relatório semanal.
 - **Fase 6 — Administração**: dashboard, clientes, logs, custos, erros.
 - **Fase 7 — Testes & entrega**.
