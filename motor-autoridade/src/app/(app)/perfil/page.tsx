@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireUser } from "@/lib/auth/session";
 import { Card, Button } from "@/components/ui";
 import { EnableNotifications } from "@/components/push/EnableNotifications";
@@ -29,6 +30,15 @@ export default async function PerfilPage() {
           <p className="text-ink-900">{ROLE_LABEL[user.role] ?? user.role}</p>
         </div>
       </Card>
+
+      {user.role === "admin" || user.role === "super_admin" ? (
+        <Link href="/admin" className="mt-5 block">
+          <Card className="flex items-center justify-between">
+            <span className="text-ink-900">Dashboard administrativo</span>
+            <span className="text-brand-700">→</span>
+          </Card>
+        </Link>
+      ) : null}
 
       <div className="mt-5">
         <p className="mb-2 text-xs uppercase tracking-wide text-ink-400">Notificações</p>

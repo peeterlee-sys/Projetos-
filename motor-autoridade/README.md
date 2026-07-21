@@ -4,8 +4,8 @@ Plataforma de **inteligência editorial**: do radar de pautas à gravação e pu
 com a cara de cada cliente. App **mobile-first**, instalável como **PWA**, multicliente
 com isolamento por RLS.
 
-> Estado atual: **Fase 5 — Comportamento** concluída (metas, progresso, estímulos,
-> Web Push, relatório semanal). Fases 1-4 já concluídas (fundação, conteúdo, teleprompter).
+> Estado atual: **Fase 6 — Administração** concluída (dashboard admin, saúde de clientes,
+> custos, erros). Fases 1-5 já concluídas.
 > O roteiro completo de fases está em `../DIAGNOSTICO-MOTOR-AUTORIDADE.md`.
 
 ## Stack
@@ -157,9 +157,22 @@ Preencha em `.env.local`: `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`,
 `VAPID_SUBJECT` (mailto:) e `CRON_SECRET`. No iOS, o Web Push exige o app instalado
 na tela inicial (PWA).
 
+## Fase 6 — Administração (implementado)
+
+- **Dashboard admin** (`/admin`, MÓD 13): clientes ativos/novos, taxa de ativação,
+  saúde dos clientes (saudável/atenção/risco), conteúdos entregues/abertos/produzidos/
+  publicados, execução média, consumo de IA (soma de `cost_logs`) e erros abertos.
+- **Perfil de cada cliente** (`/admin/clientes/[id]`): perfil editorial, progresso,
+  custo de IA, bloqueios e conteúdos recentes.
+- **Acesso por papel**: só `admin` e `super_admin` (gate no layout + RLS delimita o
+  escopo — admin vê o tenant, super_admin vê tudo). Admins não passam pelo onboarding
+  editorial. Link para o dashboard aparece no Perfil para esses papéis.
+
 ## Próximas fases
 
-- **Fase 6 — Dashboard administrativo**: clientes, saúde, custos, erros.
+- **Fase 7 — Testes** e polimento: testes automatizados, testes em dispositivos reais,
+  arestas (tabelas-filhas dos formatos, render de imagem por template, ações restantes do
+  Make, rate limiting, enforcement de limite de custo de IA).
 - **Fase 5 — Comportamento**: metas, progresso, estímulos, Web Push, relatório semanal.
 - **Fase 6 — Administração**: dashboard, clientes, logs, custos, erros.
 - **Fase 7 — Testes & entrega**.

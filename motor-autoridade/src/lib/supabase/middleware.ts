@@ -47,15 +47,22 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Autenticado: checar onboarding obrigatório (exceto na própria rota/logout).
+  // Autenticado: onboarding obrigatório só para clientes/colaboradores.
+  // Admin e super_admin não passam pelo onboarding editorial.
   if (user && !isPublic && pathname !== "/onboarding") {
     const { data: profile } = await supabase
       .from("users")
-      .select("onboarded_at")
+      .select("onboarded_at, role")
       .eq("id", user.id)
       .maybeSingle();
 
-    if (profile && !profile.onboarded_at) {
+    const needsOnboarding =
+      profile &&
+      !profile.onboarded_at &&
+      profile.role !== "admin" &&
+      profile.role !== "super_admin";
+
+    if (needsOnboarding) {
       const url = request.nextUrl.clone();
       url.pathname = "/onboarding";
       return NextResponse.redirect(url);
