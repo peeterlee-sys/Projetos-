@@ -95,9 +95,11 @@ export function ContentWorkspace({ itemId, title, theme, status, generated }: Pr
           {pending ? "Gerando…" : payload ? "Gerar novamente" : "Gerar conteúdo"}
         </Button>
         {active === "video" && payload ? (
-          <p className="rounded-2xl bg-sand-100 px-4 py-3 text-center text-xs text-ink-500">
-            Seu roteiro está pronto. A gravação com teleprompter chega na próxima fase.
-          </p>
+          <Link href={`/teleprompter/${itemId}`} className="block">
+            <Button full variant="secondary">
+              🎬 Gravar com teleprompter
+            </Button>
+          </Link>
         ) : null}
         {status !== "published" ? (
           <Button full variant="ghost" onClick={markPublished} disabled={pending}>
