@@ -73,12 +73,53 @@ async function dispatch(supabase: Supabase, action: string, payload: Record<stri
       return getProfile(supabase, payload);
     case "get_history":
       return getHistory(supabase, payload);
+    case "list_clients":
+      return listClients(supabase, payload);
     case "register_error":
       return registerError(supabase, payload);
     default:
       // Ação reconhecida mas ainda não implementada: aceita e registra.
       return { accepted: true, action };
   }
+}
+
+/**
+ * Lista clientes ativos para o Make percorrer (fonte única = banco do app).
+ * Retorna id + um contexto editorial curto (temas + tom) para personalizar a pauta.
+ * Opcional: filtrar por tenant_id.
+ */
+async function listClients(supabase: Supabase, payload: Record<string, unknown>) {
+  const { tenant_id } = z
+    .object({ tenant_id: z.string().uuid().optional() })
+    .parse(payload);
+
+  let query = supabase
+    .from("users")
+    .select("id, full_name, tenant_id, client_profiles(main_themes, tone_of_voice, target_audience)")
+    .eq("role", "client")
+    .eq("is_active", true)
+    .is("deleted_at", null)
+    .not("onboarded_at", "is", null)
+    .limit(500);
+  if (tenant_id) query = query.eq("tenant_id", tenant_id);
+
+  const { data, error } = await query;
+  if (error) throw new Error(error.message);
+
+  const clients = (data ?? []).map((u) => {
+    const p = Array.isArray(u.client_profiles) ? u.client_profiles[0] : u.client_profiles;
+    const themes = (p?.main_themes ?? []) as string[];
+    const context = [
+      themes.length ? `Temas: ${themes.join(", ")}.` : "",
+      p?.tone_of_voice ? `Tom: ${p.tone_of_voice}.` : "",
+      p?.target_audience ? `Público: ${p.target_audience}.` : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
+    return { user_id: u.id, name: u.full_name, context };
+  });
+
+  return { clients };
 }
 
 async function tenantOf(supabase: Supabase, userId: string): Promise<string> {
