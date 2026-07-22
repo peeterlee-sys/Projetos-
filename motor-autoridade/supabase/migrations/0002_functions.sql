@@ -111,6 +111,43 @@ create trigger trg_auth_user_created
   after insert on auth.users
   for each row execute function handle_new_auth_user();
 
+-- ── Criação do tenant no onboarding ─────────────────────────────────────────
+-- Cliente solo cria o próprio tenant no onboarding. Como a RLS de tenants só
+-- permite escrita a super_admin (e a leitura do RETURNING exige já ser membro),
+-- a criação passa por esta função SECURITY DEFINER: identifica o usuário por
+-- auth.uid(), cria o tenant e o vincula. Idempotente.
+create or replace function create_my_tenant(p_name text, p_slug text)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_tenant_id uuid;
+begin
+  if v_uid is null then
+    raise exception 'Usuário não autenticado';
+  end if;
+
+  select tenant_id into v_tenant_id from public.users where id = v_uid;
+  if v_tenant_id is not null then
+    return v_tenant_id;
+  end if;
+
+  insert into public.tenants (name, slug, status)
+    values (p_name, p_slug, 'trial')
+    returning id into v_tenant_id;
+
+  update public.users set tenant_id = v_tenant_id where id = v_uid;
+
+  return v_tenant_id;
+end;
+$$;
+
+revoke all on function create_my_tenant(text, text) from public;
+grant execute on function create_my_tenant(text, text) to authenticated;
+
 -- ── contexto_mestre ─────────────────────────────────────────────────────────
 -- Consolida perfil + preferências no JSON usado pela IA. Chamada ao final do
 -- onboarding (e sempre que o perfil muda).

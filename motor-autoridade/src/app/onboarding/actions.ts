@@ -38,16 +38,18 @@ export async function submitOnboarding(raw: unknown): Promise<OnboardingResult> 
       .normalize("NFD")
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/(^-|-$)/g, "")}-${user.id.slice(0, 6)}`;
-    const { data: tenant, error: tenantErr } = await supabase
-      .from("tenants")
-      .insert({ name: data.display_name || data.full_name, slug, status: "trial" })
-      .select("id")
-      .single();
-    if (tenantErr || !tenant) {
+    // Cria o tenant via função SECURITY DEFINER (contorna a RLS com segurança:
+    // o próprio banco identifica o usuário por auth.uid() e vincula o tenant).
+    const { data: newTenantId, error: tenantErr } = await supabase.rpc("create_my_tenant", {
+      p_name: data.display_name || data.full_name,
+      p_slug: slug,
+    });
+    if (tenantErr || !newTenantId) {
       return { ok: false, error: "Não foi possível criar seu espaço. Tente novamente." };
     }
-    tenantId = tenant.id;
-    await supabase.from("users").update({ tenant_id: tenantId, full_name: data.full_name }).eq("id", user.id);
+    tenantId = newTenantId as string;
+    // A função já vinculou o tenant ao usuário; aqui só atualizamos o nome.
+    await supabase.from("users").update({ full_name: data.full_name }).eq("id", user.id);
   } else if (data.full_name && data.full_name !== me?.full_name) {
     await supabase.from("users").update({ full_name: data.full_name }).eq("id", user.id);
   }
