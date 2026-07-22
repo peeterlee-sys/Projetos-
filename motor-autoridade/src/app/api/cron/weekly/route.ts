@@ -12,8 +12,13 @@ export const runtime = "nodejs";
  */
 async function handle(request: NextRequest) {
   const secret = process.env.CRON_SECRET;
+  // Aceita: header próprio (Make), query (?secret=) e Authorization: Bearer
+  // (formato que a Vercel Cron injeta automaticamente a partir de CRON_SECRET).
+  const bearer = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
   const provided =
-    request.headers.get("x-cron-secret") ?? new URL(request.url).searchParams.get("secret");
+    request.headers.get("x-cron-secret") ??
+    bearer ??
+    new URL(request.url).searchParams.get("secret");
   if (!secret || provided !== secret) {
     return NextResponse.json({ error: "não autorizado" }, { status: 401 });
   }
