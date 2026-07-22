@@ -2,11 +2,20 @@ FROM node:20-alpine
 
 WORKDIR /app
 
+# Copy package files
 COPY package*.json ./
-RUN npm ci --only=production && npm cache clean --force
 
+# Install all dependencies (including devDependencies for build)
+RUN npm ci
+
+# Copy source code
 COPY . .
+
+# Build Next.js
 RUN npm run build
+
+# Remove devDependencies for production
+RUN npm prune --omit=dev
 
 EXPOSE 3000
 
