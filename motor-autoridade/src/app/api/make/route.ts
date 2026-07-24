@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createServiceClient } from "@/lib/supabase/server";
 import { claimIdempotency, finishExecution, verifyMakeSignature, verifyMakeSecret } from "@/lib/make/security";
 import { rateLimit } from "@/lib/rate-limit";
+import { fetchRadar } from "@/lib/radar/fetch";
 
 export const runtime = "nodejs";
 
@@ -77,6 +78,8 @@ async function dispatch(supabase: Supabase, action: string, payload: Record<stri
       return getBriefing(supabase, payload);
     case "get_sources":
       return getSources(supabase, payload);
+    case "get_radar":
+      return getRadar(supabase, payload);
     case "get_history":
       return getHistory(supabase, payload);
     case "list_clients":
@@ -237,6 +240,17 @@ async function getSources(supabase: Supabase, payload: Record<string, unknown>) 
     .map((s) => ({ origin: "segment", kind: s.kind, name: s.name, url: s.url, priority: s.priority }));
 
   return { sources: [...clientSources, ...matrixSources], blocked };
+}
+
+/**
+ * Radar de notícias REAIS do cliente: manchetes atuais das fontes/temas dele,
+ * prontas para o Claude escolher e traduzir ao ângulo do cliente. É o coração
+ * do produto — "assunto do dia na linguagem do cliente".
+ */
+async function getRadar(supabase: Supabase, payload: Record<string, unknown>) {
+  const { user_id } = z.object({ user_id: z.string().uuid() }).parse(payload);
+  const radar = await fetchRadar(supabase, user_id);
+  return { radar };
 }
 
 /** Normaliza título para comparação de duplicidade (acentos, caixa, espaços). */
