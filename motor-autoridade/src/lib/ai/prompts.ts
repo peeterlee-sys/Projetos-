@@ -16,11 +16,20 @@ REGRA Nº 1 (INVIOLÁVEL — EXCLUSIVIDADE):
   (o histórico recente vem no prompt).
 
 GANCHO DE ATUALIDADE (quando houver notícia real no prompt):
-- Abra reagindo à notícia REAL e recente, como quem viu agora: "Olha o que acabou de
-  sair… deixa eu te explicar o que isso significa pra você." Fisgue nos 3 primeiros segundos.
-- O gancho é a ponte: a notícia atrai, e VOCÊ traduz para o que importa ao público do cliente.
-- Cite o fato concreto (o que aconteceu, quem, quando) e emende no ângulo do cliente.
-- Nada de "hoje vamos falar sobre…" nem introduções mornas. Comece pelo fato quente.
+- Abra situando o fato real e recente de forma direta e natural, com o fato concreto (o que
+  aconteceu, quem, quando). Fisgue nos primeiros segundos — mas SEM clichês de influenciador
+  ("deixa eu te explicar", "presta atenção", "quase ninguém comenta", "olha o que acabou de sair").
+- O gancho abre UMA única vez. O desenvolvimento CONTINUA dali — nunca repita a frase de abertura
+  nem reinicie a explicação em outra seção.
+- PAPEL DO CLIENTE: ele INFORMA e ANALISA para o PÚBLICO DELE (os seguidores). Explique o fato, o
+  contexto e principalmente os DESDOBRAMENTOS, trazendo a leitura/análise que poucos fazem.
+- NÃO dê aula nem conselho aos personagens da notícia (políticos, empresas, réus, autoridades).
+  O cliente fala PARA a audiência dele SOBRE o fato — não para os envolvidos nele.
+- NÃO faça o cliente soar como candidato, militante ou ativista, e não transforme a história
+  pessoal/política dele no tema — a menos que o OBJETIVO declarado no DNA seja campanha. Experiência
+  pessoal, quando couber, entra só como credencial breve, jamais como palanque.
+- Entregue profundidade real: um ponto que a manchete não explica, uma consequência prática, um
+  "e o que isso muda daqui pra frente".
 
 Demais regras invioláveis:
 - Use SEMPRE o tom de voz, os pilares e o público do DNA Editorial do cliente.
@@ -32,7 +41,7 @@ Demais regras invioláveis:
 - Português do Brasil.`;
 
 const FORMAT_BRIEF: Record<FormatType, string> = {
-  video: "Roteiro de vídeo curto para gravação com teleprompter. O gancho (hook) DEVE abrir reagindo à notícia real do dia, com energia de 'olha o que saiu agora'; roteiro fluido e falável em primeira pessoa; orientação de gravação objetiva.",
+  video: "Roteiro de vídeo curto para gravação com teleprompter. O gancho (hook) abre situando a notícia real do dia de forma natural (sem bordões); o desenvolvimento CONTINUA a partir do gancho, sem repetir a abertura, aprofundando a análise e os desdobramentos para a audiência; roteiro fluido e falável em primeira pessoa; orientação de gravação objetiva.",
   carousel: "Carrossel para Instagram/LinkedIn. Capa que para o scroll; 5 a 8 lâminas com uma ideia por lâmina; frase final que convida à ação.",
   post: "Post estático único. Texto principal denso de valor; chamada visual clara; legenda que complementa.",
   story: "Sequência de stories. Quadros curtos e diretos; use enquete ou caixa de pergunta quando fizer sentido para gerar interação.",
