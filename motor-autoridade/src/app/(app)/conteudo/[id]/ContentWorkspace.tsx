@@ -53,8 +53,14 @@ export function ContentWorkspace({ itemId, title, theme, status, generated }: Pr
         ← Hoje
       </Link>
       <header className="mb-5 mt-2">
-        {theme ? <p className="text-xs uppercase tracking-wide text-gold-700">{theme}</p> : null}
-        <h1 className="mt-1 font-serif text-2xl text-ink-900">{title}</h1>
+        <p className="text-xs font-semibold uppercase tracking-wider text-gold-700">
+          {active === "video" && generated.video
+            ? `Roteiro · Vídeo de ${String(
+                (generated.video as Record<string, unknown>).duration_sec ?? 60
+              )}s`
+            : theme ?? FORMAT_LABEL[active]}
+        </p>
+        <h1 className="mt-1 font-serif text-3xl leading-tight text-ink-900">{title}</h1>
         {status === "published" ? (
           <span className="mt-2 inline-block rounded-full bg-success-100 px-3 py-1 text-xs text-brand-700">
             Publicado ✓
@@ -95,10 +101,11 @@ export function ContentWorkspace({ itemId, title, theme, status, generated }: Pr
           {pending ? "Gerando…" : payload ? "Gerar novamente" : "Gerar conteúdo"}
         </Button>
         {active === "video" && payload ? (
-          <Link href={`/teleprompter/${itemId}`} className="block">
-            <Button full variant="secondary">
-              🎬 Gravar com teleprompter
-            </Button>
+          <Link
+            href={`/teleprompter/${itemId}`}
+            className="flex w-full items-center justify-center gap-2 rounded-full bg-ink-900 px-5 py-4 text-[15px] font-medium text-sand-50 transition hover:bg-black active:scale-[0.98]"
+          >
+            ● Gravar com teleprompter
           </Link>
         ) : null}
         {status !== "published" ? (
@@ -122,19 +129,42 @@ function FormatView({ format, payload }: { format: FormatType; payload: unknown 
       </div>
     ) : null;
 
+  // Vídeo tem layout próprio (estilo MVP): seções do roteiro com faixa de tempo.
+  if (format === "video") {
+    const duration = Number(p.duration_sec ?? 60);
+    const hookEnd = Math.min(8, duration);
+    const bodyEnd = Math.max(hookEnd, duration - 10);
+    const sections = [
+      { label: `Gancho · 0–${hookEnd}s`, text: p.hook },
+      { label: `Desenvolvimento · ${hookEnd}–${bodyEnd}s`, text: p.body },
+      { label: `Chamada · ${bodyEnd}–${duration}s`, text: p.cta },
+    ].filter((s) => Boolean(s.text));
+
+    return (
+      <div className="space-y-3">
+        {sections.map((s) => (
+          <div key={s.label} className="rounded-[24px] bg-white p-5 ring-1 ring-sand-200">
+            <p className="text-xs font-semibold uppercase tracking-wider text-brand-700">
+              {s.label}
+            </p>
+            <p className="mt-2 whitespace-pre-wrap text-[17px] leading-relaxed text-ink-900">
+              {String(s.text)}
+            </p>
+          </div>
+        ))}
+        {(p.caption || p.cover_text || p.recording_tips) ? (
+          <div className="space-y-4 rounded-[24px] bg-white p-5 ring-1 ring-sand-200">
+            <Field label="Texto de capa" value={p.cover_text} />
+            <Field label="Legenda para publicar" value={p.caption} />
+            <Field label="Orientação de gravação" value={p.recording_tips} />
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
   return (
     <Card className="space-y-4">
-      {format === "video" && (
-        <>
-          <Field label="Título" value={p.title} />
-          <Field label="Texto de capa" value={p.cover_text} />
-          <Field label="Gancho" value={p.hook} />
-          <Field label="Roteiro" value={p.body} />
-          <Field label="Legenda" value={p.caption} />
-          <Field label="CTA" value={p.cta} />
-          <Field label="Orientação de gravação" value={p.recording_tips} />
-        </>
-      )}
       {format === "carousel" && (
         <>
           <Field label="Capa" value={p.cover} />

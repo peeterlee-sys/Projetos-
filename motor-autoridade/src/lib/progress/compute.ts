@@ -13,8 +13,17 @@ export type ProgressData = {
   currentStreak: number; // semanas consecutivas com ≥1 publicação
   bestStreak: number;
   preferredFormat: string | null;
+  preferredFormatPct: number | null; // participação % do formato mais usado
   deltaVsPrev: number; // variação % de publicações vs semana anterior
+  publishedMonth: number; // publicados no mês corrente
+  /** Últimas 6 semanas (da mais antiga à atual) para o gráfico de evolução. */
+  weeklySeries: { label: string; count: number; current: boolean }[];
 };
+
+const MONTH_ABBR = [
+  "jan", "fev", "mar", "abr", "mai", "jun",
+  "jul", "ago", "set", "out", "nov", "dez",
+];
 
 /** Segunda-feira da semana de uma data (UTC), em ISO yyyy-mm-dd. */
 function mondayOf(d: Date): string {
@@ -108,6 +117,39 @@ export async function computeProgress(
     }
   }
 
+  // Série das últimas 6 semanas para o gráfico "Evolução".
+  const weekCounts = new Map<string, number>();
+  for (const r of publishedList.data ?? []) {
+    const w = mondayOf(new Date(r.published_at as string));
+    weekCounts.set(w, (weekCounts.get(w) ?? 0) + 1);
+  }
+  const weeklySeries: { label: string; count: number; current: boolean }[] = [];
+  let prevMonth = -1;
+  for (let i = 5; i >= 0; i--) {
+    const w = addDaysISO(weekStart, -7 * i);
+    const d = new Date(w + "T00:00:00Z");
+    const isCurrent = i === 0;
+    const month = d.getUTCMonth();
+    const label = isCurrent
+      ? "atual"
+      : month !== prevMonth
+        ? `${d.getUTCDate()} ${MONTH_ABBR[month]}`
+        : String(d.getUTCDate());
+    prevMonth = month;
+    weeklySeries.push({ label, count: weekCounts.get(w) ?? 0, current: isCurrent });
+  }
+
+  // Publicados no mês corrente.
+  const monthStartIso =
+    new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+  const publishedMonth = (publishedList.data ?? []).filter(
+    (r) => (r.published_at as string) >= monthStartIso
+  ).length;
+
+  const totalFormats = (formats.data ?? []).length;
+  const preferredFormatPct =
+    preferredFormat && totalFormats > 0 ? Math.round((max / totalFormats) * 100) : null;
+
   const deliveredCount = delivered.count ?? 0;
   const executionRate = deliveredCount > 0 ? publishedCount / deliveredCount : 0;
   const deltaVsPrev =
@@ -129,7 +171,10 @@ export async function computeProgress(
     currentStreak: current,
     bestStreak: best,
     preferredFormat,
+    preferredFormatPct,
     deltaVsPrev,
+    publishedMonth,
+    weeklySeries,
   };
 }
 
