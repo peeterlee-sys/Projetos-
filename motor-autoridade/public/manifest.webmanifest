@@ -1,7 +1,7 @@
 {
-  "name": "Motor de Autoridade",
-  "short_name": "Autoridade",
-  "description": "Inteligência editorial: do radar de pautas à gravação e publicação, com a sua cara.",
+  "name": "Take",
+  "short_name": "Take",
+  "description": "Seu editor-chefe inteligente: do radar de pautas à gravação e publicação, com a sua cara.",
   "start_url": "/hoje",
   "scope": "/",
   "display": "standalone",

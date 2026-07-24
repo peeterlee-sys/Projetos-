@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/auth/session";
 import { AdminNav } from "./AdminNav";
+import { TakeMark } from "@/components/brand/TakeLogo";
 
 /** Área administrativa — só admin e super_admin. Otimizada para desktop. */
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -14,8 +15,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <header className="sticky top-0 z-20 border-b border-sand-200 bg-sand-50/95 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-3">
           <div className="flex items-center gap-6">
-            <Link href="/admin" className="font-serif text-lg text-brand-700">
-              Motor · Admin
+            <Link href="/admin" className="flex items-center gap-2">
+              <TakeMark size={26} />
+              <span className="font-serif text-lg text-brand-700">Take · Admin</span>
             </Link>
             <AdminNav />
           </div>

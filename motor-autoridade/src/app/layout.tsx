@@ -16,14 +16,14 @@ const serif = Newsreader({
 });
 
 export const metadata: Metadata = {
-  title: "Motor de Autoridade",
+  title: "Take",
   description:
-    "Inteligência editorial: do radar de pautas à gravação e publicação, com a sua cara.",
+    "Seu editor-chefe inteligente: do radar de pautas à gravação e publicação, com a sua cara.",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Autoridade",
+    title: "Take",
   },
   icons: { icon: "/icon.svg", apple: "/icon.svg" },
 };

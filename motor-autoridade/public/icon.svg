@@ -1,13 +1,17 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Motor de Autoridade">
-  <rect width="512" height="512" rx="112" fill="#143627"/>
-  <!-- radar de pautas -->
-  <g fill="none" stroke="#e9c87b" stroke-width="10" opacity="0.7">
-    <circle cx="256" cy="268" r="150"/>
-    <circle cx="256" cy="268" r="100"/>
-    <circle cx="256" cy="268" r="50"/>
-  </g>
-  <!-- ponto de autoridade -->
-  <circle cx="256" cy="268" r="26" fill="#c9a94e"/>
-  <!-- inicial editorial serifada -->
-  <text x="256" y="180" text-anchor="middle" font-family="Georgia, 'Newsreader', serif" font-size="128" font-weight="600" fill="#faf7f2">M</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Take">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#245c44"/>
+      <stop offset="1" stop-color="#143627"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="118" fill="url(#bg)"/>
+  <!-- extrusão/sombra do play (dá profundidade) -->
+  <polygon points="180,166 180,402 412,284" fill="#0f2a1f" opacity="0.45"/>
+  <!-- play (triângulo creme) -->
+  <polygon points="168,150 168,388 398,269" fill="#f5f0e6"/>
+  <!-- sombra do ponto -->
+  <circle cx="360" cy="378" r="44" fill="#0f2a1f" opacity="0.35"/>
+  <!-- ponto de autoridade (dourado) -->
+  <circle cx="356" cy="372" r="44" fill="#c9a94e"/>
 </svg>

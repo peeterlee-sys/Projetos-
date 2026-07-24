@@ -30,6 +30,7 @@ supabase/migrations/0003_rls.sql             -- Row Level Security (isolamento)
 supabase/migrations/0004_seed_templates.sql  -- templates visuais globais
 supabase/migrations/0005_brand.sql           -- identidade visual do cliente (marca)
 supabase/migrations/0006_editorial_dna.sql   -- anamnese completa, fontes, DNA Editorial
+supabase/migrations/0007_signup_approval.sql   -- aprovação de cadastro (is_active pendente)
 ```
 
 Ou via CLI:

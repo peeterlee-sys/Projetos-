@@ -3,7 +3,7 @@ import { requireUser } from "@/lib/auth/session";
 import Teleprompter from "./Teleprompter";
 
 export const metadata: Metadata = {
-  title: "Teleprompter — Motor de Autoridade",
+  title: "Teleprompter — Take",
 };
 
 /** Teleprompter avulso: o usuário cola ou digita o próprio roteiro. */

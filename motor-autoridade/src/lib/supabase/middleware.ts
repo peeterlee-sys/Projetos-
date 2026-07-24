@@ -8,7 +8,7 @@ type CookieToSet = { name: string; value: string; options: CookieOptions };
  * Rotas públicas: /login, /signup, /auth/*, ativos estáticos.
  * Usuário sem onboarding é redirecionado para /onboarding.
  */
-const PUBLIC_PATHS = ["/login", "/signup", "/auth", "/offline"];
+const PUBLIC_PATHS = ["/", "/login", "/signup", "/auth", "/offline"];
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -47,18 +47,36 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Autenticado: onboarding obrigatório só para clientes/colaboradores.
-  // Admin e super_admin não passam pelo onboarding editorial.
+  // Autenticado: aplica (1) aprovação de cadastro e (2) onboarding obrigatório.
   // Otimização: uma vez liberado, gravamos um cookie e pulamos a consulta ao
   // banco nas próximas navegações (o gate só precisa rodar uma vez por sessão).
   const onboardingCleared = request.cookies.get("mo_onb")?.value === "1";
+  const isWaiting = pathname === "/aguardando" || pathname.startsWith("/aguardando/");
   if (user && !isPublic && pathname !== "/onboarding" && !onboardingCleared) {
     const { data: profile } = await supabase
       .from("users")
-      .select("onboarded_at, role")
+      .select("onboarded_at, role, is_active")
       .eq("id", user.id)
       .maybeSingle();
 
+    // (1) Conta pendente de aprovação → tela de espera (e nada além dela).
+    if (profile && profile.is_active === false) {
+      if (!isWaiting) {
+        const url = request.nextUrl.clone();
+        url.pathname = "/aguardando";
+        return NextResponse.redirect(url);
+      }
+      return response; // já está em /aguardando: deixa ver a tela.
+    }
+
+    // Conta ativa acessando a tela de espera → manda para o app.
+    if (profile && profile.is_active !== false && isWaiting) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/hoje";
+      return NextResponse.redirect(url);
+    }
+
+    // (2) Onboarding obrigatório só para clientes/colaboradores.
     const needsOnboarding =
       profile &&
       !profile.onboarded_at &&
@@ -71,7 +89,7 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.redirect(url);
     }
 
-    // Liberado: marca por 12h para não reconsultar a cada página.
+    // Liberado (ativo + onboarding ok): marca por 12h para não reconsultar.
     if (profile) {
       response.cookies.set("mo_onb", "1", {
         maxAge: 60 * 60 * 12,

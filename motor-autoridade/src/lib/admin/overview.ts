@@ -25,7 +25,16 @@ export type ClientRow = {
   health: ClientHealth;
 };
 
+export type PendingRow = {
+  id: string;
+  name: string | null;
+  email: string;
+  createdAt: string | null;
+  onboarded: boolean;
+};
+
 export type AdminOverview = {
+  pending: PendingRow[];
   totalClients: number;
   activeClients: number;
   inactiveClients: number;
@@ -100,7 +109,8 @@ export async function getAdminOverview(supabase: SupabaseClient): Promise<AdminO
       .select(
         "id, full_name, email, is_active, onboarded_at, created_at, tenants(status), client_profiles(profession, segment, dna_generated_at), client_preferences(weekly_goal)"
       )
-      .eq("role", "client")
+      // Inclui admins/super_admins que também consomem conteúdo (dogfooding).
+      .in("role", ["client", "admin", "super_admin"])
       .is("deleted_at", null)
       .limit(1000),
     supabase
@@ -222,24 +232,39 @@ export async function getAdminOverview(supabase: SupabaseClient): Promise<AdminO
   const delivered = deliveries.count ?? 0;
   const last = (lastMake ?? [])[0] ?? null;
 
+  // Pendentes de aprovação (is_active = false) ficam à parte; as métricas e a
+  // lista principal consideram apenas os clientes já aprovados (ativos).
+  const approved = rows.filter((r) => r.isActive);
+  const pending: PendingRow[] = clientList
+    .filter((c) => c.is_active === false)
+    .map((c) => ({
+      id: c.id,
+      name: c.full_name,
+      email: c.email,
+      createdAt: (c.created_at as string) ?? null,
+      onboarded: Boolean(c.onboarded_at),
+    }))
+    .sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""));
+
   return {
-    totalClients: rows.length,
-    activeClients: rows.filter((r) => r.isActive).length,
-    inactiveClients: rows.filter((r) => !r.isActive).length,
-    trialClients: rows.filter((r) => r.plan === "trial").length,
-    canceledClients: rows.filter((r) => r.plan === "canceled").length,
+    pending,
+    totalClients: approved.length,
+    activeClients: approved.length,
+    inactiveClients: pending.length,
+    trialClients: approved.filter((r) => r.plan === "trial").length,
+    canceledClients: approved.filter((r) => r.plan === "canceled").length,
     generatedToday,
     publishedTotal,
     avgPublicationRate: delivered > 0 ? publishedTotal / delivered : 0,
-    noAccess7d: rows.filter((r) => r.daysSinceAccess == null || r.daysSinceAccess > 7).length,
-    neverGenerated: rows.filter((r) => !lastGenByUser.has(r.id)).length,
+    noAccess7d: approved.filter((r) => r.daysSinceAccess == null || r.daysSinceAccess > 7).length,
+    neverGenerated: approved.filter((r) => !lastGenByUser.has(r.id)).length,
     aiFailures: aiErrors.count ?? 0,
     makeFailures: makeErrors.count ?? 0,
     lastMakeExecution: last?.created_at ?? null,
     lastMakeStatus: last?.status ?? null,
     delivered,
     totalCostUsd: (costs ?? []).reduce((s, r) => s + Number(r.cost_usd ?? 0), 0),
-    clients: rows.sort((a, b) => {
+    clients: approved.sort((a, b) => {
       const order = { risk: 0, attention: 1, healthy: 2 };
       return order[a.health] - order[b.health];
     }),

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getAdminOverview, type ClientHealth, type ClientRow } from "@/lib/admin/overview";
+import { PendingApprovals } from "./PendingApprovals";
 
 const HEALTH_STYLE: Record<ClientHealth, string> = {
   healthy: "bg-success-100 text-brand-700",
@@ -144,6 +145,9 @@ export default async function AdminDashboard() {
           Gerenciar fontes
         </Link>
       </div>
+
+      {/* Cadastros pendentes de aprovação */}
+      <PendingApprovals pending={o.pending} />
 
       {/* Clientes */}
       <section>

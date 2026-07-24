@@ -99,12 +99,14 @@ async function listClients(supabase: Supabase, payload: Record<string, unknown>)
     .object({ tenant_id: z.string().uuid().optional() })
     .parse(payload);
 
+  // Recebe conteúdo quem concluiu a anamnese — inclusive admins/super_admins
+  // que dogfoodam o próprio produto (não só quem tem papel 'client').
   let query = supabase
     .from("users")
     .select(
       "id, full_name, tenant_id, client_profiles(main_themes, tone_of_voice, target_audience, segment, positioning_recognition, editorial_dna)"
     )
-    .eq("role", "client")
+    .in("role", ["client", "admin", "super_admin"])
     .eq("is_active", true)
     .is("deleted_at", null)
     .not("onboarded_at", "is", null)
