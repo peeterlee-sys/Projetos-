@@ -27,16 +27,17 @@ export type MediaSupport = {
 };
 
 /**
- * Candidatos em ordem de preferência. WebM (VP9/VP8) para Chrome/Firefox,
- * MP4/H.264 para Safari/iOS. O primeiro que o navegador aceitar vence.
+ * Candidatos em ordem de preferência. MP4/H.264 PRIMEIRO: é o único formato
+ * que as galerias de foto (rolo da câmera iOS/Android) aceitam salvar. WebM
+ * fica como fallback para navegadores sem gravação MP4 (ex.: Firefox).
  */
 const CANDIDATE_MIME_TYPES = [
-  "video/webm;codecs=vp9,opus",
-  "video/webm;codecs=vp8,opus",
-  "video/webm;codecs=h264,opus",
-  "video/webm",
+  "video/mp4;codecs=avc1.42E01E,mp4a.40.2",
   "video/mp4;codecs=h264,aac",
   "video/mp4",
+  "video/webm;codecs=vp9,opus",
+  "video/webm;codecs=vp8,opus",
+  "video/webm",
 ];
 
 /**

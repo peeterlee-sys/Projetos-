@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Button, Card } from "@/components/ui";
 import { type MediaSupport } from "./lib/mediaSupport";
@@ -61,10 +61,10 @@ export default function Teleprompter({
   // Espelho desligado por padrão: a maioria grava no celular e o vídeo final
   // não é espelhado — o preview deve mostrar o resultado real.
   const [mirror, setMirror] = useState(false);
-  const [darkEffect, setDarkEffect] = useState(false);
+  const [darkEffect, setDarkEffect] = useState(true);
   const [saved, setSaved] = useState(false);
-  const [fontSize, setFontSize] = useState(38);
-  const [speed, setSpeed] = useState(60); // px/s
+  const [fontSize, setFontSize] = useState(34);
+  const [speed, setSpeed] = useState(35); // px/s
   const [showEvents, setShowEvents] = useState(false);
   const [shareError, setShareError] = useState<string | null>(null);
 
@@ -105,12 +105,12 @@ export default function Teleprompter({
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: mode },
-        // Sem processamento de "chamada de voz" (eco/ruído): som mais cheio e
-        // natural para gravação de conteúdo. O preview é mudo, sem risco de eco.
+        // Eco/ruído desligados (evita o som abafado de "chamada de voz"), mas
+        // ganho automático LIGADO — sem ele o volume do microfone fica baixo.
         audio: {
           echoCancellation: false,
           noiseSuppression: false,
-          autoGainControl: false,
+          autoGainControl: true,
         },
       });
       streamRef.current = stream;
@@ -136,6 +136,18 @@ export default function Teleprompter({
       setCameraOn(false);
     }
   }, []);
+
+  // Liga a câmera automaticamente ao abrir: quem chega aqui veio gravar.
+  // O navegador pede a permissão na primeira visita; nas seguintes já abre.
+  useEffect(() => {
+    if (support.getUserMedia) void startCamera("user");
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
+      }
+    };
+  }, [support.getUserMedia, startCamera]);
 
   const flipCamera = useCallback(() => {
     const next = facingMode === "user" ? "environment" : "user";
@@ -170,8 +182,11 @@ export default function Teleprompter({
     setShareError(null);
     const rec = recorder.recording;
     if (!rec || !navigator.canShare || !navigator.share) return;
+    // Tipo "limpo" (sem ";codecs=..."): galerias recusam MIME parametrizado
+    // e sem isso o "Salvar vídeo" da folha nativa não aparece/funciona.
+    const baseType = rec.mimeType.split(";")[0] || "video/mp4";
     const file = new File([rec.blob], timestampName(rec.extension), {
-      type: rec.mimeType,
+      type: baseType,
     });
     if (!navigator.canShare({ files: [file] })) {
       setShareError("Este navegador não permite compartilhar o arquivo.");
