@@ -22,7 +22,14 @@ const FORMAT_EMOJI: Record<string, string> = {
 };
 
 function greeting(name: string | null) {
-  const h = new Date().getHours();
+  // Hora no fuso de São Paulo (o servidor roda em UTC).
+  const h = Number(
+    new Intl.DateTimeFormat("pt-BR", {
+      hour: "numeric",
+      hour12: false,
+      timeZone: "America/Sao_Paulo",
+    }).format(new Date())
+  );
   const period = h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
   return name ? `${period}, ${name.split(" ")[0]}.` : `${period}.`;
 }
