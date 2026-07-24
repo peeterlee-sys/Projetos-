@@ -73,7 +73,8 @@ export default async function HojePage() {
       )
       .eq("user_id", user.id)
       .eq("opportunity_date", new Date().toISOString().slice(0, 10))
-      .order("relevance_score", { ascending: false })
+      // Mais recente primeiro: a última pauta entregue é o destaque do dia.
+      .order("created_at", { ascending: false })
       .limit(6),
   ]);
 
