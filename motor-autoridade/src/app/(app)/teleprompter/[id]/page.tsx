@@ -50,6 +50,7 @@ export default async function TeleprompterFromContentPage({
       backHref={`/conteudo/${id}`}
       backLabel="Conteúdo"
       contentItemId={item.id}
+      caption={video?.caption ?? null}
     />
   );
 }

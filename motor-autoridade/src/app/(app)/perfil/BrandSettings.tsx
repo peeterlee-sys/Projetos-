@@ -201,6 +201,17 @@ export function BrandSettings({ initial }: { initial: Partial<Brand> }) {
   );
 }
 
+function normalizeHex(raw: string): string | null {
+  let s = raw.trim().replace(/^#?/, "");
+  if (/^[0-9a-fA-F]{3}$/.test(s)) {
+    s = s
+      .split("")
+      .map((c) => c + c)
+      .join(""); // #abc -> #aabbcc
+  }
+  return /^[0-9a-fA-F]{6}$/.test(s) ? `#${s.toLowerCase()}` : null;
+}
+
 function ColorField({
   label,
   value,
@@ -210,19 +221,60 @@ function ColorField({
   value: string;
   onChange: (v: string) => void;
 }) {
+  // Estado de digitação local: deixa o cliente digitar o # livremente e só
+  // "comita" quando o valor é um hex válido.
+  const [typed, setTyped] = useState(value.replace(/^#/, "").toUpperCase());
+
+  function commit(raw: string) {
+    const norm = normalizeHex(raw);
+    if (norm) {
+      onChange(norm);
+      setTyped(norm.replace(/^#/, "").toUpperCase());
+    } else {
+      setTyped(value.replace(/^#/, "").toUpperCase()); // reverte
+    }
+  }
+
   return (
-    <label className="flex flex-col gap-1.5">
-      <span className="text-xs text-ink-500">{label}</span>
-      <span className="flex items-center gap-2 rounded-xl border border-sand-300 bg-sand-50 px-2 py-1.5">
-        <input
-          type="color"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="h-7 w-7 shrink-0 cursor-pointer rounded-md border-0 bg-transparent p-0"
-          aria-label={label}
-        />
-        <span className="font-mono text-xs uppercase text-ink-700">{value}</span>
-      </span>
-    </label>
+    <div className="flex flex-col gap-2">
+      <span className="text-xs font-medium text-ink-500">{label}</span>
+      <div className="rounded-2xl border border-sand-300 bg-sand-50 p-2">
+        {/* Amostra grande, também clicável (abre o seletor do sistema) */}
+        <label className="block cursor-pointer">
+          <span
+            className="flex h-14 w-full items-center justify-center rounded-xl ring-1 ring-black/5"
+            style={{ backgroundColor: value }}
+          />
+          <input
+            type="color"
+            value={value}
+            onChange={(e) => {
+              onChange(e.target.value);
+              setTyped(e.target.value.replace(/^#/, "").toUpperCase());
+            }}
+            className="sr-only"
+            aria-label={`${label} — seletor`}
+          />
+        </label>
+        {/* Digitação do código hex */}
+        <div className="mt-2 flex items-center rounded-lg bg-white px-2 ring-1 ring-sand-200 focus-within:ring-brand-700">
+          <span className="text-sm text-ink-400">#</span>
+          <input
+            type="text"
+            inputMode="text"
+            maxLength={7}
+            value={typed}
+            onChange={(e) => setTyped(e.target.value.replace(/[^0-9a-fA-F]/g, "").toUpperCase())}
+            onBlur={(e) => commit(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+            }}
+            placeholder="RRGGBB"
+            className="w-full bg-transparent px-1 py-1.5 font-mono text-sm uppercase text-ink-900 outline-none"
+            aria-label={`${label} — código hex`}
+          />
+        </div>
+      </div>
+    </div>
   );
 }

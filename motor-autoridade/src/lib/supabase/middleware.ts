@@ -49,7 +49,10 @@ export async function updateSession(request: NextRequest) {
 
   // Autenticado: onboarding obrigatório só para clientes/colaboradores.
   // Admin e super_admin não passam pelo onboarding editorial.
-  if (user && !isPublic && pathname !== "/onboarding") {
+  // Otimização: uma vez liberado, gravamos um cookie e pulamos a consulta ao
+  // banco nas próximas navegações (o gate só precisa rodar uma vez por sessão).
+  const onboardingCleared = request.cookies.get("mo_onb")?.value === "1";
+  if (user && !isPublic && pathname !== "/onboarding" && !onboardingCleared) {
     const { data: profile } = await supabase
       .from("users")
       .select("onboarded_at, role")
@@ -66,6 +69,16 @@ export async function updateSession(request: NextRequest) {
       const url = request.nextUrl.clone();
       url.pathname = "/onboarding";
       return NextResponse.redirect(url);
+    }
+
+    // Liberado: marca por 12h para não reconsultar a cada página.
+    if (profile) {
+      response.cookies.set("mo_onb", "1", {
+        maxAge: 60 * 60 * 12,
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+      });
     }
   }
 

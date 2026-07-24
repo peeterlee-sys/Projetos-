@@ -5,5 +5,9 @@ import { createClient } from "@/lib/supabase/server";
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
   await supabase.auth.signOut();
-  return NextResponse.redirect(new URL("/login", request.url), { status: 303 });
+  const res = NextResponse.redirect(new URL("/login", request.url), { status: 303 });
+  // Limpa o cache do gate de onboarding (senão o próximo usuário no mesmo
+  // navegador poderia pular a verificação).
+  res.cookies.set("mo_onb", "", { maxAge: 0, path: "/" });
+  return res;
 }

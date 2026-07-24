@@ -26,6 +26,8 @@ type TeleprompterProps = {
   /** Quando o teleprompter foi aberto a partir de um conteúdo, permite marcar
    *  a publicação direto no fluxo pós-gravação. */
   contentItemId?: string | null;
+  /** Legenda pronta para o cliente copiar e colar na rede ao publicar. */
+  caption?: string | null;
 };
 
 function formatBytes(bytes: number): string {
@@ -57,6 +59,7 @@ export default function Teleprompter({
   backHref = "/hoje",
   backLabel = "Voltar",
   contentItemId = null,
+  caption = null,
 }: TeleprompterProps) {
   const support = useMediaSupport();
   const [script, setScript] = useState(initialScript?.trim() || DEFAULT_SCRIPT);
@@ -490,6 +493,7 @@ export default function Teleprompter({
           onDownloaded={() => setSaved(true)}
           backHref={backHref}
           contentItemId={contentItemId}
+          caption={caption}
         />
       )}
 
@@ -581,6 +585,7 @@ function RecordingResult({
   onDownloaded,
   backHref,
   contentItemId,
+  caption,
 }: {
   url: string;
   size: number;
@@ -594,25 +599,40 @@ function RecordingResult({
   onDownloaded: () => void;
   backHref: string;
   contentItemId: string | null;
+  caption: string | null;
 }) {
   const router = useRouter();
   const [publishing, startPublishing] = useTransition();
   const [publishError, setPublishError] = useState<string | null>(null);
   const [published, setPublished] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const copyCaption = async () => {
+    if (!caption) return;
+    try {
+      await navigator.clipboard.writeText(caption);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch {
+      /* clipboard pode ser bloqueado; o cliente ainda pode selecionar o texto */
+    }
+  };
 
   const handlePublished = () => {
-    if (!contentItemId) return;
-    setPublishError(null);
-    startPublishing(async () => {
-      const result = await markPublishedAction(contentItemId);
-      if (!result.ok) {
-        setPublishError(result.error);
-        return;
-      }
-      setPublished(true);
-      // Pausa breve para o cliente ver a confirmação antes de voltar ao início.
-      setTimeout(() => router.push("/hoje"), 1600);
-    });
+    if (contentItemId) {
+      setPublishError(null);
+      startPublishing(async () => {
+        const result = await markPublishedAction(contentItemId);
+        if (!result.ok) {
+          setPublishError(result.error);
+          return;
+        }
+        setPublished(true);
+        setTimeout(() => router.push("/hoje"), 1600);
+      });
+    } else {
+      router.push(backHref);
+    }
   };
 
   return (
@@ -656,42 +676,56 @@ function RecordingResult({
       {shareError && <p className="text-xs text-danger-600">{shareError}</p>}
 
       {saved && !published && (
-        <div className="rounded-2xl bg-brand-700/5 p-4 ring-1 ring-brand-700/15">
+        <div className="space-y-4 rounded-2xl bg-brand-700/5 p-4 ring-1 ring-brand-700/15">
           <p className="text-sm font-medium text-brand-700">
             ✅ Vídeo salvo na galeria!
           </p>
-          <p className="mt-2 text-sm text-ink-700">
-            <span className="font-medium">Próximo passo:</span> abra o
-            Instagram (ou a rede que preferir) e publique o vídeo que está na
-            sua galeria. Depois volte aqui e confirme.
-          </p>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            {contentItemId ? (
-              <Button onClick={handlePublished} disabled={publishing}>
-                {publishing ? "Registrando..." : "Já publiquei 🎉"}
-              </Button>
-            ) : (
-              <Link
-                href={backHref}
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-brand-700 px-5 py-3 text-sm font-medium text-sand-50 transition hover:bg-brand-800 active:scale-[0.98]"
-              >
-                Concluir
-              </Link>
-            )}
+
+          {/* Legenda pronta para copiar e colar na rede */}
+          {caption ? (
+            <div>
+              <div className="mb-1.5 flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">
+                  Legenda do post
+                </p>
+                <button
+                  type="button"
+                  onClick={copyCaption}
+                  className="rounded-full bg-brand-700 px-4 py-1.5 text-xs font-medium text-sand-50 transition hover:bg-brand-800 active:scale-[0.98]"
+                >
+                  {copied ? "Copiado ✓" : "Copiar legenda"}
+                </button>
+              </div>
+              <p className="max-h-48 overflow-y-auto whitespace-pre-wrap rounded-xl bg-white p-3 text-sm text-ink-800 ring-1 ring-sand-200">
+                {caption}
+              </p>
+            </div>
+          ) : null}
+
+          <div className="rounded-xl bg-white/70 p-3 text-sm text-ink-700">
+            <span className="font-medium">Agora:</span> abra o Instagram, escolha
+            o vídeo da galeria e{" "}
+            {caption ? "cole a legenda acima" : "publique"}. Levou 1 minuto. 🎬
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Button onClick={handlePublished} disabled={publishing}>
+              {publishing ? "Registrando..." : "Publiquei — concluir"}
+            </Button>
             <Link
               href={backHref}
-              className="inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-medium text-ink-500 transition hover:text-ink-700"
+              className="inline-flex items-center justify-center gap-2 rounded-full px-4 py-3 text-sm font-medium text-ink-500 transition hover:text-ink-700"
             >
-              Publicar depois
+              Sair sem registrar
             </Link>
           </div>
           {contentItemId ? (
-            <p className="mt-2 text-xs text-ink-500">
-              Ao confirmar, este vídeo conta na sua meta da semana.
+            <p className="text-xs text-ink-500">
+              Ao concluir, este vídeo conta na sua meta da semana.
             </p>
           ) : null}
           {publishError && (
-            <p className="mt-2 text-xs text-danger-600">{publishError}</p>
+            <p className="text-xs text-danger-600">{publishError}</p>
           )}
         </div>
       )}
