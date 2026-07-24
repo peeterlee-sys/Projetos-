@@ -316,11 +316,13 @@ export default function Teleprompter({
 
         <div
           ref={scriptRef}
-          className="pointer-events-none absolute inset-0 overflow-y-auto px-5 pt-[18%] pb-[70%]"
+          className="pointer-events-none absolute inset-0 overflow-y-auto px-5 pt-[9%] pb-[85%]"
           style={{
+            // Leitura no ALTO (perto da câmera): topo mais claro, escurecendo
+            // para baixo — o olhar fica junto da lente e não parece "para baixo".
             background: darkEffect
-              ? "linear-gradient(to bottom, rgba(0,0,0,0.92), rgba(0,0,0,0.62) 25%, rgba(0,0,0,0.62) 75%, rgba(0,0,0,0.92))"
-              : "linear-gradient(to bottom, rgba(0,0,0,0.6), rgba(0,0,0,0.15) 22%, rgba(0,0,0,0.15) 78%, rgba(0,0,0,0.6))",
+              ? "linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.38) 16%, rgba(0,0,0,0.82) 46%, rgba(0,0,0,0.94) 100%)"
+              : "linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.12) 16%, rgba(0,0,0,0.5) 55%, rgba(0,0,0,0.75) 100%)",
           }}
         >
           <p
@@ -329,6 +331,13 @@ export default function Teleprompter({
           >
             {script}
           </p>
+        </div>
+
+        {/* Guia de leitura: mantém o olhar no alto, junto da câmera. */}
+        <div className="pointer-events-none absolute inset-x-0 top-[7%] flex justify-center">
+          <span className="rounded-full bg-black/45 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-white/80">
+            ↑ olhe aqui, perto da câmera
+          </span>
         </div>
 
         {busy && (

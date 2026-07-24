@@ -71,6 +71,9 @@ export function useMediaRecorder(): UseMediaRecorder {
   const mimeTypeRef = useRef("");
   // Guarda a última object URL para revogá-la e evitar vazamento de memória.
   const lastUrlRef = useRef<string | null>(null);
+  // Garante que a finalização (montar o blob/preview) rode UMA vez só, venha
+  // ela do onstop nativo ou do watchdog de segurança.
+  const finalizedRef = useRef(false);
 
   const log = useCallback((type: RecordingEvent["type"], detail?: string) => {
     eventIdRef.current += 1;
@@ -87,6 +90,45 @@ export function useMediaRecorder(): UseMediaRecorder {
     }
   }, []);
 
+  /**
+   * Monta o blob/preview a partir dos chunks. Chamada pelo `onstop` nativo e
+   * também pelo watchdog em `stop()` — o `finalizedRef` impede execução dupla.
+   * Se nada foi capturado, mostra erro claro em vez de deixar a tela travada.
+   */
+  const finalize = useCallback(() => {
+    if (finalizedRef.current) return;
+    finalizedRef.current = true;
+
+    const durationMs =
+      elapsedRef.current +
+      (startedAtRef.current ? Date.now() - startedAtRef.current : 0);
+    const type = mimeTypeRef.current || chunksRef.current[0]?.type || "video/webm";
+    const blob = new Blob(chunksRef.current, { type });
+
+    recorderRef.current = null;
+    setStatus("idle");
+
+    if (blob.size === 0) {
+      const msg =
+        "Não capturamos o vídeo desta vez. Confira as permissões de câmera/microfone e toque em Gravar novamente.";
+      setError(msg);
+      log("error", msg);
+      return;
+    }
+
+    const url = URL.createObjectURL(blob);
+    lastUrlRef.current = url;
+    setRecording({
+      url,
+      blob,
+      mimeType: type,
+      extension: extensionForMimeType(type),
+      size: blob.size,
+      durationMs,
+    });
+    log("stop", `${blob.size} bytes, ${(durationMs / 1000).toFixed(1)}s`);
+  }, [log]);
+
   const start = useCallback(
     (stream: MediaStream, mimeType: string | null) => {
       setError(null);
@@ -97,6 +139,7 @@ export function useMediaRecorder(): UseMediaRecorder {
       chunksRef.current = [];
       elapsedRef.current = 0;
       startedAtRef.current = 0;
+      finalizedRef.current = false;
 
       // Bitrates generosos: áudio 192 kbps (voz nítida) e vídeo 5 Mbps.
       const quality = {
@@ -153,30 +196,7 @@ export function useMediaRecorder(): UseMediaRecorder {
         setError(msg);
         log("error", msg);
       };
-      recorder.onstop = () => {
-        const durationMs =
-          elapsedRef.current +
-          (startedAtRef.current ? Date.now() - startedAtRef.current : 0);
-        const type =
-          mimeTypeRef.current || chunksRef.current[0]?.type || "video/webm";
-        const blob = new Blob(chunksRef.current, { type });
-        const url = URL.createObjectURL(blob);
-        lastUrlRef.current = url;
-        setRecording({
-          url,
-          blob,
-          mimeType: type,
-          extension: extensionForMimeType(type),
-          size: blob.size,
-          durationMs,
-        });
-        setStatus("idle");
-        log(
-          "stop",
-          `${blob.size} bytes, ${(durationMs / 1000).toFixed(1)}s`,
-        );
-        recorderRef.current = null;
-      };
+      recorder.onstop = () => finalize();
 
       recorderRef.current = recorder;
       try {
@@ -189,7 +209,7 @@ export function useMediaRecorder(): UseMediaRecorder {
         recorderRef.current = null;
       }
     },
-    [log, revokeLastUrl],
+    [log, revokeLastUrl, finalize],
   );
 
   const pause = useCallback(() => {
@@ -204,10 +224,30 @@ export function useMediaRecorder(): UseMediaRecorder {
 
   const stop = useCallback(() => {
     const r = recorderRef.current;
-    if (r && r.state !== "inactive") r.stop();
-  }, []);
+    try {
+      if (r && r.state !== "inactive") {
+        // Flush do último trecho antes de encerrar (alguns navegadores só
+        // entregam os dados aqui) e então para.
+        try {
+          r.requestData();
+        } catch {
+          /* nem todo navegador implementa requestData */
+        }
+        r.stop();
+      } else {
+        finalize();
+      }
+    } catch {
+      finalize();
+    }
+    // Watchdog: se o onstop não disparar (bug conhecido no iOS/Safari), a
+    // finalização acontece mesmo assim — a tela nunca fica travada.
+    window.setTimeout(() => finalize(), 1500);
+  }, [finalize]);
 
   const reset = useCallback(() => {
+    // Bloqueia qualquer finalização atrasada (watchdog) de sobrescrever o reset.
+    finalizedRef.current = true;
     revokeLastUrl();
     setRecording(null);
     setEvents([]);
