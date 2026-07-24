@@ -1,77 +1,120 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth/session";
-import { Card, Button } from "@/components/ui";
 import { EnableNotifications } from "@/components/push/EnableNotifications";
-import { BrandSettings } from "./BrandSettings";
-
-const ROLE_LABEL: Record<string, string> = {
-  super_admin: "Super administrador",
-  admin: "Administrador",
-  client: "Cliente",
-  collaborator: "Colaborador",
-};
+import { BrandDisclosure } from "./BrandDisclosure";
 
 export default async function PerfilPage() {
   const user = await requireUser();
   const supabase = await createClient();
 
-  const { data: profile } = await supabase
-    .from("client_profiles")
-    .select("brand_primary, brand_secondary, brand_accent, logo_url")
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const [{ data: profile }, { data: prefs }] = await Promise.all([
+    supabase
+      .from("client_profiles")
+      .select(
+        "display_name, profession, field_of_work, main_themes, tone_of_voice, forbidden_themes, brand_primary, brand_secondary, brand_accent, logo_url"
+      )
+      .eq("user_id", user.id)
+      .maybeSingle(),
+    supabase.from("client_preferences").select("weekly_goal").eq("user_id", user.id).maybeSingle(),
+  ]);
+
+  const name = user.full_name ?? profile?.display_name ?? "—";
+  const initial = name.trim().charAt(0).toUpperCase() || "?";
+  const tagline = [profile?.profession, profile?.field_of_work].filter(Boolean).join(" · ");
+  const themes = (profile?.main_themes ?? []) as string[];
+  const forbidden = (profile?.forbidden_themes ?? []) as string[];
+  const isAdmin = user.role === "admin" || user.role === "super_admin";
 
   return (
     <main className="px-5 pt-8">
-      <h1 className="mb-6 font-serif text-3xl text-ink-900">Perfil</h1>
-      <Card className="space-y-3">
-        <div>
-          <p className="text-xs uppercase tracking-wide text-ink-400">Nome</p>
-          <p className="text-ink-900">{user.full_name ?? "—"}</p>
+      {/* Cabeçalho: avatar + nome + tagline */}
+      <header className="mb-6 flex items-center gap-4">
+        <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-brand-700 text-2xl font-medium text-sand-50">
+          {initial}
+        </span>
+        <div className="min-w-0">
+          <h1 className="font-serif text-2xl text-ink-900">{name}</h1>
+          {tagline ? <p className="text-sm text-ink-500">{tagline}</p> : null}
         </div>
-        <div>
-          <p className="text-xs uppercase tracking-wide text-ink-400">E-mail</p>
-          <p className="text-ink-900">{user.email}</p>
-        </div>
-        <div>
-          <p className="text-xs uppercase tracking-wide text-ink-400">Papel</p>
-          <p className="text-ink-900">{ROLE_LABEL[user.role] ?? user.role}</p>
-        </div>
-      </Card>
+      </header>
 
-      <div className="mt-5">
-        <BrandSettings initial={profile ?? {}} />
+      {/* Perfil editorial */}
+      <div className="rounded-[24px] bg-white p-5 ring-1 ring-sand-200">
+        <p className="text-xs font-semibold uppercase tracking-wider text-gold-700">
+          Perfil editorial
+        </p>
+        <div className="mt-3 space-y-2 text-[15px] text-ink-700">
+          {themes.length ? (
+            <p>
+              <span className="font-medium text-ink-900">Temas:</span> {themes.join(", ")}.
+            </p>
+          ) : null}
+          {profile?.tone_of_voice ? (
+            <p>
+              <span className="font-medium text-ink-900">Tom:</span> {profile.tone_of_voice}.
+            </p>
+          ) : null}
+          {forbidden.length ? (
+            <p>
+              <span className="font-medium text-ink-900">Evitar:</span> {forbidden.join(", ")}.
+            </p>
+          ) : null}
+          {!themes.length && !profile?.tone_of_voice && !forbidden.length ? (
+            <p className="text-ink-500">Complete seu onboarding para definir seu perfil editorial.</p>
+          ) : null}
+        </div>
+        <Link
+          href="/onboarding?refazer=1"
+          className="mt-3 inline-block text-sm font-medium text-brand-700"
+        >
+          Refazer anamnese editorial →
+        </Link>
       </div>
 
-      <Link href="/onboarding?refazer=1" className="mt-5 block">
-        <Card className="flex items-center justify-between">
-          <div>
-            <span className="text-ink-900">Refazer anamnese editorial</span>
-            <span className="block text-xs text-ink-400">Atualiza seu perfil e regenera o DNA Editorial</span>
-          </div>
-          <span className="text-brand-700">→</span>
-        </Card>
-      </Link>
+      {/* Identidade visual (abre o editor de marca) */}
+      <div className="mt-4">
+        <BrandDisclosure
+          initial={profile ?? {}}
+          preview={{
+            primary: profile?.brand_primary ?? "#1d4a38",
+            accent: profile?.brand_accent ?? "#c9a94e",
+          }}
+        />
+      </div>
 
-      {user.role === "admin" || user.role === "super_admin" ? (
-        <Link href="/admin" className="mt-5 block">
-          <Card className="flex items-center justify-between">
-            <span className="text-ink-900">Dashboard administrativo</span>
-            <span className="text-brand-700">→</span>
-          </Card>
+      {/* Preferências */}
+      <div className="mt-4 space-y-3 rounded-[24px] bg-white p-5 ring-1 ring-sand-200">
+        <div className="flex items-center justify-between">
+          <span className="text-[15px] text-ink-700">Meta semanal</span>
+          <span className="font-semibold text-ink-900">
+            {prefs?.weekly_goal ?? 3} conteúdos
+          </span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-[15px] text-ink-700">Pauta do dia às</span>
+          <span className="font-semibold text-ink-900">7h00</span>
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-[15px] text-ink-700">Notificações</span>
+          <EnableNotifications />
+        </div>
+      </div>
+
+      {isAdmin ? (
+        <Link
+          href="/admin"
+          className="mt-4 flex items-center justify-between rounded-[24px] bg-white p-5 ring-1 ring-sand-200"
+        >
+          <span className="text-ink-900">Dashboard administrativo</span>
+          <span className="text-brand-700">→</span>
         </Link>
       ) : null}
 
-      <div className="mt-5">
-        <p className="mb-2 text-xs uppercase tracking-wide text-ink-400">Notificações</p>
-        <EnableNotifications />
-      </div>
-
-      <form action="/auth/signout" method="post" className="mt-5">
-        <Button type="submit" variant="secondary" full>
-          Sair
-        </Button>
+      <form action="/auth/signout" method="post" className="mt-6 mb-2 text-center">
+        <button type="submit" className="text-sm text-ink-500 underline-offset-4 hover:underline">
+          Sair (voltar ao início)
+        </button>
       </form>
     </main>
   );

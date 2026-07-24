@@ -30,11 +30,24 @@ type Props = {
   status: string;
   generated: Record<string, unknown>;
   brand: Brand;
+  initialFormat?: string;
 };
 
-export function ContentWorkspace({ itemId, title, theme, status, generated, brand }: Props) {
+export function ContentWorkspace({
+  itemId,
+  title,
+  theme,
+  status,
+  generated,
+  brand,
+  initialFormat,
+}: Props) {
   const router = useRouter();
-  const [active, setActive] = useState<FormatType>("video");
+  const [active, setActive] = useState<FormatType>(
+    (FORMATS as readonly string[]).includes(initialFormat ?? "")
+      ? (initialFormat as FormatType)
+      : "video",
+  );
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 

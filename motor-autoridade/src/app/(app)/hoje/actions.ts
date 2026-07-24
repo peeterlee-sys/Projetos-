@@ -9,8 +9,12 @@ import { trackEvent } from "@/lib/events/track";
  * Inicia um conteúdo a partir de uma oportunidade do dia: cria o content_item,
  * marca a oportunidade como escolhida, registra eventos e leva ao workspace.
  */
+const VALID_FORMATS = ["video", "carousel", "post", "story", "linkedin"];
+
 export async function startContent(formData: FormData): Promise<void> {
   const opportunityId = String(formData.get("opportunity_id") ?? "");
+  const rawFormat = String(formData.get("format") ?? "");
+  const format = VALID_FORMATS.includes(rawFormat) ? rawFormat : "";
   const user = await requireUser();
   if (!user.tenant_id) redirect("/onboarding");
   const supabase = await createClient();
@@ -45,5 +49,5 @@ export async function startContent(formData: FormData): Promise<void> {
     metadata: { opportunity_id: opp.id },
   });
 
-  redirect(`/conteudo/${item.id}`);
+  redirect(`/conteudo/${item.id}${format ? `?f=${format}` : ""}`);
 }

@@ -628,12 +628,42 @@ function RecordingResult({
           return;
         }
         setPublished(true);
-        setTimeout(() => router.push("/hoje"), 1600);
       });
     } else {
-      router.push(backHref);
+      setPublished(true);
     }
   };
+
+  // Reconhecimento (tela 18): quando publicado, a tela vira só a comemoração.
+  if (published) {
+    return (
+      <Card className="mt-5">
+        <div className="flex flex-col items-center py-6 text-center">
+          <span className="flex h-16 w-16 items-center justify-center rounded-full bg-brand-700 text-3xl text-sand-50">
+            ✓
+          </span>
+          <h3 className="mt-4 font-serif text-3xl text-ink-900">Presença mantida.</h3>
+          <p className="mt-2 max-w-sm text-[15px] leading-relaxed text-ink-600">
+            Mais um conteúdo publicado. Sua audiência está te vendo com
+            constância — e é isso que constrói autoridade.
+          </p>
+          <button
+            type="button"
+            onClick={() => router.push("/progresso")}
+            className="mt-6 inline-flex items-center justify-center rounded-full bg-ink-900 px-6 py-4 text-[15px] font-medium text-sand-50 transition hover:bg-black active:scale-[0.98]"
+          >
+            Ver meu progresso
+          </button>
+          <Link
+            href="/hoje"
+            className="mt-3 text-sm font-medium text-ink-500 underline-offset-4 hover:underline"
+          >
+            Voltar para Hoje
+          </Link>
+        </div>
+      </Card>
+    );
+  }
 
   return (
     <Card className="mt-5 space-y-3">
@@ -676,66 +706,50 @@ function RecordingResult({
       {shareError && <p className="text-xs text-danger-600">{shareError}</p>}
 
       {saved && !published && (
-        <div className="space-y-4 rounded-2xl bg-brand-700/5 p-4 ring-1 ring-brand-700/15">
-          <p className="text-sm font-medium text-brand-700">
-            ✅ Vídeo salvo na galeria!
-          </p>
+        <div className="space-y-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
+              ✅ Vídeo salvo na galeria
+            </p>
+            <h3 className="mt-1 font-serif text-2xl leading-tight text-ink-900">
+              Legenda pronta. Só copiar e publicar.
+            </h3>
+          </div>
 
-          {/* Legenda pronta para copiar e colar na rede */}
+          {/* Legenda para copiar */}
           {caption ? (
-            <div>
-              <div className="mb-1.5 flex items-center justify-between">
-                <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">
-                  Legenda do post
-                </p>
-                <button
-                  type="button"
-                  onClick={copyCaption}
-                  className="rounded-full bg-brand-700 px-4 py-1.5 text-xs font-medium text-sand-50 transition hover:bg-brand-800 active:scale-[0.98]"
-                >
-                  {copied ? "Copiado ✓" : "Copiar legenda"}
-                </button>
-              </div>
-              <p className="max-h-48 overflow-y-auto whitespace-pre-wrap rounded-xl bg-white p-3 text-sm text-ink-800 ring-1 ring-sand-200">
+            <>
+              <p className="max-h-52 overflow-y-auto whitespace-pre-wrap rounded-2xl bg-white p-4 text-[15px] leading-relaxed text-ink-800 ring-1 ring-sand-200">
                 {caption}
               </p>
-            </div>
-          ) : null}
+              <button
+                type="button"
+                onClick={copyCaption}
+                className="w-full rounded-full border border-sand-300 bg-white px-5 py-3 text-sm font-medium text-ink-900 transition hover:bg-sand-50 active:scale-[0.98]"
+              >
+                {copied ? "Copiado ✓" : "Copiar legenda"}
+              </button>
+            </>
+          ) : (
+            <p className="rounded-2xl bg-white p-4 text-sm text-ink-600 ring-1 ring-sand-200">
+              Abra o Instagram, escolha o vídeo da galeria e publique. 🎬
+            </p>
+          )}
 
-          <div className="rounded-xl bg-white/70 p-3 text-sm text-ink-700">
-            <span className="font-medium">Agora:</span> abra o Instagram, escolha
-            o vídeo da galeria e{" "}
-            {caption ? "cole a legenda acima" : "publique"}. Levou 1 minuto. 🎬
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <Button onClick={handlePublished} disabled={publishing}>
-              {publishing ? "Registrando..." : "Publiquei — concluir"}
-            </Button>
+          <Button full onClick={handlePublished} disabled={publishing}>
+            {publishing ? "Registrando..." : "Publiquei ✓"}
+          </Button>
+          <div className="text-center">
             <Link
               href={backHref}
-              className="inline-flex items-center justify-center gap-2 rounded-full px-4 py-3 text-sm font-medium text-ink-500 transition hover:text-ink-700"
+              className="text-sm font-medium text-ink-500 underline-offset-4 hover:underline"
             >
-              Sair sem registrar
+              Publicar mais tarde
             </Link>
           </div>
-          {contentItemId ? (
-            <p className="text-xs text-ink-500">
-              Ao concluir, este vídeo conta na sua meta da semana.
-            </p>
-          ) : null}
           {publishError && (
-            <p className="text-xs text-danger-600">{publishError}</p>
+            <p className="text-center text-xs text-danger-600">{publishError}</p>
           )}
-        </div>
-      )}
-
-      {published && (
-        <div className="rounded-2xl bg-brand-700/10 p-5 text-center ring-1 ring-brand-700/20">
-          <p className="font-serif text-xl text-brand-700">🎉 Publicado!</p>
-          <p className="mt-1 text-sm text-ink-700">
-            Mais um na sua meta da semana. Levando você de volta ao início...
-          </p>
         </div>
       )}
     </Card>
