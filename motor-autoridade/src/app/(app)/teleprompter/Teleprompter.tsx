@@ -70,6 +70,7 @@ export default function Teleprompter({
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
 
   const recorder = useMediaRecorder();
   const {
@@ -81,14 +82,60 @@ export default function Teleprompter({
     reset: resetScroll,
   } = useAutoScroll(speed);
 
+  const closeAudioBoost = useCallback(() => {
+    if (audioCtxRef.current) {
+      void audioCtxRef.current.close().catch(() => {});
+      audioCtxRef.current = null;
+    }
+  }, []);
+
   const stopStream = useCallback(() => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
     }
     if (videoRef.current) videoRef.current.srcObject = null;
+    closeAudioBoost();
     setCameraOn(false);
-  }, []);
+  }, [closeAudioBoost]);
+
+  /**
+   * Amplifica o áudio do microfone antes da gravação (+7dB) com um
+   * compressor/limitador na saída para não estourar nos picos. O iOS ignora
+   * boa parte das constraints de áudio, então o ganho é aplicado via WebAudio.
+   * Se algo falhar, devolve o stream original (gravação nunca é bloqueada).
+   */
+  const buildBoostedStream = useCallback(
+    (raw: MediaStream): MediaStream => {
+      try {
+        if (raw.getAudioTracks().length === 0) return raw;
+        closeAudioBoost();
+        const ctx = new AudioContext();
+        audioCtxRef.current = ctx;
+        void ctx.resume().catch(() => {});
+        const source = ctx.createMediaStreamSource(raw);
+        const gain = ctx.createGain();
+        gain.gain.value = 2.3; // ~+7dB
+        const limiter = ctx.createDynamicsCompressor();
+        limiter.threshold.value = -10; // começa a segurar perto do topo
+        limiter.knee.value = 20;
+        limiter.ratio.value = 8; // forte o bastante para evitar clipping
+        limiter.attack.value = 0.003;
+        limiter.release.value = 0.25;
+        const dest = ctx.createMediaStreamDestination();
+        source.connect(gain);
+        gain.connect(limiter);
+        limiter.connect(dest);
+        return new MediaStream([
+          ...raw.getVideoTracks(),
+          ...dest.stream.getAudioTracks(),
+        ]);
+      } catch {
+        return raw;
+      }
+    },
+    [closeAudioBoost],
+  );
 
   const startCamera = useCallback(async (mode: "user" | "environment") => {
     setCameraError(null);
@@ -158,10 +205,13 @@ export default function Teleprompter({
 
   const handleRecord = useCallback(() => {
     if (!streamRef.current) return;
-    recorder.start(streamRef.current, support.supportedMimeType);
+    // O boost é montado aqui (no clique) porque o iOS só libera o AudioContext
+    // a partir de um gesto do usuário.
+    const boosted = buildBoostedStream(streamRef.current);
+    recorder.start(boosted, support.supportedMimeType);
     resetScroll();
     playScroll();
-  }, [recorder, resetScroll, playScroll, support]);
+  }, [recorder, resetScroll, playScroll, support, buildBoostedStream]);
 
   const handleStop = useCallback(() => {
     recorder.stop();
