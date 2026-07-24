@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button, Card } from "@/components/ui";
@@ -10,6 +10,14 @@ import { downloadAllSlides, downloadSlide, type SlideData } from "./carouselCanv
 
 const FORMAT_LABEL: Record<FormatType, string> = {
   video: "Vídeo",
+  carousel: "Carrossel",
+  post: "Post",
+  story: "Story",
+  linkedin: "LinkedIn",
+};
+
+const FORMAT_OVERLINE: Record<FormatType, string> = {
+  video: "Roteiro · Vídeo",
   carousel: "Carrossel",
   post: "Post",
   story: "Story",
@@ -31,6 +39,7 @@ type Props = {
   generated: Record<string, unknown>;
   brand: Brand;
   initialFormat?: string;
+  opportunityId?: string | null;
 };
 
 export function ContentWorkspace({
@@ -41,15 +50,18 @@ export function ContentWorkspace({
   generated,
   brand,
   initialFormat,
+  opportunityId,
 }: Props) {
   const router = useRouter();
-  const [active, setActive] = useState<FormatType>(
-    (FORMATS as readonly string[]).includes(initialFormat ?? "")
-      ? (initialFormat as FormatType)
-      : "video",
-  );
+  // Formato ativo: o escolhido na tela 09, senão o primeiro já gerado, senão vídeo.
+  const firstGenerated = FORMATS.find((f) => generated[f]);
+  const active: FormatType = (FORMATS as readonly string[]).includes(initialFormat ?? "")
+    ? (initialFormat as FormatType)
+    : firstGenerated ?? "video";
+
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const autoTriedRef = useRef(false);
 
   const payload = generated[active];
 
@@ -62,6 +74,16 @@ export function ContentWorkspace({
     });
   }
 
+  // Geração automática: ao chegar com um formato escolhido e ainda sem conteúdo,
+  // já gera — o cliente cai direto no roteiro (como no MVP), sem clicar em "Gerar".
+  useEffect(() => {
+    if (!payload && initialFormat && !autoTriedRef.current) {
+      autoTriedRef.current = true;
+      generateFormat();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [payload, initialFormat]);
+
   function markPublished() {
     startTransition(async () => {
       await markPublishedAction(itemId);
@@ -69,19 +91,22 @@ export function ContentWorkspace({
     });
   }
 
+  const overline =
+    active === "video" && generated.video
+      ? `Roteiro · Vídeo de ${String(
+          (generated.video as Record<string, unknown>).duration_sec ?? 60
+        )}s`
+      : theme ?? FORMAT_OVERLINE[active];
+
+  const generating = pending && !payload;
+
   return (
     <main className="px-5 pt-8">
       <Link href="/hoje" className="text-sm text-ink-500">
         ← Hoje
       </Link>
       <header className="mb-5 mt-2">
-        <p className="text-xs font-semibold uppercase tracking-wider text-gold-700">
-          {active === "video" && generated.video
-            ? `Roteiro · Vídeo de ${String(
-                (generated.video as Record<string, unknown>).duration_sec ?? 60
-              )}s`
-            : theme ?? FORMAT_LABEL[active]}
-        </p>
+        <p className="text-xs font-semibold uppercase tracking-wider text-gold-700">{overline}</p>
         <h1 className="mt-1 font-serif text-3xl leading-tight text-ink-900">{title}</h1>
         {status === "published" ? (
           <span className="mt-2 inline-block rounded-full bg-success-100 px-3 py-1 text-xs text-brand-700">
@@ -90,28 +115,22 @@ export function ContentWorkspace({
         ) : null}
       </header>
 
-      <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
-        {FORMATS.map((f) => (
-          <button
-            key={f}
-            onClick={() => setActive(f)}
-            className={`whitespace-nowrap rounded-full px-4 py-2 text-sm transition ${
-              active === f ? "bg-brand-700 text-sand-50" : "bg-sand-100 text-ink-700"
-            }`}
-          >
-            {FORMAT_LABEL[f]}
-            {generated[f] ? " ✓" : ""}
-          </button>
-        ))}
-      </div>
-
-      {payload ? (
+      {generating ? (
+        <div className="animate-pulse space-y-3">
+          <div className="h-28 rounded-[24px] bg-sand-200" />
+          <div className="h-28 rounded-[24px] bg-sand-200" />
+          <p className="pt-2 text-center text-sm text-ink-500">
+            Gerando seu conteúdo em {FORMAT_LABEL[active].toLowerCase()}, com a sua
+            cara…
+          </p>
+        </div>
+      ) : payload ? (
         <FormatView format={active} payload={payload} brand={brand} />
       ) : (
         <Card className="text-center">
           <p className="text-sm text-ink-500">
-            Gere a versão em {FORMAT_LABEL[active].toLowerCase()} deste tema — com a sua cara,
-            no seu tom.
+            Gere a versão em {FORMAT_LABEL[active].toLowerCase()} deste tema — com a sua
+            cara, no seu tom.
           </p>
         </Card>
       )}
@@ -119,9 +138,6 @@ export function ContentWorkspace({
       {error ? <p className="mt-3 text-sm text-danger-600">{error}</p> : null}
 
       <div className="mt-5 space-y-3">
-        <Button full onClick={generateFormat} disabled={pending}>
-          {pending ? "Gerando…" : payload ? "Gerar novamente" : "Gerar conteúdo"}
-        </Button>
         {active === "video" && payload ? (
           <Link
             href={`/teleprompter/${itemId}`}
@@ -130,7 +146,36 @@ export function ContentWorkspace({
             ● Gravar com teleprompter
           </Link>
         ) : null}
-        {status !== "published" ? (
+
+        {payload ? (
+          <div className="flex items-center justify-center gap-4 text-sm">
+            <button
+              type="button"
+              onClick={generateFormat}
+              disabled={pending}
+              className="font-medium text-ink-500 underline-offset-4 hover:underline disabled:opacity-50"
+            >
+              {pending ? "Gerando…" : "✎ Refazer"}
+            </button>
+            {opportunityId ? (
+              <>
+                <span className="text-ink-300">·</span>
+                <Link
+                  href={`/oportunidade/${opportunityId}`}
+                  className="font-medium text-ink-500 underline-offset-4 hover:underline"
+                >
+                  Trocar formato
+                </Link>
+              </>
+            ) : null}
+          </div>
+        ) : !generating ? (
+          <Button full onClick={generateFormat} disabled={pending}>
+            Gerar conteúdo
+          </Button>
+        ) : null}
+
+        {status !== "published" && payload ? (
           <Button full variant="ghost" onClick={markPublished} disabled={pending}>
             Marcar como publicado
           </Button>
