@@ -98,11 +98,17 @@ export function useMediaRecorder(): UseMediaRecorder {
       elapsedRef.current = 0;
       startedAtRef.current = 0;
 
+      // Bitrates generosos: áudio 192 kbps (voz nítida) e vídeo 5 Mbps.
+      const quality = {
+        audioBitsPerSecond: 192_000,
+        videoBitsPerSecond: 5_000_000,
+      };
+
       let recorder: MediaRecorder;
       try {
         recorder = mimeType
-          ? new MediaRecorder(stream, { mimeType })
-          : new MediaRecorder(stream);
+          ? new MediaRecorder(stream, { mimeType, ...quality })
+          : new MediaRecorder(stream, quality);
       } catch {
         // Fallback: alguns navegadores recusam o mimeType — tenta sem opções.
         try {

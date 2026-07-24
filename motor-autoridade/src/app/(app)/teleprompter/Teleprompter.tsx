@@ -58,7 +58,11 @@ export default function Teleprompter({
   const [cameraOn, setCameraOn] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
-  const [mirror, setMirror] = useState(true);
+  // Espelho desligado por padrão: a maioria grava no celular e o vídeo final
+  // não é espelhado — o preview deve mostrar o resultado real.
+  const [mirror, setMirror] = useState(false);
+  const [darkEffect, setDarkEffect] = useState(false);
+  const [saved, setSaved] = useState(false);
   const [fontSize, setFontSize] = useState(38);
   const [speed, setSpeed] = useState(60); // px/s
   const [showEvents, setShowEvents] = useState(false);
@@ -101,7 +105,13 @@ export default function Teleprompter({
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: mode },
-        audio: true,
+        // Sem processamento de "chamada de voz" (eco/ruído): som mais cheio e
+        // natural para gravação de conteúdo. O preview é mudo, sem risco de eco.
+        audio: {
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+        },
       });
       streamRef.current = stream;
       if (videoRef.current) {
@@ -130,7 +140,7 @@ export default function Teleprompter({
   const flipCamera = useCallback(() => {
     const next = facingMode === "user" ? "environment" : "user";
     setFacingMode(next);
-    setMirror(next === "user");
+    if (next === "environment") setMirror(false);
     if (cameraOn) void startCamera(next);
   }, [facingMode, cameraOn, startCamera]);
 
@@ -169,11 +179,18 @@ export default function Teleprompter({
     }
     try {
       await navigator.share({ files: [file], title: title ?? "Gravação do teleprompter" });
+      setSaved(true);
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") return;
       setShareError("Não foi possível compartilhar o vídeo.");
     }
   }, [recorder.recording, title]);
+
+  const handleReRecord = useCallback(() => {
+    setSaved(false);
+    setShareError(null);
+    recorder.reset();
+  }, [recorder]);
 
   const canRecord = support.mediaRecorder && cameraOn;
   const busy = recorder.isRecording || recorder.isPaused;
@@ -225,10 +242,11 @@ export default function Teleprompter({
 
         <div
           ref={scriptRef}
-          className="pointer-events-none absolute inset-0 overflow-y-auto px-5 py-[55%]"
+          className="pointer-events-none absolute inset-0 overflow-y-auto px-5 pt-[18%] pb-[70%]"
           style={{
-            background:
-              "linear-gradient(to bottom, rgba(0,0,0,0.6), rgba(0,0,0,0.15) 22%, rgba(0,0,0,0.15) 78%, rgba(0,0,0,0.6))",
+            background: darkEffect
+              ? "linear-gradient(to bottom, rgba(0,0,0,0.92), rgba(0,0,0,0.62) 25%, rgba(0,0,0,0.62) 75%, rgba(0,0,0,0.92))"
+              : "linear-gradient(to bottom, rgba(0,0,0,0.6), rgba(0,0,0,0.15) 22%, rgba(0,0,0,0.15) 78%, rgba(0,0,0,0.6))",
           }}
         >
           <p
@@ -332,6 +350,15 @@ export default function Teleprompter({
         <label className="flex items-center gap-2 text-sm text-ink-700">
           <input
             type="checkbox"
+            checked={darkEffect}
+            onChange={(e) => setDarkEffect(e.target.checked)}
+            className="h-4 w-4 accent-brand-700"
+          />
+          Efeito dark (escurece o fundo e destaca o texto)
+        </label>
+        <label className="flex items-center gap-2 text-sm text-ink-700">
+          <input
+            type="checkbox"
             checked={mirror}
             onChange={(e) => setMirror(e.target.checked)}
             className="h-4 w-4 accent-brand-700"
@@ -386,8 +413,12 @@ export default function Teleprompter({
           downloadName={downloadName}
           canShare={support.canShareFiles}
           onShare={handleShare}
-          onReRecord={recorder.reset}
+          onReRecord={handleReRecord}
           shareError={shareError}
+          saved={saved}
+          onDownloaded={() => setSaved(true)}
+          backHref={backHref}
+          backLabel={backLabel}
         />
       )}
 
@@ -475,6 +506,10 @@ function RecordingResult({
   onShare,
   onReRecord,
   shareError,
+  saved,
+  onDownloaded,
+  backHref,
+  backLabel,
 }: {
   url: string;
   size: number;
@@ -484,6 +519,10 @@ function RecordingResult({
   onShare: () => void;
   onReRecord: () => void;
   shareError: string | null;
+  saved: boolean;
+  onDownloaded: () => void;
+  backHref: string;
+  backLabel: string;
 }) {
   return (
     <Card className="mt-5 space-y-3">
@@ -495,23 +534,51 @@ function RecordingResult({
       </div>
       <video src={url} controls playsInline className="w-full rounded-2xl bg-black" />
       <div className="flex flex-wrap gap-2">
-        <a
-          href={url}
-          download={downloadName}
-          className="inline-flex items-center justify-center gap-2 rounded-full bg-brand-700 px-5 py-3 text-sm font-medium text-sand-50 transition hover:bg-brand-800 active:scale-[0.98]"
-        >
-          Salvar no dispositivo
-        </a>
+        {canShare ? (
+          // Celular: a folha nativa do sistema permite "Salvar vídeo" no rolo
+          // da câmera (ou enviar direto para Instagram/WhatsApp etc.).
+          <Button onClick={onShare}>Salvar no rolo da câmera</Button>
+        ) : (
+          <a
+            href={url}
+            download={downloadName}
+            onClick={onDownloaded}
+            className="inline-flex items-center justify-center gap-2 rounded-full bg-brand-700 px-5 py-3 text-sm font-medium text-sand-50 transition hover:bg-brand-800 active:scale-[0.98]"
+          >
+            Salvar vídeo
+          </a>
+        )}
         {canShare && (
-          <Button variant="secondary" onClick={onShare}>
-            Compartilhar
-          </Button>
+          <a
+            href={url}
+            download={downloadName}
+            onClick={onDownloaded}
+            className="inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-medium text-ink-500 transition hover:text-ink-700"
+          >
+            Baixar arquivo
+          </a>
         )}
         <Button variant="ghost" onClick={onReRecord}>
           Regravar
         </Button>
       </div>
       {shareError && <p className="text-xs text-danger-600">{shareError}</p>}
+
+      {saved && (
+        <div className="rounded-2xl bg-brand-700/5 p-4 ring-1 ring-brand-700/15">
+          <p className="text-sm font-medium text-brand-700">✅ Vídeo salvo!</p>
+          <p className="mt-1 text-sm text-ink-700">
+            Agora é só publicar nas suas redes. Quando publicar, marque o
+            conteúdo como publicado — é assim que seu progresso da semana conta.
+          </p>
+          <Link
+            href={backHref}
+            className="mt-3 inline-flex items-center justify-center gap-2 rounded-full bg-brand-700 px-5 py-3 text-sm font-medium text-sand-50 transition hover:bg-brand-800 active:scale-[0.98]"
+          >
+            Concluir → {backLabel}
+          </Link>
+        </div>
+      )}
     </Card>
   );
 }

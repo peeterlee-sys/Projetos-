@@ -51,7 +51,7 @@ export async function generateFormatAction(itemId: string, format: string): Prom
     } catch {
       // não deixa a falha de log derrubar a resposta
     }
-    return { ok: false, error: `Não foi possível gerar agora. [debug: ${message}]` };
+    return { ok: false, error: "Não foi possível gerar agora. Tente novamente." };
   }
 }
 
