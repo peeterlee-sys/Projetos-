@@ -44,6 +44,16 @@ export default async function PerfilPage() {
         <BrandSettings initial={profile ?? {}} />
       </div>
 
+      <Link href="/onboarding?refazer=1" className="mt-5 block">
+        <Card className="flex items-center justify-between">
+          <div>
+            <span className="text-ink-900">Refazer anamnese editorial</span>
+            <span className="block text-xs text-ink-400">Atualiza seu perfil e regenera o DNA Editorial</span>
+          </div>
+          <span className="text-brand-700">→</span>
+        </Card>
+      </Link>
+
       {user.role === "admin" || user.role === "super_admin" ? (
         <Link href="/admin" className="mt-5 block">
           <Card className="flex items-center justify-between">

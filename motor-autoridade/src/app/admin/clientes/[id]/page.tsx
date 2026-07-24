@@ -2,7 +2,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { computeProgress } from "@/lib/progress/compute";
-import { Card } from "@/components/ui";
 
 const STATUS_LABEL: Record<string, string> = {
   suggested: "Sugerido",
@@ -16,7 +15,6 @@ const STATUS_LABEL: Record<string, string> = {
   rejected: "Rejeitado",
   archived: "Arquivado",
 };
-
 const OPP_STATUS_LABEL: Record<string, string> = {
   pending: "Pendente",
   delivered: "Entregue",
@@ -25,7 +23,6 @@ const OPP_STATUS_LABEL: Record<string, string> = {
   dismissed: "Descartada",
   expired: "Expirada",
 };
-
 const FORMAT_LABEL: Record<string, string> = {
   video: "Vídeo",
   carousel: "Carrossel",
@@ -33,8 +30,10 @@ const FORMAT_LABEL: Record<string, string> = {
   story: "Story",
   linkedin: "LinkedIn",
 };
-
 const PRIORITY_LABEL: Record<string, string> = { high: "Alta", medium: "Média", low: "Baixa" };
+const STATUS_BADGE: Record<string, string> = {
+  published: "bg-success-100 text-brand-700",
+};
 
 function fmt(iso: string | null): string {
   if (!iso) return "—";
@@ -48,11 +47,31 @@ function fmt(iso: string | null): string {
   });
 }
 
+function Panel({
+  title,
+  right,
+  children,
+}: {
+  title: string;
+  right?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-2xl bg-white/80 p-5 ring-1 ring-sand-200">
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-ink-400">{title}</h2>
+        {right}
+      </div>
+      {children}
+    </section>
+  );
+}
+
 function DnaBlock({ label, value }: { label: string; value: unknown }) {
   if (value == null || value === "" || (Array.isArray(value) && value.length === 0)) return null;
   return (
     <div>
-      <p className="text-xs font-medium uppercase tracking-wide text-ink-400">{label}</p>
+      <p className="text-[11px] font-medium uppercase tracking-wide text-ink-400">{label}</p>
       {Array.isArray(value) ? (
         <ul className="mt-0.5 list-inside list-disc text-sm text-ink-700">
           {value.map((v, i) => (
@@ -60,7 +79,7 @@ function DnaBlock({ label, value }: { label: string; value: unknown }) {
           ))}
         </ul>
       ) : (
-        <p className="mt-0.5 text-sm text-ink-700">{String(value)}</p>
+        <p className="mt-0.5 text-sm leading-relaxed text-ink-700">{String(value)}</p>
       )}
     </div>
   );
@@ -88,6 +107,7 @@ export default async function ClientDetail({ params }: { params: Promise<{ id: s
     { data: refs },
     { data: costs },
     { data: genLogs },
+    { data: publications },
   ] = await Promise.all([
     supabase
       .from("client_profiles")
@@ -103,19 +123,19 @@ export default async function ClientDetail({ params }: { params: Promise<{ id: s
       .select("id, title, theme, editorial_angle, status, recommended_format, opportunity_date, created_at")
       .eq("user_id", id)
       .order("created_at", { ascending: false })
-      .limit(30),
+      .limit(40),
     supabase
       .from("content_items")
       .select("id, title, status, published_at, created_at")
       .eq("user_id", id)
       .order("created_at", { ascending: false })
-      .limit(20),
+      .limit(30),
     supabase
       .from("content_formats")
       .select("content_item_id, format, created_at")
       .eq("user_id", id)
       .order("created_at", { ascending: false })
-      .limit(100),
+      .limit(150),
     supabase
       .from("influence_sources")
       .select("kind, label, url, priority, is_blocked")
@@ -128,7 +148,14 @@ export default async function ClientDetail({ params }: { params: Promise<{ id: s
       .select("provider, model, scenario, input_tokens, output_tokens, cost_usd, created_at")
       .eq("user_id", id)
       .order("created_at", { ascending: false })
-      .limit(15),
+      .limit(20),
+    supabase
+      .from("content_items")
+      .select("id, title, published_at")
+      .eq("user_id", id)
+      .eq("status", "published")
+      .order("published_at", { ascending: false })
+      .limit(20),
   ]);
 
   const cost = (costs ?? []).reduce((s, r) => s + Number(r.cost_usd ?? 0), 0);
@@ -144,201 +171,240 @@ export default async function ClientDetail({ params }: { params: Promise<{ id: s
   const blockedSources = (sources ?? []).filter((s) => s.is_blocked);
 
   return (
-    <div className="space-y-5">
-      <Link href="/admin" className="text-sm text-ink-500">
-        ← Clientes
+    <div className="space-y-6">
+      <Link href="/admin" className="text-sm text-ink-500 hover:text-ink-900">
+        ← Voltar para clientes
       </Link>
 
-      <div>
-        <h1 className="font-serif text-2xl text-ink-900">{client.full_name ?? client.email}</h1>
-        <p className="text-sm text-ink-500">
-          {client.email} · {profile?.profession ?? "sem profissão"}
-          {profile?.segment ? ` · ${profile.segment}` : ""}
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="font-serif text-3xl text-ink-900">{client.full_name ?? client.email}</h1>
+          <p className="text-sm text-ink-500">
+            {client.email} · {profile?.profession ?? "sem profissão"}
+            {profile?.segment ? ` · ${profile.segment}` : ""} ·{" "}
+            {client.is_active ? "ativo" : "inativo"}
+          </p>
+        </div>
       </div>
 
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Card>
-          <p className="text-xs uppercase tracking-wide text-ink-400">Publicados (semana)</p>
-          <p className="mt-1 text-2xl font-semibold text-ink-900">
-            {progress.publishedCount}/{prefs?.weekly_goal ?? progress.target}
-          </p>
-        </Card>
-        <Card>
-          <p className="text-xs uppercase tracking-wide text-ink-400">Execução</p>
-          <p className="mt-1 text-2xl font-semibold text-ink-900">
-            {Math.round(progress.executionRate * 100)}%
-          </p>
-        </Card>
-        <Card>
-          <p className="text-xs uppercase tracking-wide text-ink-400">Sequência</p>
-          <p className="mt-1 text-2xl font-semibold text-ink-900">{progress.currentStreak} sem</p>
-        </Card>
-        <Card>
-          <p className="text-xs uppercase tracking-wide text-ink-400">Custo de IA</p>
-          <p className="mt-1 text-2xl font-semibold text-ink-900">${cost.toFixed(2)}</p>
-        </Card>
-      </section>
-
-      <Card className="space-y-3">
-        <div className="flex items-center justify-between">
-          <p className="text-xs uppercase tracking-wide text-ink-400">DNA Editorial</p>
-          <span className="text-xs text-ink-400">
-            {profile?.dna_generated_at ? `gerado em ${fmt(profile.dna_generated_at)}` : "não gerado"}
-          </span>
-        </div>
-        {hasDna ? (
-          <div className="space-y-3">
-            <DnaBlock label="Identidade" value={dna.identidade} />
-            <DnaBlock label="Objetivos" value={dna.objetivos} />
-            <DnaBlock label="Público" value={dna.publico} />
-            <DnaBlock label="Pilares" value={dna.pilares} />
-            <DnaBlock label="Tom" value={dna.tom} />
-            <DnaBlock label="Valores" value={dna.valores} />
-            <DnaBlock label="Assuntos proibidos" value={dna.assuntos_proibidos} />
-            <DnaBlock label="Fontes prioritárias" value={dna.fontes_prioritarias} />
-            <DnaBlock label="Referências" value={dna.referencias} />
-            <DnaBlock label="Estilo editorial" value={dna.estilo_editorial} />
-            <DnaBlock label="Formatos preferidos" value={dna.formatos_preferidos} />
-            <DnaBlock label="Ângulo único" value={dna.angulo_unico} />
+      {/* KPIs */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {[
+          {
+            label: "Publicados (semana)",
+            value: `${progress.publishedCount}/${prefs?.weekly_goal ?? progress.target}`,
+          },
+          { label: "Execução", value: `${Math.round(progress.executionRate * 100)}%` },
+          { label: "Sequência", value: `${progress.currentStreak} sem` },
+          { label: "Custo de IA", value: `US$ ${cost.toFixed(2)}` },
+        ].map((k) => (
+          <div key={k.label} className="rounded-2xl bg-white/80 p-4 ring-1 ring-sand-200">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-ink-400">{k.label}</p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums text-ink-900">{k.value}</p>
           </div>
-        ) : (
-          <p className="text-sm text-ink-500">
-            O DNA Editorial ainda não foi gerado — o cliente precisa concluir a anamnese (ou a
-            geração falhou; veja as falhas de IA na visão geral).
-          </p>
-        )}
-      </Card>
+        ))}
+      </div>
 
-      <Card className="space-y-2">
-        <p className="text-xs uppercase tracking-wide text-ink-400">Perfil editorial</p>
-        <p className="text-sm text-ink-700">
-          Posicionamento: {profile?.positioning_recognition ?? "—"}
-        </p>
-        <p className="text-sm text-ink-700">
-          Tom: {profile?.tone_profile?.length ? profile.tone_profile.join(", ") : profile?.tone_of_voice ?? "—"}
-        </p>
-        <p className="text-sm text-ink-700">
-          Pilares: {profile?.main_themes?.length ? profile.main_themes.join(", ") : "—"}
-        </p>
-        <p className="text-sm text-ink-700">
-          Proibidos: {profile?.forbidden_themes?.length ? profile.forbidden_themes.join(", ") : "—"}
-        </p>
-        <p className="text-sm text-ink-700">Valores: {profile?.core_values ?? "—"}</p>
-        <p className="text-sm text-ink-700">Maior bloqueio: {profile?.main_block ?? "—"}</p>
-      </Card>
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* Coluna principal */}
+        <div className="space-y-6 lg:col-span-2">
+          <Panel title={`Histórico de pautas (${opportunities?.length ?? 0})`}>
+            {opportunities && opportunities.length > 0 ? (
+              <ul className="space-y-2">
+                {opportunities.map((op) => (
+                  <li key={op.id} className="rounded-xl bg-sand-50 p-3 ring-1 ring-sand-200">
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="font-medium text-ink-900">{op.title}</span>
+                      <span className="shrink-0 rounded-full bg-sand-100 px-2.5 py-0.5 text-xs text-ink-500">
+                        {OPP_STATUS_LABEL[op.status] ?? op.status}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs text-ink-500">
+                      {fmt(op.created_at)} · {FORMAT_LABEL[op.recommended_format] ?? op.recommended_format}
+                      {op.editorial_angle ? ` · ângulo: ${op.editorial_angle}` : ""}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-ink-500">Nenhuma pauta entregue ainda.</p>
+            )}
+          </Panel>
 
-      <section className="grid gap-3 sm:grid-cols-2">
-        <Card className="space-y-2">
-          <p className="text-xs uppercase tracking-wide text-ink-400">
-            Fontes ({activeSources.length})
-          </p>
-          {activeSources.length > 0 ? (
-            <ul className="space-y-1">
-              {activeSources.map((s, i) => (
-                <li key={i} className="text-sm text-ink-700">
-                  <span className="text-ink-400">[{PRIORITY_LABEL[s.priority] ?? s.priority}]</span>{" "}
-                  {s.label ?? s.url} <span className="text-xs text-ink-400">({s.kind})</span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-sm text-ink-500">Nenhuma fonte informada.</p>
-          )}
-          {blockedSources.length > 0 ? (
-            <p className="text-xs text-danger-700">
-              Bloqueadas: {blockedSources.map((s) => s.label ?? s.url).join(", ")}
-            </p>
-          ) : null}
-        </Card>
-        <Card className="space-y-2">
-          <p className="text-xs uppercase tracking-wide text-ink-400">
-            Referências de inspiração ({refs?.length ?? 0})
-          </p>
-          {refs && refs.length > 0 ? (
-            <ul className="space-y-1">
-              {refs.map((r, i) => (
-                <li key={i} className="truncate text-sm text-ink-700">
-                  {r.name ?? r.url} <span className="text-xs text-ink-400">({r.kind})</span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-sm text-ink-500">Nenhuma referência informada.</p>
-          )}
-        </Card>
-      </section>
+          <Panel title={`Conteúdos gerados (${items?.length ?? 0})`}>
+            {items && items.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="text-[11px] uppercase tracking-wide text-ink-400">
+                      <th className="py-2 pr-3 font-medium">Título</th>
+                      <th className="py-2 pr-3 font-medium">Formatos</th>
+                      <th className="py-2 pr-3 font-medium">Status</th>
+                      <th className="py-2 font-medium">Criado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {items.map((it) => (
+                      <tr key={it.id} className="border-t border-sand-200">
+                        <td className="py-2 pr-3 text-ink-900">{it.title}</td>
+                        <td className="py-2 pr-3 text-ink-500">
+                          {formatsByItem.get(it.id)?.join(", ") ?? "—"}
+                        </td>
+                        <td className="py-2 pr-3">
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-xs ${STATUS_BADGE[it.status] ?? "bg-sand-100 text-ink-500"}`}
+                          >
+                            {STATUS_LABEL[it.status] ?? it.status}
+                          </span>
+                        </td>
+                        <td className="py-2 text-ink-500 tabular-nums">{fmt(it.created_at)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-sm text-ink-500">Sem conteúdos ainda.</p>
+            )}
+          </Panel>
 
-      <section>
-        <h2 className="mb-2 font-serif text-lg text-ink-900">Histórico de pautas</h2>
-        {opportunities && opportunities.length > 0 ? (
-          <ul className="space-y-2">
-            {opportunities.map((op) => (
-              <li key={op.id}>
-                <Card className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="truncate font-medium text-ink-900">{op.title}</span>
-                    <span className="ml-3 shrink-0 rounded-full bg-sand-100 px-3 py-1 text-xs text-ink-500">
-                      {OPP_STATUS_LABEL[op.status] ?? op.status}
-                    </span>
-                  </div>
-                  <p className="text-xs text-ink-500">
-                    {fmt(op.created_at)} · formato {FORMAT_LABEL[op.recommended_format] ?? op.recommended_format}
-                    {op.editorial_angle ? ` · ângulo: ${op.editorial_angle}` : ""}
-                  </p>
-                </Card>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <Card className="text-center text-sm text-ink-500">Nenhuma pauta entregue ainda.</Card>
-        )}
-      </section>
+          <Panel title={`Histórico de publicação (${publications?.length ?? 0})`}>
+            {publications && publications.length > 0 ? (
+              <ul className="space-y-1.5">
+                {publications.map((p) => (
+                  <li key={p.id} className="flex items-center justify-between gap-3 text-sm">
+                    <span className="truncate text-ink-900">{p.title}</span>
+                    <span className="shrink-0 text-ink-500 tabular-nums">{fmt(p.published_at)}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-ink-500">Nenhuma publicação registrada.</p>
+            )}
+          </Panel>
 
-      <section>
-        <h2 className="mb-2 font-serif text-lg text-ink-900">Conteúdos gerados</h2>
-        {items && items.length > 0 ? (
-          <ul className="space-y-2">
-            {items.map((it) => (
-              <li key={it.id}>
-                <Card className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="truncate text-ink-900">{it.title}</span>
-                    <span className="ml-3 shrink-0 rounded-full bg-sand-100 px-3 py-1 text-xs text-ink-500">
-                      {STATUS_LABEL[it.status] ?? it.status}
-                    </span>
-                  </div>
-                  <p className="text-xs text-ink-500">
-                    {fmt(it.created_at)}
-                    {formatsByItem.get(it.id)?.length
-                      ? ` · formatos: ${formatsByItem.get(it.id)!.join(", ")}`
-                      : ""}
-                    {it.published_at ? ` · publicado em ${fmt(it.published_at)}` : ""}
-                  </p>
-                </Card>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <Card className="text-center text-sm text-ink-500">Sem conteúdos ainda.</Card>
-        )}
-      </section>
+          <Panel title={`Logs de geração — IA (${genLogs?.length ?? 0})`}>
+            {genLogs && genLogs.length > 0 ? (
+              <ul className="space-y-1">
+                {genLogs.map((l, i) => (
+                  <li key={i} className="font-mono text-xs text-ink-500">
+                    {fmt(l.created_at)} · {l.provider}/{l.model} · {l.scenario} · {l.input_tokens}→
+                    {l.output_tokens} tok · ${Number(l.cost_usd).toFixed(4)}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-ink-500">Nenhuma geração registrada.</p>
+            )}
+          </Panel>
+        </div>
 
-      <section>
-        <h2 className="mb-2 font-serif text-lg text-ink-900">Logs de geração (IA)</h2>
-        {genLogs && genLogs.length > 0 ? (
-          <ul className="space-y-1">
-            {genLogs.map((l, i) => (
-              <li key={i} className="text-xs text-ink-500">
-                {fmt(l.created_at)} · {l.provider}/{l.model} · {l.scenario} ·{" "}
-                {l.input_tokens}→{l.output_tokens} tokens · ${Number(l.cost_usd).toFixed(4)}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <Card className="text-center text-sm text-ink-500">Nenhuma geração registrada.</Card>
-        )}
-      </section>
+        {/* Coluna lateral */}
+        <div className="space-y-6">
+          <Panel
+            title="DNA Editorial"
+            right={
+              <span className="text-[11px] text-ink-400">
+                {profile?.dna_generated_at ? fmt(profile.dna_generated_at) : "não gerado"}
+              </span>
+            }
+          >
+            {hasDna ? (
+              <div className="space-y-3">
+                <DnaBlock label="Identidade" value={dna.identidade} />
+                <DnaBlock label="Objetivos" value={dna.objetivos} />
+                <DnaBlock label="Público" value={dna.publico} />
+                <DnaBlock label="Pilares" value={dna.pilares} />
+                <DnaBlock label="Tom" value={dna.tom} />
+                <DnaBlock label="Valores" value={dna.valores} />
+                <DnaBlock label="Assuntos proibidos" value={dna.assuntos_proibidos} />
+                <DnaBlock label="Fontes prioritárias" value={dna.fontes_prioritarias} />
+                <DnaBlock label="Referências" value={dna.referencias} />
+                <DnaBlock label="Estilo editorial" value={dna.estilo_editorial} />
+                <DnaBlock label="Formatos preferidos" value={dna.formatos_preferidos} />
+                <div className="rounded-xl bg-gold-300/20 p-3">
+                  <DnaBlock label="Ângulo único" value={dna.angulo_unico} />
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-ink-500">
+                Ainda não gerado. O cliente precisa concluir a anamnese — ou a geração falhou (veja
+                Falhas de IA na visão geral).
+              </p>
+            )}
+          </Panel>
+
+          <Panel title="Perfil editorial">
+            <div className="space-y-2 text-sm">
+              <p className="text-ink-700">
+                <span className="text-ink-400">Posicionamento:</span>{" "}
+                {profile?.positioning_recognition ?? "—"}
+              </p>
+              <p className="text-ink-700">
+                <span className="text-ink-400">Tom:</span>{" "}
+                {profile?.tone_profile?.length
+                  ? profile.tone_profile.join(", ")
+                  : profile?.tone_of_voice ?? "—"}
+              </p>
+              <p className="text-ink-700">
+                <span className="text-ink-400">Pilares:</span>{" "}
+                {profile?.main_themes?.length ? profile.main_themes.join(", ") : "—"}
+              </p>
+              <p className="text-ink-700">
+                <span className="text-ink-400">Proibidos:</span>{" "}
+                {profile?.forbidden_themes?.length ? profile.forbidden_themes.join(", ") : "—"}
+              </p>
+              <p className="text-ink-700">
+                <span className="text-ink-400">Valores:</span> {profile?.core_values ?? "—"}
+              </p>
+              <p className="text-ink-700">
+                <span className="text-ink-400">Maior bloqueio:</span> {profile?.main_block ?? "—"}
+              </p>
+            </div>
+          </Panel>
+
+          <Panel title={`Fontes utilizadas (${activeSources.length})`}>
+            {activeSources.length > 0 ? (
+              <ul className="space-y-1.5 text-sm">
+                {activeSources.map((s, i) => (
+                  <li key={i} className="text-ink-700">
+                    <span className="text-ink-400">[{PRIORITY_LABEL[s.priority] ?? s.priority}]</span>{" "}
+                    {s.label ?? s.url} <span className="text-xs text-ink-400">({s.kind})</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-ink-500">Nenhuma fonte própria — usa a matriz do segmento.</p>
+            )}
+            {blockedSources.length > 0 ? (
+              <p className="mt-2 text-xs text-danger-700">
+                Bloqueadas: {blockedSources.map((s) => s.label ?? s.url).join(", ")}
+              </p>
+            ) : null}
+          </Panel>
+
+          <Panel title={`Referências de inspiração (${refs?.length ?? 0})`}>
+            {refs && refs.length > 0 ? (
+              <ul className="space-y-1.5 text-sm">
+                {refs.map((r, i) => (
+                  <li key={i} className="truncate text-ink-700">
+                    {r.url ? (
+                      <a href={r.url} target="_blank" rel="noreferrer" className="hover:text-brand-700">
+                        {r.name ?? r.url}
+                      </a>
+                    ) : (
+                      (r.name ?? "—")
+                    )}{" "}
+                    <span className="text-xs text-ink-400">({r.kind})</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-ink-500">Nenhuma referência informada.</p>
+            )}
+          </Panel>
+        </div>
+      </div>
     </div>
   );
 }
