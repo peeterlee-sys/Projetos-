@@ -788,10 +788,11 @@ set search_path = public
 as $$
 begin
   -- Se quem edita não é admin/super e está mexendo no próprio registro,
-  -- não pode alterar role nem tenant_id.
+  -- não pode alterar role, nem TROCAR um tenant já definido. A primeira
+  -- atribuição de tenant (null → valor) é permitida — necessária no onboarding.
   if not app_is_admin() and new.id = auth.uid() then
     if new.role is distinct from old.role
-       or new.tenant_id is distinct from old.tenant_id then
+       or (old.tenant_id is not null and new.tenant_id is distinct from old.tenant_id) then
       raise exception 'não é permitido alterar papel ou tenant do próprio usuário';
     end if;
   end if;
