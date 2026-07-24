@@ -23,10 +23,10 @@ export async function generateAndSaveFormat(
   item: ContentItem,
   format: FormatType
 ): Promise<{ formatId: string }> {
-  const [{ data: profile }, { data: prefs }] = await Promise.all([
+  const [{ data: profile }, { data: prefs }, { data: recent }] = await Promise.all([
     supabase
       .from("client_profiles")
-      .select("contexto_mestre")
+      .select("contexto_mestre, editorial_dna")
       .eq("user_id", item.user_id)
       .maybeSingle(),
     supabase
@@ -34,11 +34,21 @@ export async function generateAndSaveFormat(
       .select("video_duration_sec")
       .eq("user_id", item.user_id)
       .maybeSingle(),
+    // Histórico recente do cliente: a IA não pode repetir tema/ângulo/título.
+    supabase
+      .from("content_items")
+      .select("title")
+      .eq("user_id", item.user_id)
+      .neq("id", item.id)
+      .order("created_at", { ascending: false })
+      .limit(15),
   ]);
 
   const prompt = buildFormatPrompt({
     format,
     contextoMestre: profile?.contexto_mestre ?? {},
+    editorialDna: profile?.editorial_dna ?? null,
+    recentTitles: (recent ?? []).map((r) => r.title as string).filter(Boolean),
     theme: item.theme ?? item.title,
     title: item.title,
     durationSec: prefs?.video_duration_sec ?? 60,

@@ -7,29 +7,41 @@ export type ClientRow = {
   id: string;
   name: string | null;
   email: string;
+  profession: string | null;
+  segment: string | null;
+  plan: string;                     // status do tenant: trial | active | suspended | canceled
   isActive: boolean;
   onboarded: boolean;
+  hasDna: boolean;
+  weeklyGoal: number;
+  publishedThisWeek: number;
+  weeklyPct: number;                // 0..1
   publishedTotal: number;
-  lastInteraction: string | null;
-  daysSinceInteraction: number | null;
+  lastAccess: string | null;        // último evento de comportamento
+  lastGeneration: string | null;    // último content_item criado
+  lastPublication: string | null;
+  lastOpportunity: string | null;   // título da última pauta
+  daysSinceAccess: number | null;
   health: ClientHealth;
 };
 
 export type AdminOverview = {
   totalClients: number;
   activeClients: number;
-  newClientsThisWeek: number;
-  activationRate: number; // onboarded / total (0..1)
-  healthy: number;
-  attention: number;
-  risk: number;
+  inactiveClients: number;
+  trialClients: number;
+  canceledClients: number;
+  generatedToday: number;
+  publishedTotal: number;
+  avgPublicationRate: number;       // publicados / entregues (0..1)
+  noAccess7d: number;
+  neverGenerated: number;
+  aiFailures: number;               // erros de IA não resolvidos
+  makeFailures: number;             // erros do Make não resolvidos
+  lastMakeExecution: string | null;
+  lastMakeStatus: string | null;
   delivered: number;
-  opened: number;
-  produced: number;
-  published: number;
-  avgExecutionRate: number; // published / delivered
   totalCostUsd: number;
-  errorCount: number;
   clients: ClientRow[];
 };
 
@@ -44,95 +56,189 @@ function healthFor(publishedTotal: number, days: number | null): ClientHealth {
   return "healthy";
 }
 
+/** Início do dia corrente em America/Sao_Paulo, em ISO UTC. */
+function startOfTodaySaoPaulo(): string {
+  const now = new Date();
+  const sp = new Date(now.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+  const offset = now.getTime() - sp.getTime();
+  sp.setHours(0, 0, 0, 0);
+  return new Date(sp.getTime() + offset).toISOString();
+}
+
+/** Segunda-feira da semana corrente em America/Sao_Paulo, em ISO UTC. */
+function startOfWeekSaoPaulo(): string {
+  const now = new Date();
+  const sp = new Date(now.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+  const offset = now.getTime() - sp.getTime();
+  const day = sp.getDay();
+  sp.setDate(sp.getDate() + (day === 0 ? -6 : 1 - day));
+  sp.setHours(0, 0, 0, 0);
+  return new Date(sp.getTime() + offset).toISOString();
+}
+
 /**
- * Agrega métricas do dashboard administrativo (MÓDULO 13). A RLS delimita o
- * escopo automaticamente: admin vê o próprio tenant, super_admin vê tudo.
+ * Agrega as métricas do dashboard administrativo. A RLS delimita o escopo
+ * automaticamente: admin vê o próprio tenant, super_admin vê tudo.
  */
 export async function getAdminOverview(supabase: SupabaseClient): Promise<AdminOverview> {
-  const weekStart = (() => {
-    const d = new Date();
-    const day = d.getUTCDay();
-    d.setUTCDate(d.getUTCDate() + ((day === 0 ? -6 : 1) - day));
-    return d.toISOString().slice(0, 10) + "T00:00:00Z";
-  })();
+  const todayStart = startOfTodaySaoPaulo();
+  const weekStart = startOfWeekSaoPaulo();
 
-  const [{ data: clients }, { data: items }, { data: events }, { data: costs }, deliveries, opened, errors] =
-    await Promise.all([
-      supabase
-        .from("users")
-        .select("id, full_name, email, is_active, onboarded_at, created_at")
-        .eq("role", "client")
-        .is("deleted_at", null)
-        .limit(1000),
-      supabase.from("content_items").select("user_id, status, published_at").is("deleted_at", null).limit(5000),
-      supabase
-        .from("behavior_events")
-        .select("user_id, created_at")
-        .order("created_at", { ascending: false })
-        .limit(5000),
-      supabase.from("cost_logs").select("cost_usd").limit(10000),
-      supabase.from("deliveries").select("id", { count: "exact", head: true }),
-      supabase
-        .from("behavior_events")
-        .select("id", { count: "exact", head: true })
-        .eq("event_type", "conteudo_aberto"),
-      supabase.from("system_errors").select("id", { count: "exact", head: true }).is("resolved_at", null),
-    ]);
+  const [
+    { data: clients },
+    { data: items },
+    { data: events },
+    { data: opps },
+    { data: costs },
+    deliveries,
+    aiErrors,
+    makeErrors,
+    { data: lastMake },
+  ] = await Promise.all([
+    supabase
+      .from("users")
+      .select(
+        "id, full_name, email, is_active, onboarded_at, created_at, tenants(status), client_profiles(profession, segment, dna_generated_at), client_preferences(weekly_goal)"
+      )
+      .eq("role", "client")
+      .is("deleted_at", null)
+      .limit(1000),
+    supabase
+      .from("content_items")
+      .select("user_id, status, published_at, created_at")
+      .is("deleted_at", null)
+      .order("created_at", { ascending: false })
+      .limit(5000),
+    supabase
+      .from("behavior_events")
+      .select("user_id, created_at")
+      .order("created_at", { ascending: false })
+      .limit(5000),
+    supabase
+      .from("daily_opportunities")
+      .select("user_id, title, created_at")
+      .order("created_at", { ascending: false })
+      .limit(2000),
+    supabase.from("cost_logs").select("cost_usd").limit(10000),
+    supabase.from("deliveries").select("id", { count: "exact", head: true }),
+    supabase
+      .from("system_errors")
+      .select("id", { count: "exact", head: true })
+      .eq("scope", "ai")
+      .is("resolved_at", null),
+    supabase
+      .from("system_errors")
+      .select("id", { count: "exact", head: true })
+      .eq("scope", "make")
+      .is("resolved_at", null),
+    supabase
+      .from("execution_logs")
+      .select("created_at, status, operation")
+      .eq("source", "make")
+      .order("created_at", { ascending: false })
+      .limit(1),
+  ]);
 
   const clientList = clients ?? [];
   const itemList = items ?? [];
   const eventList = events ?? [];
+  const oppList = opps ?? [];
 
-  // Última interação por cliente (events já vêm ordenados desc).
-  const lastByUser = new Map<string, string>();
-  for (const e of eventList) if (!lastByUser.has(e.user_id)) lastByUser.set(e.user_id, e.created_at as string);
+  // Últimos registros por cliente (as listas já vêm ordenadas desc).
+  const lastAccessByUser = new Map<string, string>();
+  for (const e of eventList)
+    if (!lastAccessByUser.has(e.user_id)) lastAccessByUser.set(e.user_id, e.created_at as string);
 
-  // Publicados por cliente.
+  const lastGenByUser = new Map<string, string>();
+  const lastPubByUser = new Map<string, string>();
   const publishedByUser = new Map<string, number>();
+  const publishedWeekByUser = new Map<string, number>();
   let publishedTotal = 0;
+  let generatedToday = 0;
   for (const it of itemList) {
+    if (!lastGenByUser.has(it.user_id)) lastGenByUser.set(it.user_id, it.created_at as string);
+    if ((it.created_at as string) >= todayStart) generatedToday += 1;
     if (it.status === "published") {
       publishedByUser.set(it.user_id, (publishedByUser.get(it.user_id) ?? 0) + 1);
       publishedTotal += 1;
+      const pub = (it.published_at as string) ?? (it.created_at as string);
+      if (!lastPubByUser.has(it.user_id) || pub > lastPubByUser.get(it.user_id)!) {
+        lastPubByUser.set(it.user_id, pub);
+      }
+      if (pub >= weekStart) {
+        publishedWeekByUser.set(it.user_id, (publishedWeekByUser.get(it.user_id) ?? 0) + 1);
+      }
     }
   }
 
+  const lastOppByUser = new Map<string, string>();
+  for (const o of oppList)
+    if (!lastOppByUser.has(o.user_id)) lastOppByUser.set(o.user_id, o.title as string);
+
+  type JoinedRow = (typeof clientList)[number] & {
+    tenants?: { status: string } | { status: string }[] | null;
+    client_profiles?: unknown;
+    client_preferences?: unknown;
+  };
+  const one = <T,>(v: T | T[] | null | undefined): T | null =>
+    Array.isArray(v) ? (v[0] ?? null) : (v ?? null);
+
   const rows: ClientRow[] = clientList.map((c) => {
-    const last = lastByUser.get(c.id) ?? null;
-    const days = daysSince(last);
+    const j = c as JoinedRow;
+    const tenant = one(j.tenants) as { status?: string } | null;
+    const profile = one(j.client_profiles) as
+      | { profession?: string | null; segment?: string | null; dna_generated_at?: string | null }
+      | null;
+    const prefs = one(j.client_preferences) as { weekly_goal?: number } | null;
+
+    const lastAccess = lastAccessByUser.get(c.id) ?? null;
+    const days = daysSince(lastAccess);
     const pub = publishedByUser.get(c.id) ?? 0;
+    const goal = prefs?.weekly_goal ?? 3;
+    const pubWeek = publishedWeekByUser.get(c.id) ?? 0;
     return {
       id: c.id,
       name: c.full_name,
       email: c.email,
+      profession: profile?.profession ?? null,
+      segment: profile?.segment ?? null,
+      plan: tenant?.status ?? "trial",
       isActive: c.is_active,
       onboarded: Boolean(c.onboarded_at),
+      hasDna: Boolean(profile?.dna_generated_at),
+      weeklyGoal: goal,
+      publishedThisWeek: pubWeek,
+      weeklyPct: goal > 0 ? Math.min(1, pubWeek / goal) : 0,
       publishedTotal: pub,
-      lastInteraction: last,
-      daysSinceInteraction: days,
+      lastAccess,
+      lastGeneration: lastGenByUser.get(c.id) ?? null,
+      lastPublication: lastPubByUser.get(c.id) ?? null,
+      lastOpportunity: lastOppByUser.get(c.id) ?? null,
+      daysSinceAccess: days,
       health: healthFor(pub, days),
     };
   });
 
   const delivered = deliveries.count ?? 0;
-  const total = rows.length;
-  const onboardedCount = rows.filter((r) => r.onboarded).length;
+  const last = (lastMake ?? [])[0] ?? null;
 
   return {
-    totalClients: total,
+    totalClients: rows.length,
     activeClients: rows.filter((r) => r.isActive).length,
-    newClientsThisWeek: clientList.filter((c) => (c.created_at as string) >= weekStart).length,
-    activationRate: total > 0 ? onboardedCount / total : 0,
-    healthy: rows.filter((r) => r.health === "healthy").length,
-    attention: rows.filter((r) => r.health === "attention").length,
-    risk: rows.filter((r) => r.health === "risk").length,
+    inactiveClients: rows.filter((r) => !r.isActive).length,
+    trialClients: rows.filter((r) => r.plan === "trial").length,
+    canceledClients: rows.filter((r) => r.plan === "canceled").length,
+    generatedToday,
+    publishedTotal,
+    avgPublicationRate: delivered > 0 ? publishedTotal / delivered : 0,
+    noAccess7d: rows.filter((r) => r.daysSinceAccess == null || r.daysSinceAccess > 7).length,
+    neverGenerated: rows.filter((r) => !lastGenByUser.has(r.id)).length,
+    aiFailures: aiErrors.count ?? 0,
+    makeFailures: makeErrors.count ?? 0,
+    lastMakeExecution: last?.created_at ?? null,
+    lastMakeStatus: last?.status ?? null,
     delivered,
-    opened: opened.count ?? 0,
-    produced: itemList.length,
-    published: publishedTotal,
-    avgExecutionRate: delivered > 0 ? publishedTotal / delivered : 0,
     totalCostUsd: (costs ?? []).reduce((s, r) => s + Number(r.cost_usd ?? 0), 0),
-    errorCount: errors.count ?? 0,
     clients: rows.sort((a, b) => {
       const order = { risk: 0, attention: 1, healthy: 2 };
       return order[a.health] - order[b.health];
