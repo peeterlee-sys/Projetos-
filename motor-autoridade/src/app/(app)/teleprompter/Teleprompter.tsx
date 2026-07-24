@@ -1,7 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { markPublishedAction } from "@/app/(app)/conteudo/[id]/actions";
 import { Button, Card } from "@/components/ui";
 import { type MediaSupport } from "./lib/mediaSupport";
 import { useMediaSupport } from "./lib/useMediaSupport";
@@ -21,6 +23,9 @@ type TeleprompterProps = {
   durationSec?: number | null;
   backHref?: string;
   backLabel?: string;
+  /** Quando o teleprompter foi aberto a partir de um conteúdo, permite marcar
+   *  a publicação direto no fluxo pós-gravação. */
+  contentItemId?: string | null;
 };
 
 function formatBytes(bytes: number): string {
@@ -51,6 +56,7 @@ export default function Teleprompter({
   durationSec,
   backHref = "/hoje",
   backLabel = "Voltar",
+  contentItemId = null,
 }: TeleprompterProps) {
   const support = useMediaSupport();
   const [script, setScript] = useState(initialScript?.trim() || DEFAULT_SCRIPT);
@@ -483,7 +489,7 @@ export default function Teleprompter({
           saved={saved}
           onDownloaded={() => setSaved(true)}
           backHref={backHref}
-          backLabel={backLabel}
+          contentItemId={contentItemId}
         />
       )}
 
@@ -574,7 +580,7 @@ function RecordingResult({
   saved,
   onDownloaded,
   backHref,
-  backLabel,
+  contentItemId,
 }: {
   url: string;
   size: number;
@@ -587,8 +593,28 @@ function RecordingResult({
   saved: boolean;
   onDownloaded: () => void;
   backHref: string;
-  backLabel: string;
+  contentItemId: string | null;
 }) {
+  const router = useRouter();
+  const [publishing, startPublishing] = useTransition();
+  const [publishError, setPublishError] = useState<string | null>(null);
+  const [published, setPublished] = useState(false);
+
+  const handlePublished = () => {
+    if (!contentItemId) return;
+    setPublishError(null);
+    startPublishing(async () => {
+      const result = await markPublishedAction(contentItemId);
+      if (!result.ok) {
+        setPublishError(result.error);
+        return;
+      }
+      setPublished(true);
+      // Pausa breve para o cliente ver a confirmação antes de voltar ao início.
+      setTimeout(() => router.push("/hoje"), 1600);
+    });
+  };
+
   return (
     <Card className="mt-5 space-y-3">
       <div className="flex items-center justify-between text-sm font-medium text-ink-900">
@@ -629,19 +655,53 @@ function RecordingResult({
       </div>
       {shareError && <p className="text-xs text-danger-600">{shareError}</p>}
 
-      {saved && (
+      {saved && !published && (
         <div className="rounded-2xl bg-brand-700/5 p-4 ring-1 ring-brand-700/15">
-          <p className="text-sm font-medium text-brand-700">✅ Vídeo salvo!</p>
-          <p className="mt-1 text-sm text-ink-700">
-            Agora é só publicar nas suas redes. Quando publicar, marque o
-            conteúdo como publicado — é assim que seu progresso da semana conta.
+          <p className="text-sm font-medium text-brand-700">
+            ✅ Vídeo salvo na galeria!
           </p>
-          <Link
-            href={backHref}
-            className="mt-3 inline-flex items-center justify-center gap-2 rounded-full bg-brand-700 px-5 py-3 text-sm font-medium text-sand-50 transition hover:bg-brand-800 active:scale-[0.98]"
-          >
-            Concluir → {backLabel}
-          </Link>
+          <p className="mt-2 text-sm text-ink-700">
+            <span className="font-medium">Próximo passo:</span> abra o
+            Instagram (ou a rede que preferir) e publique o vídeo que está na
+            sua galeria. Depois volte aqui e confirme.
+          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {contentItemId ? (
+              <Button onClick={handlePublished} disabled={publishing}>
+                {publishing ? "Registrando..." : "Já publiquei 🎉"}
+              </Button>
+            ) : (
+              <Link
+                href={backHref}
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-brand-700 px-5 py-3 text-sm font-medium text-sand-50 transition hover:bg-brand-800 active:scale-[0.98]"
+              >
+                Concluir
+              </Link>
+            )}
+            <Link
+              href={backHref}
+              className="inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-medium text-ink-500 transition hover:text-ink-700"
+            >
+              Publicar depois
+            </Link>
+          </div>
+          {contentItemId ? (
+            <p className="mt-2 text-xs text-ink-500">
+              Ao confirmar, este vídeo conta na sua meta da semana.
+            </p>
+          ) : null}
+          {publishError && (
+            <p className="mt-2 text-xs text-danger-600">{publishError}</p>
+          )}
+        </div>
+      )}
+
+      {published && (
+        <div className="rounded-2xl bg-brand-700/10 p-5 text-center ring-1 ring-brand-700/20">
+          <p className="font-serif text-xl text-brand-700">🎉 Publicado!</p>
+          <p className="mt-1 text-sm text-ink-700">
+            Mais um na sua meta da semana. Levando você de volta ao início...
+          </p>
         </div>
       )}
     </Card>

@@ -49,6 +49,7 @@ export default async function TeleprompterFromContentPage({
       durationSec={video?.duration_sec ?? null}
       backHref={`/conteudo/${id}`}
       backLabel="Conteúdo"
+      contentItemId={item.id}
     />
   );
 }
