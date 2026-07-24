@@ -6,6 +6,8 @@ import { rateLimit } from "@/lib/rate-limit";
 import { fetchRadar } from "@/lib/radar/fetch";
 
 export const runtime = "nodejs";
+// O get_radar faz buscas externas (Google News) — dá folga além do timeout padrão.
+export const maxDuration = 30;
 
 const envelopeSchema = z.object({
   action: z.string(),
