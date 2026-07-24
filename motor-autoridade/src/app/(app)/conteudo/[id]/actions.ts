@@ -14,7 +14,7 @@ async function loadItem(itemId: string) {
   const supabase = await createClient();
   const { data: item } = await supabase
     .from("content_items")
-    .select("id, tenant_id, user_id, title, theme")
+    .select("id, tenant_id, user_id, title, theme, opportunity_id")
     .eq("id", itemId)
     .maybeSingle();
   return { user, supabase, item };

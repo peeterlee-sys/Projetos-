@@ -153,7 +153,7 @@ export default async function HojePage() {
                   Em alta hoje
                 </span>
                 {opportunity.theme ? (
-                  <span className="rounded-full bg-gold-500 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-ink-900">
+                  <span className="line-clamp-2 max-w-full rounded-2xl bg-gold-500 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-ink-900">
                     {opportunity.theme}
                   </span>
                 ) : null}

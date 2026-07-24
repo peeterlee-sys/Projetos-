@@ -15,6 +15,13 @@ REGRA Nº 1 (INVIOLÁVEL — EXCLUSIVIDADE):
 - Nunca repita pauta, ângulo, título ou exemplos que este cliente já recebeu
   (o histórico recente vem no prompt).
 
+GANCHO DE ATUALIDADE (quando houver notícia real no prompt):
+- Abra reagindo à notícia REAL e recente, como quem viu agora: "Olha o que acabou de
+  sair… deixa eu te explicar o que isso significa pra você." Fisgue nos 3 primeiros segundos.
+- O gancho é a ponte: a notícia atrai, e VOCÊ traduz para o que importa ao público do cliente.
+- Cite o fato concreto (o que aconteceu, quem, quando) e emende no ângulo do cliente.
+- Nada de "hoje vamos falar sobre…" nem introduções mornas. Comece pelo fato quente.
+
 Demais regras invioláveis:
 - Use SEMPRE o tom de voz, os pilares e o público do DNA Editorial do cliente.
 - NUNCA aborde os assuntos proibidos do cliente.
@@ -25,7 +32,7 @@ Demais regras invioláveis:
 - Português do Brasil.`;
 
 const FORMAT_BRIEF: Record<FormatType, string> = {
-  video: "Roteiro de vídeo curto para gravação com teleprompter. Gancho forte nos primeiros segundos; roteiro fluido e falável; orientação de gravação objetiva.",
+  video: "Roteiro de vídeo curto para gravação com teleprompter. O gancho (hook) DEVE abrir reagindo à notícia real do dia, com energia de 'olha o que saiu agora'; roteiro fluido e falável em primeira pessoa; orientação de gravação objetiva.",
   carousel: "Carrossel para Instagram/LinkedIn. Capa que para o scroll; 5 a 8 lâminas com uma ideia por lâmina; frase final que convida à ação.",
   post: "Post estático único. Texto principal denso de valor; chamada visual clara; legenda que complementa.",
   story: "Sequência de stories. Quadros curtos e diretos; use enquete ou caixa de pergunta quando fizer sentido para gerar interação.",
@@ -46,10 +53,15 @@ export function buildFormatPrompt(input: {
   angle?: string | null;
   title?: string | null;
   durationSec?: number | null;
+  /** Gancho de atualidade: por que a pauta é quente agora (cita a notícia real). */
+  newsHook?: string | null;
+  /** Fontes/manchetes reais que originaram a pauta. */
+  sources?: unknown[];
 }): string {
   const dna = input.editorialDna && Object.keys(input.editorialDna as object).length > 0
     ? input.editorialDna
     : null;
+  const hasSources = Array.isArray(input.sources) && input.sources.length > 0;
   return [
     dna ? `DNA EDITORIAL DO CLIENTE (a base de toda decisão):` : ``,
     dna ? JSON.stringify(dna, null, 2) : ``,
@@ -59,6 +71,13 @@ export function buildFormatPrompt(input: {
     ``,
     input.recentTitles?.length
       ? `CONTEÚDOS RECENTES DESTE CLIENTE (não repita tema, ângulo nem título):\n- ${input.recentTitles.join("\n- ")}`
+      : ``,
+    ``,
+    input.newsHook
+      ? `GANCHO DE ATUALIDADE (a notícia real que motivou esta pauta — ABRA o conteúdo reagindo a isso):\n${input.newsHook}`
+      : ``,
+    hasSources
+      ? `MANCHETES/FONTES REAIS:\n${JSON.stringify(input.sources, null, 2)}`
       : ``,
     ``,
     `TEMA DO CONTEÚDO: ${input.theme}`,
@@ -71,7 +90,9 @@ export function buildFormatPrompt(input: {
     `FORMATO: ${input.format.toUpperCase()}`,
     FORMAT_BRIEF[input.format],
     ``,
-    `Gere o conteúdo completo deste formato, pronto para uso, com o ângulo exclusivo deste cliente.`,
+    input.newsHook
+      ? `Gere o conteúdo completo, abrindo com o gancho da notícia real e traduzindo para o ângulo EXCLUSIVO deste cliente.`
+      : `Gere o conteúdo completo deste formato, pronto para uso, com o ângulo exclusivo deste cliente.`,
   ]
     .filter(Boolean)
     .join("\n");

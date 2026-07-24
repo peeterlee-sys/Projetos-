@@ -11,6 +11,7 @@ type ContentItem = {
   user_id: string;
   title: string;
   theme: string | null;
+  opportunity_id?: string | null;
 };
 
 /**
@@ -23,7 +24,7 @@ export async function generateAndSaveFormat(
   item: ContentItem,
   format: FormatType
 ): Promise<{ formatId: string }> {
-  const [{ data: profile }, { data: prefs }, { data: recent }] = await Promise.all([
+  const [{ data: profile }, { data: prefs }, { data: recent }, { data: opp }] = await Promise.all([
     supabase
       .from("client_profiles")
       .select("contexto_mestre, editorial_dna")
@@ -42,6 +43,14 @@ export async function generateAndSaveFormat(
       .neq("id", item.id)
       .order("created_at", { ascending: false })
       .limit(15),
+    // Oportunidade de origem: traz o gancho de atualidade (notícia real) e as fontes.
+    item.opportunity_id
+      ? supabase
+          .from("daily_opportunities")
+          .select("reason, editorial_angle, sources")
+          .eq("id", item.opportunity_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
 
   const prompt = buildFormatPrompt({
@@ -51,6 +60,9 @@ export async function generateAndSaveFormat(
     recentTitles: (recent ?? []).map((r) => r.title as string).filter(Boolean),
     theme: item.theme ?? item.title,
     title: item.title,
+    angle: opp?.editorial_angle ?? null,
+    newsHook: opp?.reason ?? null,
+    sources: Array.isArray(opp?.sources) ? (opp.sources as unknown[]) : [],
     durationSec: prefs?.video_duration_sec ?? 60,
   });
 

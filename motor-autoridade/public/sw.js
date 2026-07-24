@@ -3,9 +3,17 @@
  * Estratégia conservadora: app-shell em cache, network-first para navegação,
  * fallback offline limitado. Vídeos NUNCA são cacheados (permanecem locais).
  */
-const VERSION = "v2-take";
+const VERSION = "v3-take";
 const SHELL_CACHE = `take-shell-${VERSION}`;
-const SHELL_ASSETS = ["/", "/hoje", "/offline", "/manifest.webmanifest", "/icon.svg"];
+const SHELL_ASSETS = [
+  "/",
+  "/hoje",
+  "/offline",
+  "/manifest.webmanifest",
+  "/icon.svg",
+  "/apple-touch-icon.png",
+  "/icon-192.png",
+];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
