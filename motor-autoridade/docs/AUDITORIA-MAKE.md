@@ -10,14 +10,18 @@
 
 ## Módulos (fluxo completo)
 
+> Fluxo atual (8 módulos) — inclui o **radar de notícias reais**.
+
 | # | Módulo | O que faz |
 |---|--------|-----------|
-| 1 | `util:SetVariable2` (`listBody`) | Monta o envelope JSON `{"action":"list_clients","idempotency_key":"list-YYYY-MM-DD-HH-mm","payload":{}}` |
-| 2 | `http:ActionSendData` | `POST https://projetos-ukf9.vercel.app/api/make` com o envelope acima. Autenticação por header `x-motor-secret` (valor = `MAKE_WEBHOOK_SECRET`, **redigido nesta doc**) |
-| 3 | `builtin:BasicFeeder` (Iterator) | Itera `{{2.data.clients}}` — um bundle por cliente ativo e com onboarding concluído |
-| 4 | `anthropic-claude:createAMessage` | Modelo `claude-sonnet-4-5-20250929`, `max_tokens` 2000. Prompt "Editor-Chefe pessoal" (atualizado): recebe `user_id`, `context` (agora com o **ângulo único do DNA**) e `recent_titles` (pautas já entregues) e devolve **apenas JSON** com `title/theme/reason/editorial_angle/recommended_format/relevance_score/estimated_duration`. Instruções reforçam a Regra nº 1 (ângulo exclusivo, sem repetir pautas recentes, respeitar assuntos proibidos) |
-| 5 | `util:SetVariable2` (`requestBody`) | Monta `{"action":"deliver_opportunity","idempotency_key":"{{sha256(resposta)}}","payload":<JSON da IA>}`. Remove cercas ```` ```json ```` da resposta com `replace` + `trim` |
-| 6 | `http:ActionSendData` | `POST /api/make` de novo, entregando a oportunidade no app |
+| 1 | `util:SetVariable2` (`listBody`) | Monta `{"action":"list_clients","idempotency_key":"list-YYYY-MM-DD-HH-mm","payload":{}}` |
+| 2 | `http:ActionSendData` | `POST /api/make`. Auth por header `x-motor-secret` (= `MAKE_WEBHOOK_SECRET`, **redigido**) |
+| 3 | `builtin:BasicFeeder` (Iterator) | Itera `{{2.data.clients}}` — um bundle por cliente ativo e onboarded (inclui admins que dogfoodam) |
+| 4 | `util:SetVariable2` (`radarBody`) | Monta `{"action":"get_radar",...,"payload":{"user_id":"{{3.user_id}}"}}` |
+| 5 | `http:ActionSendData` | `POST /api/make` → **busca as notícias reais e atuais** do cliente (das fontes/temas dele). Devolve `radar.headlines_text` |
+| 6 | `anthropic-claude:createAMessage` | `claude-sonnet-4-5`, `max_tokens` 2000. Recebe `context` (DNA + ângulo único), `recent_titles` e `{{5.data.radar.headlines_text}}`. **Escolhe uma manchete real e traduz para o ângulo exclusivo do cliente**. Devolve JSON com `title/theme/reason/editorial_angle/recommended_format/relevance_score/estimated_duration/sources` |
+| 7 | `util:SetVariable2` (`requestBody`) | Monta `deliver_opportunity` com `idempotency_key = sha256(resposta)`; limpa cercas ```` ```json ```` |
+| 8 | `http:ActionSendData` | `POST /api/make` entregando a oportunidade no app |
 
 ## Webhooks e endpoints
 
@@ -32,16 +36,18 @@
 2. A Claude gera **uma** oportunidade por cliente a partir só desse contexto.
 3. `deliver_opportunity` grava em `daily_opportunities` (status `delivered`), cria `deliveries` (canal `in_app`) e o evento `conteudo_entregue`. A tela "Hoje" lê daí.
 
-## Fontes consultadas — achado principal da auditoria
+## Fontes consultadas — radar de notícias reais ✅
 
-**Nenhuma (ainda).** O cenário não tem módulo de RSS, notícia, busca ou scraping. A pauta nasce do conhecimento paramétrico da Claude + o contexto do cliente. Consequências:
+O cenário **agora consulta notícias reais**. A busca mora no app (endpoint `get_radar`, `lib/radar`), que para cada cliente:
 
-- Não há "radar" de fato: a pauta não reage a notícias do dia. (Buscar notícias reais das fontes priorizadas é o próximo passo — exige adicionar um módulo HTTP/RSS por cliente, consumindo `get_sources`/`get_briefing`.)
-- A priorização de fontes já existe no app (`get_sources`), mas o cenário ainda não a consome.
+- monta consultas a partir dos **pilares/temas do DNA** e das **fontes priorizadas** do cliente;
+- busca manchetes atuais (últimos ~4 dias) via **RSS de busca do Google News** (pt-BR);
+- deduplica, remove assuntos proibidos e dá **preferência às fontes prioritárias** do cliente;
+- devolve uma lista pronta (`headlines_text`) para o Claude escolher e traduzir ao ângulo do cliente.
 
-### Evolução já aplicada (Regra nº 1)
+Assim, dois profissionais do mesmo segmento partem das mesmas manchetes, mas recebem **pautas totalmente diferentes** — cada um no seu ângulo. A guarda de servidor (`deliver_opportunity` recusa títulos duplicados entre clientes) continua como rede de segurança.
 
-O prompt do módulo 4 foi reescrito para "Editor-Chefe pessoal": além do contexto, ele recebe o **ângulo único do DNA Editorial** do cliente e a lista de **pautas recentes** (`recent_titles`), com instrução explícita de nunca repetir tema/ângulo/título e de produzir um recorte exclusivo. Some-se a isso a guarda de servidor (`deliver_opportunity` recusa títulos duplicados) e o risco de conteúdo duplicado cai drasticamente — sem reestruturar o fluxo.
+**Próximo nível (opcional):** hoje as fontes prioritárias entram como preferência dentro do Google News; dá para evoluir para ler o **RSS nativo de cada fonte** (quando existir) e/ou uma API de notícias paga para cobertura mais ampla e em tempo real.
 
 ## Como evoluir (já suportado pelo app após esta atualização)
 
