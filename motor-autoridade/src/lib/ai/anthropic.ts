@@ -12,7 +12,11 @@ export class AnthropicProvider implements AiProvider {
   private client: Anthropic;
 
   constructor(apiKey = process.env.ANTHROPIC_API_KEY) {
-    this.client = new Anthropic({ apiKey });
+    // Remove caracteres não-ASCII que às vezes entram ao colar a chave em
+    // painéis (ex.: bullet "•"), pois quebram a montagem do header HTTP
+    // ("Cannot convert argument to a ByteString").
+    const clean = apiKey?.replace(/[^\x20-\x7E]/g, "").trim();
+    this.client = new Anthropic({ apiKey: clean });
   }
 
   private defaultModel(scenario: StructuredRequest<unknown>["scenario"]): string {

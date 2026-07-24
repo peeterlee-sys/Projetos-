@@ -10,7 +10,9 @@ export class OpenAIProvider implements AiProvider {
   private client: OpenAI;
 
   constructor(apiKey = process.env.OPENAI_API_KEY) {
-    this.client = new OpenAI({ apiKey });
+    // Remove caracteres não-ASCII que possam ter entrado ao colar a chave.
+    const clean = apiKey?.replace(/[^\x20-\x7E]/g, "").trim();
+    this.client = new OpenAI({ apiKey: clean });
   }
 
   private defaultModel(scenario: StructuredRequest<unknown>["scenario"]): string {
