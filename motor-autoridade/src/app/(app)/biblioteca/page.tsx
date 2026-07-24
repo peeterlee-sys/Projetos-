@@ -1,36 +1,45 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth/session";
-import { Card } from "@/components/ui";
 
-const STATUS_FILTERS = [
-  { key: "all", label: "Todos" },
-  { key: "in_production", label: "Produzindo" },
-  { key: "recorded", label: "Gravados" },
-  { key: "published", label: "Publicados" },
-  { key: "rejected", label: "Rejeitados" },
-  { key: "archived", label: "Arquivados" },
+// Filtros do MVP: Todos / Publicados / Gravados / Salvos.
+const FILTERS = [
+  { key: "all", label: "Todos", statuses: null },
+  { key: "published", label: "Publicados", statuses: ["published"] },
+  { key: "recorded", label: "Gravados", statuses: ["recorded"] },
+  { key: "saved", label: "Salvos", statuses: ["saved", "suggested"] },
 ] as const;
 
-const STATUS_LABEL: Record<string, string> = {
-  suggested: "Sugerido",
-  saved: "Salvo",
-  opened: "Aberto",
-  read: "Lido",
-  in_production: "Produzindo",
-  recorded: "Gravado",
-  published: "Publicado",
-  postponed: "Adiado",
-  rejected: "Rejeitado",
-  archived: "Arquivado",
+const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
+  in_production: { label: "Em produção", cls: "bg-gold-300/40 text-gold-700" },
+  recorded: { label: "Gravado", cls: "bg-sand-200 text-ink-700" },
+  published: { label: "Publicado", cls: "bg-success-100 text-brand-700" },
+  suggested: { label: "Salvo", cls: "bg-sand-200 text-ink-700" },
+  saved: { label: "Salvo", cls: "bg-sand-200 text-ink-700" },
+  postponed: { label: "Adiado", cls: "bg-sand-200 text-ink-700" },
+  rejected: { label: "Rejeitado", cls: "bg-danger-600/10 text-danger-700" },
+  archived: { label: "Arquivado", cls: "bg-sand-200 text-ink-500" },
 };
+
+/** "hoje", "ontem", "N dias atrás" ou data curta. */
+function relativeDay(iso: string): string {
+  const then = new Date(iso);
+  const now = new Date();
+  const days = Math.floor((now.getTime() - then.getTime()) / 86_400_000);
+  if (days <= 0) return "hoje";
+  if (days === 1) return "ontem";
+  if (days < 7) return `${days} dias atrás`;
+  return then.toLocaleDateString("pt-BR", { day: "numeric", month: "short" });
+}
 
 export default async function BibliotecaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; q?: string }>;
+  searchParams: Promise<{ f?: string }>;
 }) {
-  const { status = "all", q = "" } = await searchParams;
+  const { f = "all" } = await searchParams;
+  const active = FILTERS.find((x) => x.key === f) ?? FILTERS[0];
+
   const user = await requireUser();
   const supabase = await createClient();
 
@@ -41,9 +50,7 @@ export default async function BibliotecaPage({
     .is("deleted_at", null)
     .order("created_at", { ascending: false })
     .limit(100);
-
-  if (status !== "all") query = query.eq("status", status);
-  if (q.trim()) query = query.or(`title.ilike.%${q}%,theme.ilike.%${q}%`);
+  if (active.statuses) query = query.in("status", active.statuses);
 
   const { data: items } = await query;
 
@@ -51,33 +58,18 @@ export default async function BibliotecaPage({
     <main className="px-5 pt-8">
       <h1 className="mb-4 font-serif text-3xl text-ink-900">Biblioteca</h1>
 
-      <form className="mb-4">
-        <input
-          type="search"
-          name="q"
-          defaultValue={q}
-          placeholder="Buscar por título ou tema…"
-          className="w-full rounded-2xl border border-sand-300 bg-sand-50 px-4 py-3 text-ink-900 outline-none focus:border-brand-700"
-        />
-        {status !== "all" ? <input type="hidden" name="status" value={status} /> : null}
-      </form>
-
       <div className="mb-5 flex gap-2 overflow-x-auto pb-1">
-        {STATUS_FILTERS.map((f) => {
-          const params = new URLSearchParams();
-          if (f.key !== "all") params.set("status", f.key);
-          if (q) params.set("q", q);
-          const href = `/biblioteca${params.toString() ? `?${params}` : ""}`;
-          const active = status === f.key;
+        {FILTERS.map((filter) => {
+          const isActive = active.key === filter.key;
           return (
             <Link
-              key={f.key}
-              href={href}
-              className={`whitespace-nowrap rounded-full px-4 py-2 text-sm transition ${
-                active ? "bg-brand-700 text-sand-50" : "bg-sand-100 text-ink-700"
+              key={filter.key}
+              href={filter.key === "all" ? "/biblioteca" : `/biblioteca?f=${filter.key}`}
+              className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition ${
+                isActive ? "bg-ink-900 text-sand-50" : "bg-white text-ink-700 ring-1 ring-sand-200"
               }`}
             >
-              {f.label}
+              {filter.label}
             </Link>
           );
         })}
@@ -85,33 +77,43 @@ export default async function BibliotecaPage({
 
       {items && items.length > 0 ? (
         <ul className="space-y-3">
-          {items.map((item) => (
-            <li key={item.id}>
-              <Link href={`/conteudo/${item.id}`}>
-                <Card className="flex items-center justify-between">
+          {items.map((item) => {
+            const badge = STATUS_BADGE[item.status] ?? {
+              label: item.status,
+              cls: "bg-sand-200 text-ink-700",
+            };
+            const when = relativeDay((item.published_at as string) ?? (item.created_at as string));
+            return (
+              <li key={item.id}>
+                <Link
+                  href={`/conteudo/${item.id}`}
+                  className="flex items-start justify-between gap-3 rounded-[24px] bg-white p-5 ring-1 ring-sand-200 transition hover:ring-sand-300"
+                >
                   <div className="min-w-0">
-                    {item.theme ? (
-                      <p className="truncate text-xs uppercase tracking-wide text-gold-700">
-                        {item.theme}
-                      </p>
-                    ) : null}
-                    <p className="truncate font-medium text-ink-900">{item.title}</p>
+                    <p className="font-medium text-ink-900">{item.title}</p>
+                    <p className="mt-0.5 text-sm text-ink-500">
+                      {item.theme ? `${item.theme} · ` : ""}
+                      {when}
+                    </p>
                   </div>
-                  <span className="ml-3 shrink-0 rounded-full bg-sand-100 px-3 py-1 text-xs text-ink-500">
-                    {STATUS_LABEL[item.status] ?? item.status}
+                  <span
+                    className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide ${badge.cls}`}
+                  >
+                    {badge.label}
                   </span>
-                </Card>
-              </Link>
-            </li>
-          ))}
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       ) : (
-        <Card className="text-center">
+        <div className="rounded-[24px] bg-white p-8 text-center ring-1 ring-sand-200">
           <p className="text-sm text-ink-500">
-            Nenhum conteúdo por aqui ainda. Assim que você começar uma pauta, ela aparece nesta
-            biblioteca.
+            {active.key === "all"
+              ? "Nada por aqui ainda. Assim que você começar uma pauta, ela aparece na sua biblioteca."
+              : "Nenhum conteúdo neste filtro."}
           </p>
-        </Card>
+        </div>
       )}
     </main>
   );
