@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Button, Card } from "@/components/ui";
 import { FORMATS, type FormatType } from "@/lib/ai/schemas";
 import { generateFormatAction, markPublishedAction } from "./actions";
+import { downloadAllSlides, downloadSlide, type SlideData } from "./carouselCanvas";
 
 const FORMAT_LABEL: Record<FormatType, string> = {
   video: "Vídeo",
@@ -151,7 +152,7 @@ function CarouselSlide({
   return (
     <div
       className="relative flex aspect-[4/5] w-full shrink-0 snap-center flex-col justify-between overflow-hidden rounded-2xl p-5"
-      style={{ backgroundColor: bg, color: fg, width: "78%" }}
+      style={{ backgroundColor: bg, color: fg }}
     >
       <div className="flex items-center justify-between">
         <div className="h-1.5 w-10 rounded-full" style={{ backgroundColor: brand.accent }} />
@@ -183,6 +184,97 @@ function CarouselSlide({
         ) : null}
       </div>
     </div>
+  );
+}
+
+/** Carrossel: prévia com a marca + download PNG (por lâmina e todas). */
+function CarouselView({
+  p,
+  brand,
+  Field,
+}: {
+  p: Record<string, unknown>;
+  brand: Brand;
+  Field: React.ComponentType<{ label: string; value?: unknown }>;
+}) {
+  const [busy, setBusy] = useState<"none" | "all" | number>("none");
+  const [error, setError] = useState<string | null>(null);
+
+  const slidesRaw = Array.isArray(p.slides) ? (p.slides as Array<Record<string, unknown>>) : [];
+  const total = slidesRaw.length + 1; // +1 pela capa
+
+  const slideData: SlideData[] = [
+    { cover: true, eyebrow: "Carrossel", headline: String(p.cover ?? ""), index: 1, total },
+    ...slidesRaw.map((s, i) => ({
+      headline: String(s.headline ?? ""),
+      phrase: String(s.phrase ?? ""),
+      index: i + 2,
+      total,
+    })),
+  ];
+
+  async function one(i: number) {
+    setError(null);
+    setBusy(i);
+    try {
+      await downloadSlide(slideData[i], brand, `carrossel-${String(i + 1).padStart(2, "0")}.png`);
+    } catch {
+      setError("Não foi possível gerar o PNG desta lâmina.");
+    } finally {
+      setBusy("none");
+    }
+  }
+
+  async function all() {
+    setError(null);
+    setBusy("all");
+    try {
+      await downloadAllSlides(slideData, brand);
+    } catch {
+      setError("Não foi possível gerar os PNGs.");
+    } finally {
+      setBusy("none");
+    }
+  }
+
+  return (
+    <>
+      {/* Prévia visual: rola horizontal, cada lâmina com a marca + botão de download */}
+      <div className="-mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-2">
+        {slideData.map((s, i) => (
+          <div key={i} className="flex shrink-0 flex-col gap-2" style={{ width: "78%" }}>
+            <CarouselSlide
+              brand={brand}
+              index={s.index}
+              total={s.total}
+              cover={s.cover}
+              eyebrow={s.eyebrow}
+              headline={s.headline}
+              phrase={s.phrase}
+            />
+            <button
+              onClick={() => one(i)}
+              disabled={busy !== "none"}
+              className="rounded-full bg-sand-100 px-3 py-2 text-xs font-medium text-ink-700 transition hover:bg-sand-200 disabled:opacity-50"
+            >
+              {busy === i ? "Gerando…" : `Baixar lâmina ${i + 1} (PNG)`}
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <Button full variant="secondary" onClick={all} disabled={busy !== "none"}>
+        {busy === "all" ? "Gerando PNGs…" : "Baixar todas as lâminas (PNG)"}
+      </Button>
+      {error ? <p className="text-center text-sm text-danger-600">{error}</p> : null}
+      <p className="text-center text-xs text-ink-400">
+        Imagens 1080×1350 com a sua marca · ajuste as cores e o logo no Perfil
+      </p>
+
+      <Field label="Texto final" value={p.final_text} />
+      <Field label="CTA" value={p.cta} />
+      <Field label="Legenda" value={p.caption} />
+    </>
   );
 }
 
@@ -241,44 +333,7 @@ function FormatView({
 
   return (
     <Card className="space-y-4">
-      {format === "carousel" &&
-        (() => {
-          const slides = Array.isArray(p.slides)
-            ? (p.slides as Array<Record<string, unknown>>)
-            : [];
-          const total = slides.length + 1; // +1 pela capa
-          return (
-            <>
-              {/* Prévia visual: rola horizontal, cada lâmina com a marca */}
-              <div className="-mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-2">
-                <CarouselSlide
-                  brand={brand}
-                  index={1}
-                  total={total}
-                  cover
-                  eyebrow={p.cover ? "Carrossel" : undefined}
-                  headline={String(p.cover ?? "")}
-                />
-                {slides.map((s, i) => (
-                  <CarouselSlide
-                    key={i}
-                    brand={brand}
-                    index={i + 2}
-                    total={total}
-                    headline={String(s.headline ?? "")}
-                    phrase={String(s.phrase ?? "")}
-                  />
-                ))}
-              </div>
-              <p className="text-center text-xs text-ink-400">
-                Prévia com a sua marca · ajuste as cores e o logo no Perfil
-              </p>
-              <Field label="Texto final" value={p.final_text} />
-              <Field label="CTA" value={p.cta} />
-              <Field label="Legenda" value={p.caption} />
-            </>
-          );
-        })()}
+      {format === "carousel" && <CarouselView p={p} brand={brand} Field={Field} />}
       {format === "post" && (
         <>
           <Field label="Texto principal" value={p.main_text} />
