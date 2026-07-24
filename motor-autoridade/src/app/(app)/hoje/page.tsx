@@ -57,7 +57,7 @@ export default async function HojePage() {
   const user = await requireUser();
   const supabase = await createClient();
 
-  const [{ data: prefs }, { data: goal }, { data: opportunity }] = await Promise.all([
+  const [{ data: prefs }, { data: goal }, { data: opportunities }] = await Promise.all([
     supabase.from("client_preferences").select("weekly_goal").eq("user_id", user.id).maybeSingle(),
     supabase
       .from("weekly_goals")
@@ -73,9 +73,11 @@ export default async function HojePage() {
       .eq("user_id", user.id)
       .eq("opportunity_date", new Date().toISOString().slice(0, 10))
       .order("relevance_score", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
+      .limit(6),
   ]);
+
+  const opportunity = opportunities?.[0] ?? null;
+  const alsoOnRadar = (opportunities ?? []).slice(1, 4);
 
   const target = goal?.target ?? prefs?.weekly_goal ?? 0;
   const published = goal?.published_count ?? 0;
@@ -185,26 +187,54 @@ export default async function HojePage() {
 
               <form action={startContent} className="mt-5 space-y-2">
                 <input type="hidden" name="opportunity_id" value={opportunity.id} />
+                <input type="hidden" name="format" value={opportunity.recommended_format} />
                 <Button type="submit" full>
                   Começar conteúdo
                 </Button>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="submit"
-                    className="rounded-full border border-sand-300 bg-white px-4 py-3 text-sm font-medium text-ink-900 transition hover:bg-sand-50 active:scale-[0.98]"
-                  >
-                    Escolher outro formato
-                  </button>
-                  <Link
-                    href="/biblioteca"
-                    className="rounded-full border border-sand-300 bg-white px-4 py-3 text-center text-sm font-medium text-ink-900 transition hover:bg-sand-50 active:scale-[0.98]"
-                  >
-                    Outras oportunidades
-                  </Link>
-                </div>
               </form>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <Link
+                  href={`/oportunidade/${opportunity.id}`}
+                  className="rounded-full border border-sand-300 bg-white px-4 py-3 text-center text-sm font-medium text-ink-900 transition hover:bg-sand-50 active:scale-[0.98]"
+                >
+                  Escolher outro formato
+                </Link>
+                <Link
+                  href="/biblioteca"
+                  className="rounded-full border border-sand-300 bg-white px-4 py-3 text-center text-sm font-medium text-ink-900 transition hover:bg-sand-50 active:scale-[0.98]"
+                >
+                  Outras oportunidades
+                </Link>
+              </div>
             </div>
           </div>
+
+          {/* Também no seu radar */}
+          {alsoOnRadar.length ? (
+            <section className="mt-6">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-ink-400">
+                Também no seu radar
+              </p>
+              <div className="space-y-3">
+                {alsoOnRadar.map((o) => (
+                  <form key={o.id} action={startContent}>
+                    <input type="hidden" name="opportunity_id" value={o.id} />
+                    <input type="hidden" name="format" value={o.recommended_format} />
+                    <button
+                      type="submit"
+                      className="w-full rounded-[24px] bg-white p-4 text-left ring-1 ring-sand-200 transition hover:ring-sand-300"
+                    >
+                      <p className="font-medium text-ink-900">{o.title}</p>
+                      <p className="mt-0.5 text-sm text-ink-500">
+                        {o.editorial_angle ? `Ângulo: ${o.editorial_angle} · ` : ""}
+                        {FORMAT_LABEL[o.recommended_format] ?? o.recommended_format}
+                      </p>
+                    </button>
+                  </form>
+                ))}
+              </div>
+            </section>
+          ) : null}
 
           <details className="mt-5 pb-2 text-center">
             <summary className="cursor-pointer list-none text-sm font-medium text-gold-700">
@@ -217,20 +247,28 @@ export default async function HojePage() {
           </details>
         </>
       ) : (
-        <>
-          <div className="mb-5 rounded-2xl border border-gold-300 bg-white/60 px-4 py-3">
-            <p className="text-sm text-ink-700">{stimulus}</p>
+        <div className="mt-10 flex flex-col items-center px-4 text-center">
+          <p className="text-xs font-semibold uppercase tracking-wider text-ink-400">
+            Radar · hoje
+          </p>
+          {/* Radar (círculos concêntricos) */}
+          <div className="relative my-5 flex h-28 w-28 items-center justify-center">
+            <span className="absolute inset-0 rounded-full ring-1 ring-sand-300" />
+            <span className="absolute inset-4 rounded-full ring-1 ring-sand-300" />
+            <span className="absolute inset-8 rounded-full ring-1 ring-sand-300" />
+            <span className="h-2.5 w-2.5 rounded-full bg-gold-500" />
           </div>
-          <Card className="text-center">
-            <h2 className="font-serif text-xl text-ink-900">
-              Seu radar está sendo calibrado.
-            </h2>
-            <p className="mt-2 text-sm text-ink-500">
-              Assim que uma pauta à sua altura aparecer, ela chega aqui — com roteiro,
-              legenda e um caminho leve até a publicação.
-            </p>
-          </Card>
-        </>
+          <h2 className="font-serif text-2xl leading-tight text-ink-900">
+            Hoje o radar não encontrou nada à sua altura.
+          </h2>
+          <p className="mt-2 max-w-sm text-sm text-ink-500">
+            Preferimos silêncio a pauta fraca. Que tal revisitar um conteúdo que
+            já performou bem?
+          </p>
+          <Link href="/biblioteca" className="mt-5">
+            <Button>Ver meus melhores conteúdos</Button>
+          </Link>
+        </div>
       )}
     </main>
   );

@@ -3,8 +3,15 @@ import { createClient } from "@/lib/supabase/server";
 import { getSessionUser } from "@/lib/auth/session";
 import { ContentWorkspace } from "./ContentWorkspace";
 
-export default async function ConteudoPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ConteudoPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ f?: string }>;
+}) {
   const { id } = await params;
+  const { f } = await searchParams;
   const user = await getSessionUser();
   if (!user) redirect("/login");
   const supabase = await createClient();
@@ -35,6 +42,9 @@ export default async function ConteudoPage({ params }: { params: Promise<{ id: s
     logoUrl: profile?.logo_url ?? null,
   };
 
+  const validFormats = ["video", "carousel", "post", "story", "linkedin"];
+  const initialFormat = f && validFormats.includes(f) ? f : undefined;
+
   return (
     <ContentWorkspace
       itemId={item.id}
@@ -43,6 +53,7 @@ export default async function ConteudoPage({ params }: { params: Promise<{ id: s
       status={item.status}
       generated={byFormat}
       brand={brand}
+      initialFormat={initialFormat}
     />
   );
 }
