@@ -16,13 +16,24 @@ export default async function ConteudoPage({ params }: { params: Promise<{ id: s
     .maybeSingle();
   if (!item) notFound();
 
-  const { data: formats } = await supabase
-    .from("content_formats")
-    .select("format, payload, status")
-    .eq("content_item_id", id);
+  const [{ data: formats }, { data: profile }] = await Promise.all([
+    supabase.from("content_formats").select("format, payload, status").eq("content_item_id", id),
+    supabase
+      .from("client_profiles")
+      .select("brand_primary, brand_secondary, brand_accent, logo_url")
+      .eq("user_id", user.id)
+      .maybeSingle(),
+  ]);
 
   const byFormat: Record<string, unknown> = {};
   for (const f of formats ?? []) byFormat[f.format] = f.payload;
+
+  const brand = {
+    primary: profile?.brand_primary ?? "#1d4a38",
+    secondary: profile?.brand_secondary ?? "#faf7f2",
+    accent: profile?.brand_accent ?? "#c9a94e",
+    logoUrl: profile?.logo_url ?? null,
+  };
 
   return (
     <ContentWorkspace
@@ -31,6 +42,7 @@ export default async function ConteudoPage({ params }: { params: Promise<{ id: s
       theme={item.theme}
       status={item.status}
       generated={byFormat}
+      brand={brand}
     />
   );
 }

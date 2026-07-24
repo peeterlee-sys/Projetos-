@@ -136,6 +136,11 @@ create table client_profiles (
   main_block          text,                   -- maior bloqueio
   main_motivation     text,
   follow_up_level     notification_intensity not null default 'balanced',
+  -- Identidade visual do cliente (usada nos carrosséis/posts).
+  brand_primary       text,
+  brand_secondary     text,
+  brand_accent        text,
+  logo_url            text,
   -- contexto_mestre consolidado, consumido pela camada de IA em toda geração.
   contexto_mestre     jsonb not null default '{}'::jsonb,
   created_at          timestamptz not null default now(),

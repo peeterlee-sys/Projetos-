@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth/session";
 import { Card, Button } from "@/components/ui";
 import { EnableNotifications } from "@/components/push/EnableNotifications";
+import { BrandSettings } from "./BrandSettings";
 
 const ROLE_LABEL: Record<string, string> = {
   super_admin: "Super administrador",
@@ -12,6 +14,13 @@ const ROLE_LABEL: Record<string, string> = {
 
 export default async function PerfilPage() {
   const user = await requireUser();
+  const supabase = await createClient();
+
+  const { data: profile } = await supabase
+    .from("client_profiles")
+    .select("brand_primary, brand_secondary, brand_accent, logo_url")
+    .eq("user_id", user.id)
+    .maybeSingle();
 
   return (
     <main className="px-5 pt-8">
@@ -30,6 +39,10 @@ export default async function PerfilPage() {
           <p className="text-ink-900">{ROLE_LABEL[user.role] ?? user.role}</p>
         </div>
       </Card>
+
+      <div className="mt-5">
+        <BrandSettings initial={profile ?? {}} />
+      </div>
 
       {user.role === "admin" || user.role === "super_admin" ? (
         <Link href="/admin" className="mt-5 block">

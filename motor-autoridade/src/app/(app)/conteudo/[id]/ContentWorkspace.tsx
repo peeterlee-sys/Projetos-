@@ -15,15 +15,23 @@ const FORMAT_LABEL: Record<FormatType, string> = {
   linkedin: "LinkedIn",
 };
 
+export type Brand = {
+  primary: string;
+  secondary: string;
+  accent: string;
+  logoUrl: string | null;
+};
+
 type Props = {
   itemId: string;
   title: string;
   theme: string | null;
   status: string;
   generated: Record<string, unknown>;
+  brand: Brand;
 };
 
-export function ContentWorkspace({ itemId, title, theme, status, generated }: Props) {
+export function ContentWorkspace({ itemId, title, theme, status, generated, brand }: Props) {
   const router = useRouter();
   const [active, setActive] = useState<FormatType>("video");
   const [pending, startTransition] = useTransition();
@@ -84,7 +92,7 @@ export function ContentWorkspace({ itemId, title, theme, status, generated }: Pr
       </div>
 
       {payload ? (
-        <FormatView format={active} payload={payload} />
+        <FormatView format={active} payload={payload} brand={brand} />
       ) : (
         <Card className="text-center">
           <p className="text-sm text-ink-500">
@@ -118,8 +126,76 @@ export function ContentWorkspace({ itemId, title, theme, status, generated }: Pr
   );
 }
 
+/** Lâmina visual do carrossel, pintada com a marca do cliente. */
+function CarouselSlide({
+  brand,
+  index,
+  total,
+  eyebrow,
+  headline,
+  phrase,
+  cover,
+}: {
+  brand: Brand;
+  index: number;
+  total: number;
+  eyebrow?: string;
+  headline?: string;
+  phrase?: string;
+  cover?: boolean;
+}) {
+  // Capa: fundo na cor principal, texto claro. Lâminas: fundo claro, texto na
+  // cor principal. Em ambos, a barra e detalhes usam a cor de destaque.
+  const bg = cover ? brand.primary : brand.secondary;
+  const fg = cover ? brand.secondary : brand.primary;
+  return (
+    <div
+      className="relative flex aspect-[4/5] w-full shrink-0 snap-center flex-col justify-between overflow-hidden rounded-2xl p-5"
+      style={{ backgroundColor: bg, color: fg, width: "78%" }}
+    >
+      <div className="flex items-center justify-between">
+        <div className="h-1.5 w-10 rounded-full" style={{ backgroundColor: brand.accent }} />
+        <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ opacity: 0.6 }}>
+          {cover ? (eyebrow ?? "") : `${index}/${total}`}
+        </span>
+      </div>
+
+      <div className="py-2">
+        {headline ? (
+          <p className="font-serif text-2xl leading-tight" style={{ color: fg }}>
+            {headline}
+          </p>
+        ) : null}
+        {phrase ? (
+          <p className="mt-2 text-sm leading-relaxed" style={{ color: fg, opacity: 0.85 }}>
+            {phrase}
+          </p>
+        ) : null}
+      </div>
+
+      <div className="flex items-end justify-between">
+        <span className="text-[11px]" style={{ opacity: 0.5 }}>
+          {cover ? "arraste →" : ""}
+        </span>
+        {brand.logoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={brand.logoUrl} alt="" className="h-6 w-auto max-w-[38%] object-contain" />
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 /** Renderiza o payload conforme o formato. */
-function FormatView({ format, payload }: { format: FormatType; payload: unknown }) {
+function FormatView({
+  format,
+  payload,
+  brand,
+}: {
+  format: FormatType;
+  payload: unknown;
+  brand: Brand;
+}) {
   const p = payload as Record<string, unknown>;
   const Field = ({ label, value }: { label: string; value?: unknown }) =>
     value ? (
@@ -165,22 +241,44 @@ function FormatView({ format, payload }: { format: FormatType; payload: unknown 
 
   return (
     <Card className="space-y-4">
-      {format === "carousel" && (
-        <>
-          <Field label="Capa" value={p.cover} />
-          {Array.isArray(p.slides) &&
-            (p.slides as Array<Record<string, unknown>>).map((s, i) => (
-              <div key={i} className="rounded-xl bg-sand-100 p-3">
-                <p className="text-xs text-ink-400">Lâmina {i + 1}</p>
-                <p className="font-medium text-ink-900">{String(s.headline ?? "")}</p>
-                <p className="text-sm text-ink-700">{String(s.phrase ?? "")}</p>
+      {format === "carousel" &&
+        (() => {
+          const slides = Array.isArray(p.slides)
+            ? (p.slides as Array<Record<string, unknown>>)
+            : [];
+          const total = slides.length + 1; // +1 pela capa
+          return (
+            <>
+              {/* Prévia visual: rola horizontal, cada lâmina com a marca */}
+              <div className="-mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-2">
+                <CarouselSlide
+                  brand={brand}
+                  index={1}
+                  total={total}
+                  cover
+                  eyebrow={p.cover ? "Carrossel" : undefined}
+                  headline={String(p.cover ?? "")}
+                />
+                {slides.map((s, i) => (
+                  <CarouselSlide
+                    key={i}
+                    brand={brand}
+                    index={i + 2}
+                    total={total}
+                    headline={String(s.headline ?? "")}
+                    phrase={String(s.phrase ?? "")}
+                  />
+                ))}
               </div>
-            ))}
-          <Field label="Texto final" value={p.final_text} />
-          <Field label="CTA" value={p.cta} />
-          <Field label="Legenda" value={p.caption} />
-        </>
-      )}
+              <p className="text-center text-xs text-ink-400">
+                Prévia com a sua marca · ajuste as cores e o logo no Perfil
+              </p>
+              <Field label="Texto final" value={p.final_text} />
+              <Field label="CTA" value={p.cta} />
+              <Field label="Legenda" value={p.caption} />
+            </>
+          );
+        })()}
       {format === "post" && (
         <>
           <Field label="Texto principal" value={p.main_text} />
