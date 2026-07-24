@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { createServiceClient } from "@/lib/supabase/server";
-import { claimIdempotency, finishExecution, verifyMakeSignature } from "@/lib/make/security";
+import { claimIdempotency, finishExecution, verifyMakeSignature, verifyMakeSecret } from "@/lib/make/security";
 import { rateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
@@ -27,8 +27,10 @@ export async function POST(request: NextRequest) {
 
   const rawBody = await request.text();
   const signature = request.headers.get("x-motor-signature");
+  const sharedSecret = request.headers.get("x-motor-secret");
 
-  if (!verifyMakeSignature(rawBody, signature)) {
+  // Autentica por HMAC (x-motor-signature) OU segredo compartilhado (x-motor-secret).
+  if (!verifyMakeSignature(rawBody, signature) && !verifyMakeSecret(sharedSecret)) {
     return NextResponse.json({ error: "assinatura inválida" }, { status: 401 });
   }
 

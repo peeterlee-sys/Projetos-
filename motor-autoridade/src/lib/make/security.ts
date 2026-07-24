@@ -1,7 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-export { verifyMakeSignature } from "./signature";
+export { verifyMakeSignature, verifyMakeSecret } from "./signature";
 
 /**
  * Controle de idempotência: registra a chave em execution_logs (índice único).

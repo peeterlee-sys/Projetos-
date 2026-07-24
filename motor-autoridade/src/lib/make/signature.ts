@@ -20,3 +20,19 @@ export function verifyMakeSignature(
   if (a.length !== b.length) return false;
   return crypto.timingSafeEqual(a, b);
 }
+
+/**
+ * Alternativa ao HMAC: segredo compartilhado enviado direto no header
+ * `x-motor-secret`. Útil para integrações (ex.: Make) onde calcular HMAC do
+ * corpo é inconveniente. Comparação em tempo constante. HTTPS protege o valor.
+ */
+export function verifyMakeSecret(
+  provided: string | null,
+  secret = process.env.MAKE_WEBHOOK_SECRET
+): boolean {
+  if (!secret || !provided) return false;
+  const a = Buffer.from(provided);
+  const b = Buffer.from(secret);
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
+}
