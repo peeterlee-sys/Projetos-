@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/auth/session";
 import { Button, Card } from "@/components/ui";
 import { getStimulus } from "@/lib/behavior/detect";
 import { startContent } from "./actions";
+import { TakeLogo } from "@/components/brand/TakeLogo";
 
 const FORMAT_LABEL: Record<string, string> = {
   video: "Vídeo",
@@ -98,21 +99,22 @@ export default async function HojePage() {
     : null;
 
   return (
-    <main className="px-5 pt-8">
-      <header className="mb-6 flex items-start justify-between gap-4">
-        <div>
-          <p className="text-sm text-ink-500">{todayLabel()}</p>
-          <h1 className="mt-1 font-serif text-4xl leading-tight text-ink-900">
-            {greeting(user.full_name)}
-          </h1>
-        </div>
+    <main className="px-5 pt-6">
+      <div className="mb-4 flex items-center justify-between">
+        <TakeLogo size={26} />
         <Link
           href="/perfil"
-          className="mt-1 flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brand-700 text-lg font-medium text-sand-50"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-700 text-base font-medium text-sand-50"
           aria-label="Perfil"
         >
           {initial}
         </Link>
+      </div>
+      <header className="mb-6">
+        <p className="text-sm text-ink-500">{todayLabel()}</p>
+        <h1 className="mt-1 font-serif text-4xl leading-tight text-ink-900">
+          {greeting(user.full_name)}
+        </h1>
       </header>
 
       {target > 0 ? (

@@ -1,10 +1,10 @@
 /*
- * Service Worker — Motor de Autoridade (MVP)
+ * Service Worker — Take (MVP)
  * Estratégia conservadora: app-shell em cache, network-first para navegação,
  * fallback offline limitado. Vídeos NUNCA são cacheados (permanecem locais).
  */
-const VERSION = "v1";
-const SHELL_CACHE = `motor-shell-${VERSION}`;
+const VERSION = "v2-take";
+const SHELL_CACHE = `take-shell-${VERSION}`;
 const SHELL_ASSETS = ["/", "/hoje", "/offline", "/manifest.webmanifest", "/icon.svg"];
 
 self.addEventListener("install", (event) => {
@@ -60,10 +60,10 @@ self.addEventListener("push", (event) => {
   try {
     payload = event.data.json();
   } catch {
-    payload = { title: "Motor de Autoridade", body: event.data.text() };
+    payload = { title: "Take", body: event.data.text() };
   }
   event.waitUntil(
-    self.registration.showNotification(payload.title || "Motor de Autoridade", {
+    self.registration.showNotification(payload.title || "Take", {
       body: payload.body || "",
       icon: "/icon.svg",
       badge: "/icon.svg",
