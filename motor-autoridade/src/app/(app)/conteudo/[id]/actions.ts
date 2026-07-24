@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth/session";
 import { generateAndSaveFormat } from "@/lib/content/generate";
 import { trackEvent } from "@/lib/events/track";
@@ -39,13 +39,19 @@ export async function generateFormatAction(itemId: string, format: string): Prom
     return { ok: true };
   } catch (e) {
     const message = e instanceof Error ? e.message : "Falha ao gerar o formato.";
-    await supabase.from("system_errors").insert({
-      tenant_id: item.tenant_id,
-      scope: "ai",
-      message,
-      context: { item_id: itemId, format },
-    });
-    return { ok: false, error: "Não foi possível gerar agora. Tente novamente." };
+    // Loga com cliente de serviço (a RLS de system_errors é só admin).
+    try {
+      const admin = createServiceClient();
+      await admin.from("system_errors").insert({
+        tenant_id: item.tenant_id,
+        scope: "ai",
+        message,
+        context: { item_id: itemId, format },
+      });
+    } catch {
+      // não deixa a falha de log derrubar a resposta
+    }
+    return { ok: false, error: `Não foi possível gerar agora. [debug: ${message}]` };
   }
 }
 
