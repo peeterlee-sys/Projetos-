@@ -18,7 +18,7 @@ export default async function ConteudoPage({
 
   const { data: item } = await supabase
     .from("content_items")
-    .select("id, title, theme, status")
+    .select("id, title, theme, status, opportunity_id")
     .eq("id", id)
     .maybeSingle();
   if (!item) notFound();
@@ -54,6 +54,7 @@ export default async function ConteudoPage({
       generated={byFormat}
       brand={brand}
       initialFormat={initialFormat}
+      opportunityId={item.opportunity_id ?? null}
     />
   );
 }

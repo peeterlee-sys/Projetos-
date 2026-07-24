@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth/session";
+import { LibraryItem } from "./LibraryItem";
 
 // Filtros do MVP: Todos / Publicados / Gravados / Salvos.
 const FILTERS = [
@@ -66,7 +67,9 @@ export default async function BibliotecaPage({
               key={filter.key}
               href={filter.key === "all" ? "/biblioteca" : `/biblioteca?f=${filter.key}`}
               className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition ${
-                isActive ? "bg-ink-900 text-sand-50" : "bg-white text-ink-700 ring-1 ring-sand-200"
+                isActive
+                  ? "bg-ink-900 text-sand-50 shadow-sm"
+                  : "bg-white text-ink-700 shadow-sm ring-1 ring-black/5"
               }`}
             >
               {filter.label}
@@ -85,23 +88,13 @@ export default async function BibliotecaPage({
             const when = relativeDay((item.published_at as string) ?? (item.created_at as string));
             return (
               <li key={item.id}>
-                <Link
-                  href={`/conteudo/${item.id}`}
-                  className="flex items-start justify-between gap-3 rounded-[24px] bg-white p-5 ring-1 ring-sand-200 transition hover:ring-sand-300"
-                >
-                  <div className="min-w-0">
-                    <p className="font-medium text-ink-900">{item.title}</p>
-                    <p className="mt-0.5 text-sm text-ink-500">
-                      {item.theme ? `${item.theme} · ` : ""}
-                      {when}
-                    </p>
-                  </div>
-                  <span
-                    className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide ${badge.cls}`}
-                  >
-                    {badge.label}
-                  </span>
-                </Link>
+                <LibraryItem
+                  id={item.id}
+                  title={item.title}
+                  subtitle={`${item.theme ? `${item.theme} · ` : ""}${when}`}
+                  badgeLabel={badge.label}
+                  badgeCls={badge.cls}
+                />
               </li>
             );
           })}
