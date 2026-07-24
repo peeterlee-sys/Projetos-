@@ -15,7 +15,7 @@
 | 1 | `util:SetVariable2` (`listBody`) | Monta o envelope JSON `{"action":"list_clients","idempotency_key":"list-YYYY-MM-DD-HH-mm","payload":{}}` |
 | 2 | `http:ActionSendData` | `POST https://projetos-ukf9.vercel.app/api/make` com o envelope acima. Autenticação por header `x-motor-secret` (valor = `MAKE_WEBHOOK_SECRET`, **redigido nesta doc**) |
 | 3 | `builtin:BasicFeeder` (Iterator) | Itera `{{2.data.clients}}` — um bundle por cliente ativo e com onboarding concluído |
-| 4 | `anthropic-claude:createAMessage` | Modelo `claude-sonnet-4-5-20250929`, `max_tokens` 1500. Prompt: "radar editorial", recebe `user_id` + `context` (string curta com temas, tom e público) e devolve **apenas JSON** com `title/theme/reason/editorial_angle/recommended_format/relevance_score/estimated_duration` |
+| 4 | `anthropic-claude:createAMessage` | Modelo `claude-sonnet-4-5-20250929`, `max_tokens` 2000. Prompt "Editor-Chefe pessoal" (atualizado): recebe `user_id`, `context` (agora com o **ângulo único do DNA**) e `recent_titles` (pautas já entregues) e devolve **apenas JSON** com `title/theme/reason/editorial_angle/recommended_format/relevance_score/estimated_duration`. Instruções reforçam a Regra nº 1 (ângulo exclusivo, sem repetir pautas recentes, respeitar assuntos proibidos) |
 | 5 | `util:SetVariable2` (`requestBody`) | Monta `{"action":"deliver_opportunity","idempotency_key":"{{sha256(resposta)}}","payload":<JSON da IA>}`. Remove cercas ```` ```json ```` da resposta com `replace` + `trim` |
 | 6 | `http:ActionSendData` | `POST /api/make` de novo, entregando a oportunidade no app |
 
@@ -34,11 +34,14 @@
 
 ## Fontes consultadas — achado principal da auditoria
 
-**Nenhuma.** O cenário não tem módulo de RSS, notícia, busca ou scraping. A pauta nasce exclusivamente do conhecimento paramétrico da Claude + o contexto curto do cliente. Consequências:
+**Nenhuma (ainda).** O cenário não tem módulo de RSS, notícia, busca ou scraping. A pauta nasce do conhecimento paramétrico da Claude + o contexto do cliente. Consequências:
 
-- Não há "radar" de fato: a pauta não reage a notícias do dia.
-- Não existe escolha nem priorização de fontes — não há fontes.
-- Clientes com contexto parecido tendem a receber pautas parecidas (viola a Regra nº 1 do produto).
+- Não há "radar" de fato: a pauta não reage a notícias do dia. (Buscar notícias reais das fontes priorizadas é o próximo passo — exige adicionar um módulo HTTP/RSS por cliente, consumindo `get_sources`/`get_briefing`.)
+- A priorização de fontes já existe no app (`get_sources`), mas o cenário ainda não a consome.
+
+### Evolução já aplicada (Regra nº 1)
+
+O prompt do módulo 4 foi reescrito para "Editor-Chefe pessoal": além do contexto, ele recebe o **ângulo único do DNA Editorial** do cliente e a lista de **pautas recentes** (`recent_titles`), com instrução explícita de nunca repetir tema/ângulo/título e de produzir um recorte exclusivo. Some-se a isso a guarda de servidor (`deliver_opportunity` recusa títulos duplicados) e o risco de conteúdo duplicado cai drasticamente — sem reestruturar o fluxo.
 
 ## Como evoluir (já suportado pelo app após esta atualização)
 
