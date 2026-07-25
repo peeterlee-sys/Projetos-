@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { markPublishedAction } from "@/app/(app)/conteudo/[id]/actions";
+import { createClient as createBrowserClient } from "@/lib/supabase/browser";
 import { Button, Card } from "@/components/ui";
 import { type MediaSupport } from "./lib/mediaSupport";
 import { useMediaSupport } from "./lib/useMediaSupport";
@@ -28,6 +29,8 @@ type TeleprompterProps = {
   contentItemId?: string | null;
   /** Legenda pronta para o cliente copiar e colar na rede ao publicar. */
   caption?: string | null;
+  /** Habilita a edição com legenda (ZapCap) — depende de config no servidor. */
+  captionsEnabled?: boolean;
 };
 
 function formatBytes(bytes: number): string {
@@ -60,6 +63,7 @@ export default function Teleprompter({
   backLabel = "Voltar",
   contentItemId = null,
   caption = null,
+  captionsEnabled = false,
 }: TeleprompterProps) {
   const support = useMediaSupport();
   const [script, setScript] = useState(initialScript?.trim() || DEFAULT_SCRIPT);
@@ -491,6 +495,7 @@ export default function Teleprompter({
       {recorder.recording && (
         <RecordingResult
           url={recorder.recording.url}
+          blob={recorder.recording.blob}
           size={recorder.recording.size}
           durationMs={recorder.recording.durationMs}
           downloadName={downloadName}
@@ -503,6 +508,7 @@ export default function Teleprompter({
           backHref={backHref}
           contentItemId={contentItemId}
           caption={caption}
+          captionsEnabled={captionsEnabled}
         />
       )}
 
@@ -583,6 +589,7 @@ function SliderField({
 
 function RecordingResult({
   url,
+  blob,
   size,
   durationMs,
   downloadName,
@@ -595,8 +602,10 @@ function RecordingResult({
   backHref,
   contentItemId,
   caption,
+  captionsEnabled,
 }: {
   url: string;
+  blob: Blob;
   size: number;
   durationMs: number;
   downloadName: string;
@@ -609,6 +618,7 @@ function RecordingResult({
   backHref: string;
   contentItemId: string | null;
   caption: string | null;
+  captionsEnabled: boolean;
 }) {
   const router = useRouter();
   const [publishing, startPublishing] = useTransition();
@@ -745,6 +755,10 @@ function RecordingResult({
             </p>
           )}
 
+          {captionsEnabled ? (
+            <CaptionRequest blob={blob} contentItemId={contentItemId} />
+          ) : null}
+
           <Button full onClick={handlePublished} disabled={publishing}>
             {publishing ? "Registrando..." : "Publiquei ✓"}
           </Button>
@@ -762,6 +776,151 @@ function RecordingResult({
         </div>
       )}
     </Card>
+  );
+}
+
+/**
+ * Edição com legenda (ZapCap), disparada pelo cliente APÓS aprovar o vídeo.
+ * Sobe o vídeo ao Supabase Storage, cria o pedido e acompanha o render.
+ */
+function CaptionRequest({
+  blob,
+  contentItemId,
+}: {
+  blob: Blob;
+  contentItemId: string | null;
+}) {
+  const [state, setState] = useState<"idle" | "uploading" | "processing" | "ready" | "failed">(
+    "idle",
+  );
+  const [outputUrl, setOutputUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const pollRef = useRef<number | null>(null);
+
+  const stopPolling = useCallback(() => {
+    if (pollRef.current) {
+      window.clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => () => stopPolling(), [stopPolling]);
+
+  const poll = useCallback(
+    (requestId: string) => {
+      let tries = 0;
+      stopPolling();
+      pollRef.current = window.setInterval(async () => {
+        tries += 1;
+        try {
+          const res = await fetch(`/api/zapcap?requestId=${requestId}`);
+          const j = await res.json();
+          if (j.status === "ready" && j.output_url) {
+            stopPolling();
+            setOutputUrl(j.output_url);
+            setState("ready");
+          } else if (j.status === "failed") {
+            stopPolling();
+            setError(j.error || "Não foi possível gerar as legendas.");
+            setState("failed");
+          } else if (tries > 45) {
+            stopPolling();
+            setError("A edição está demorando mais que o normal. Tente de novo em instantes.");
+            setState("failed");
+          }
+        } catch {
+          /* rede instável: mantém tentando */
+        }
+      }, 4000);
+    },
+    [stopPolling],
+  );
+
+  const start = useCallback(async () => {
+    setError(null);
+    setState("uploading");
+    try {
+      const supabase = createBrowserClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("Sessão expirada. Faça login novamente.");
+
+      const ext = blob.type.includes("mp4") ? "mp4" : "webm";
+      const path = `${user.id}/${Date.now()}.${ext}`;
+      const up = await supabase.storage
+        .from("recordings")
+        .upload(path, blob, { contentType: blob.type || "video/mp4", upsert: true });
+      if (up.error) throw new Error("Falha ao enviar o vídeo para edição.");
+
+      const signed = await supabase.storage.from("recordings").createSignedUrl(path, 3600);
+      const videoUrl = signed.data?.signedUrl;
+      if (!videoUrl) throw new Error("Não foi possível preparar o vídeo.");
+
+      const res = await fetch("/api/zapcap", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ videoUrl, contentItemId: contentItemId ?? undefined }),
+      });
+      const j = await res.json();
+      if (!res.ok || j.status === "failed") {
+        throw new Error(j.error || "Falha ao solicitar a edição.");
+      }
+      setState("processing");
+      poll(j.request_id);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Falha na edição.");
+      setState("failed");
+    }
+  }, [blob, contentItemId, poll]);
+
+  if (state === "ready" && outputUrl) {
+    return (
+      <div className="space-y-2 rounded-2xl bg-white p-4 ring-1 ring-brand-700/20">
+        <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
+          🎬 Vídeo com legendas pronto
+        </p>
+        <video src={outputUrl} controls playsInline className="w-full rounded-xl bg-black" />
+        <a
+          href={outputUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex w-full items-center justify-center rounded-full bg-brand-700 px-5 py-3 text-sm font-medium text-sand-50 transition hover:bg-brand-800"
+        >
+          Baixar vídeo legendado
+        </a>
+      </div>
+    );
+  }
+
+  const busy = state === "uploading" || state === "processing";
+
+  return (
+    <div className="space-y-2">
+      <button
+        type="button"
+        onClick={start}
+        disabled={busy}
+        className="w-full rounded-full border border-brand-700/30 bg-white px-5 py-3 text-sm font-medium text-brand-700 transition hover:bg-brand-700/5 disabled:opacity-60"
+      >
+        {state === "uploading"
+          ? "Enviando seu vídeo…"
+          : state === "processing"
+            ? "Gerando legendas… (1–2 min)"
+            : "✨ Gerar vídeo com legendas"}
+      </button>
+      {state === "processing" ? (
+        <p className="text-center text-xs text-ink-400">
+          Isso leva 1–2 minutos. Deixe esta tela aberta.
+        </p>
+      ) : null}
+      {state === "idle" ? (
+        <p className="text-center text-xs text-ink-400">
+          Aprovou o vídeo? Gere uma versão com legendas prontas para publicar.
+        </p>
+      ) : null}
+      {error ? <p className="text-center text-xs text-danger-600">{error}</p> : null}
+    </div>
   );
 }
 

@@ -31,6 +31,7 @@ supabase/migrations/0004_seed_templates.sql  -- templates visuais globais
 supabase/migrations/0005_brand.sql           -- identidade visual do cliente (marca)
 supabase/migrations/0006_editorial_dna.sql   -- anamnese completa, fontes, DNA Editorial
 supabase/migrations/0007_signup_approval.sql   -- aprovação de cadastro (is_active pendente)
+supabase/migrations/0008_edit_requests.sql    -- edição com legenda (ZapCap): edit_requests + Storage
 ```
 
 Ou via CLI:
@@ -87,6 +88,16 @@ npx web-push generate-vapid-keys
 | `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | chave pública VAPID |
 | `VAPID_PRIVATE_KEY` | chave privada VAPID |
 | `VAPID_SUBJECT` | `mailto:voce@dominio.com` |
+| `ZAPCAP_API_KEY` | chave da API do ZapCap (legendas) — opcional; sem ela o botão de legendas não aparece |
+| `ZAPCAP_TEMPLATE_ID` | id do template de legenda escolhido no ZapCap (obrigatório para ligar as legendas) |
+| `ZAPCAP_LANGUAGE` | idioma das legendas (opcional, default `pt`) |
+| `ZAPCAP_BASE_URL` | base da API (opcional, default `https://api.zapcap.ai`) |
+
+> **Legendas (ZapCap):** requer também rodar a migração `0008_edit_requests.sql`
+> (cria a tabela `edit_requests` e o bucket de Storage `recordings`). Escolha um
+> template em `GET /templates` do ZapCap e coloque o id em `ZAPCAP_TEMPLATE_ID`.
+> Confirme os campos exatos da API no painel do ZapCap — o cliente do app já
+> tolera variações comuns de nomes de campo.
 
 5. **Deploy**. Anote a URL final.
 

@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getSessionUser } from "@/lib/auth/session";
 import { videoSchema } from "@/lib/ai/schemas";
+import { zapcapConfigured } from "@/lib/zapcap/client";
 import Teleprompter from "../Teleprompter";
 
 /** Normaliza para comparar trechos (caixa, acentos, espaços, pontuação). */
@@ -81,6 +82,7 @@ export default async function TeleprompterFromContentPage({
       backLabel="Conteúdo"
       contentItemId={item.id}
       caption={video?.caption ?? null}
+      captionsEnabled={zapcapConfigured()}
     />
   );
 }
