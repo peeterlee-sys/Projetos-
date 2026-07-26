@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { computeProgress } from "@/lib/progress/compute";
+import { getEditRequests, type EditRequestStatus } from "@/lib/admin/edits";
 
 const STATUS_LABEL: Record<string, string> = {
   suggested: "Sugerido",
@@ -33,6 +34,18 @@ const FORMAT_LABEL: Record<string, string> = {
 const PRIORITY_LABEL: Record<string, string> = { high: "Alta", medium: "Média", low: "Baixa" };
 const STATUS_BADGE: Record<string, string> = {
   published: "bg-success-100 text-brand-700",
+};
+const EDIT_STATUS_LABEL: Record<EditRequestStatus, string> = {
+  ready: "Pronto",
+  processing: "Processando",
+  pending: "Na fila",
+  failed: "Falhou",
+};
+const EDIT_STATUS_BADGE: Record<EditRequestStatus, string> = {
+  ready: "bg-success-100 text-brand-700",
+  processing: "bg-gold-300/40 text-gold-700",
+  pending: "bg-sand-200 text-ink-500",
+  failed: "bg-danger-600/10 text-danger-700",
 };
 
 function fmt(iso: string | null): string {
@@ -108,6 +121,7 @@ export default async function ClientDetail({ params }: { params: Promise<{ id: s
     { data: costs },
     { data: genLogs },
     { data: publications },
+    edits,
   ] = await Promise.all([
     supabase
       .from("client_profiles")
@@ -156,6 +170,7 @@ export default async function ClientDetail({ params }: { params: Promise<{ id: s
       .eq("status", "published")
       .order("published_at", { ascending: false })
       .limit(20),
+    getEditRequests(supabase, { userId: id, limit: 10 }),
   ]);
 
   const cost = (costs ?? []).reduce((s, r) => s + Number(r.cost_usd ?? 0), 0);
@@ -280,6 +295,47 @@ export default async function ClientDetail({ params }: { params: Promise<{ id: s
               </ul>
             ) : (
               <p className="text-sm text-ink-500">Nenhuma publicação registrada.</p>
+            )}
+          </Panel>
+
+          <Panel
+            title={`Vídeos com legenda (${edits.total})`}
+            right={
+              edits.total > 0 ? (
+                <Link href="/admin/legendas" className="text-[11px] text-ink-400 hover:text-brand-700">
+                  ver todos
+                </Link>
+              ) : null
+            }
+          >
+            {edits.requests.length > 0 ? (
+              <ul className="space-y-1.5">
+                {edits.requests.map((e) => (
+                  <li key={e.id} className="flex items-center justify-between gap-3 text-sm">
+                    <span className="min-w-0 truncate text-ink-900">
+                      {e.contentTitle ?? "avulso"}
+                    </span>
+                    <span className="flex shrink-0 items-center gap-2">
+                      <span className="text-xs text-ink-500 tabular-nums">{fmt(e.createdAt)}</span>
+                      <span className={`rounded-full px-2 py-0.5 text-xs ${EDIT_STATUS_BADGE[e.status]}`}>
+                        {EDIT_STATUS_LABEL[e.status]}
+                      </span>
+                      {e.outputUrl ? (
+                        <a
+                          href={e.outputUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-xs text-brand-700 underline underline-offset-2"
+                        >
+                          abrir
+                        </a>
+                      ) : null}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-ink-500">Nenhum pedido de legenda ainda.</p>
             )}
           </Panel>
 

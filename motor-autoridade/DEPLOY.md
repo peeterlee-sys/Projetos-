@@ -97,7 +97,9 @@ npx web-push generate-vapid-keys
 > (cria a tabela `edit_requests` e o bucket de Storage `recordings`). Escolha um
 > template em `GET /templates` do ZapCap e coloque o id em `ZAPCAP_TEMPLATE_ID`.
 > Confirme os campos exatos da API no painel do ZapCap — o cliente do app já
-> tolera variações comuns de nomes de campo.
+> tolera variações comuns de nomes de campo. O acompanhamento dos pedidos fica
+> em **Admin → Legendas** (`/admin/legendas`), com o botão *Atualizar status*
+> para fechar pedidos cujo cliente saiu da tela antes do render terminar.
 
 5. **Deploy**. Anote a URL final.
 

@@ -2,12 +2,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getSessionUser } from "@/lib/auth/session";
-import {
-  createTask,
-  getTaskStatus,
-  uploadByUrl,
-  zapcapConfigured,
-} from "@/lib/zapcap/client";
+import { createTask, uploadByUrl, zapcapConfigured } from "@/lib/zapcap/client";
+import { EDIT_REQUEST_SYNC_COLUMNS, syncEditRequest } from "@/lib/zapcap/sync";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -82,36 +78,16 @@ export async function GET(request: NextRequest) {
   const supabase = await createClient();
   const { data: row } = await supabase
     .from("edit_requests")
-    .select("id, status, output_url, external_video_id, external_task_id, error")
+    .select(EDIT_REQUEST_SYNC_COLUMNS)
     .eq("id", requestId)
     .maybeSingle();
   if (!row) return NextResponse.json({ error: "Pedido não encontrado." }, { status: 404 });
 
-  // Estados finais: devolve direto.
-  if (row.status === "ready" || row.status === "failed") {
-    return NextResponse.json({ status: row.status, output_url: row.output_url, error: row.error });
-  }
-
-  // Ainda processando: consulta o ZapCap e atualiza.
-  if (!row.external_video_id || !row.external_task_id) {
-    return NextResponse.json({ status: row.status, output_url: null });
-  }
-  try {
-    const s = await getTaskStatus(row.external_video_id, row.external_task_id);
-    if (s.status === "ready" && s.outputUrl) {
-      await supabase
-        .from("edit_requests")
-        .update({ status: "ready", output_url: s.outputUrl })
-        .eq("id", row.id);
-      return NextResponse.json({ status: "ready", output_url: s.outputUrl });
-    }
-    if (s.status === "failed") {
-      await supabase.from("edit_requests").update({ status: "failed", error: s.raw || "render falhou" }).eq("id", row.id);
-      return NextResponse.json({ status: "failed", error: s.raw || "render falhou" });
-    }
-    return NextResponse.json({ status: "processing", output_url: null });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Falha ao consultar o ZapCap.";
-    return NextResponse.json({ status: "processing", output_url: null, note: message });
-  }
+  const s = await syncEditRequest(supabase, row);
+  return NextResponse.json({
+    status: s.status,
+    output_url: s.outputUrl,
+    ...(s.error ? { error: s.error } : {}),
+    ...(s.note ? { note: s.note } : {}),
+  });
 }

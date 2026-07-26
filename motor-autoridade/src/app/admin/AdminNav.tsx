@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 const items = [
   { href: "/admin", label: "Visão geral", exact: true },
   { href: "/admin/fontes", label: "Fontes", exact: false },
+  { href: "/admin/legendas", label: "Legendas", exact: false },
 ];
 
 /** Abas de navegação do painel administrativo. */
