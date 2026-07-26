@@ -10,6 +10,9 @@ type CookieToSet = { name: string; value: string; options: CookieOptions };
  */
 const PUBLIC_PATHS = ["/", "/login", "/signup", "/auth", "/offline"];
 
+/** Telas de anamnese: exigem sessão, mas não passam pelo gate de onboarding. */
+const ONBOARDING_PATHS = ["/onboarding", "/anamnese"];
+
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
 
@@ -52,9 +55,10 @@ export async function updateSession(request: NextRequest) {
   // banco nas próximas navegações (o gate só precisa rodar uma vez por sessão).
   const onboardingCleared = request.cookies.get("mo_onb")?.value === "1";
   const isWaiting = pathname === "/aguardando" || pathname.startsWith("/aguardando/");
-  // /onboarding e suas trilhas (ex.: /onboarding/politico) ficam fora do gate:
-  // são justamente a tela que o gate exige que o usuário conclua.
-  const isOnboarding = pathname === "/onboarding" || pathname.startsWith("/onboarding/");
+  // /onboarding, suas trilhas (ex.: /onboarding/politico) e o link curto
+  // /anamnese ficam fora do gate: são justamente a tela que o gate exige que o
+  // usuário conclua — mandá-lo de volta para /onboarding perderia a trilha.
+  const isOnboarding = ONBOARDING_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));
   if (user && !isPublic && !isOnboarding && !onboardingCleared) {
     const { data: profile } = await supabase
       .from("users")

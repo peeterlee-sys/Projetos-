@@ -82,7 +82,7 @@ guarde os CSVs das planilhas — backup barato, arrependimento caro.
 
 Troque o módulo **Google Sheets → Search Rows** por **HTTP → Make a request**:
 
-- **URL**: `https://SEU-DOMINIO/api/make`
+- **URL**: `https://assessor24h.ia.br/api/make`
 - **Method**: `POST`
 - **Headers**: `x-motor-secret: $MAKE_WEBHOOK_SECRET`
   (ou assine o corpo com HMAC e mande em `x-motor-signature` — a rota aceita os dois)
@@ -157,7 +157,62 @@ absolutas: repita-as explicitamente como proibições.
 | `deliver_opportunity` | pauta | entrega a pauta no app (recusa título duplicado em 14 dias) |
 | `register_error` | `{scope, message, context?}` | registra falha do cenário para o admin |
 
-## 4. Wizard da anamnese
+## 4. Domínio e link do vereador
+
+O link que vai para o vereador é o **curto**:
+
+```
+https://assessor24h.ia.br/anamnese
+```
+
+Ele encaminha para `/onboarding/politico` e sobrevive ao login: quem não tem
+sessão passa por `/login?next=/anamnese` (com "Criar conta" preservando o
+destino) e volta para a anamnese política — nunca para a genérica.
+
+Variantes úteis:
+
+| Link | Para quem |
+| --- | --- |
+| `https://assessor24h.ia.br/anamnese` | link padrão, serve para todos |
+| `https://assessor24h.ia.br/signup?next=/anamnese` | vereador novo, vai direto ao cadastro |
+| `https://assessor24h.ia.br/anamnese?refazer=1` | quem já respondeu e vai atualizar |
+
+### Configurar o domínio (uma vez)
+
+1. **Vercel** → projeto → Settings → Domains → adicionar `assessor24h.ia.br`
+   (e `www.assessor24h.ia.br` redirecionando para o apex).
+2. **DNS do registro.br** → apontar conforme a Vercel indicar: `A` do apex para
+   `76.76.21.21` e `CNAME` do `www` para `cname.vercel-dns.com`. A Vercel emite
+   o certificado TLS sozinha depois da propagação.
+3. **Supabase** → Authentication → URL Configuration:
+   - *Site URL*: `https://assessor24h.ia.br`
+   - *Redirect URLs*: `https://assessor24h.ia.br/auth/callback`
+   Sem isso o e-mail de confirmação volta para o domínio antigo.
+4. **Make** → trocar a URL do módulo HTTP para
+   `https://assessor24h.ia.br/api/make`.
+
+Nada disso está no código: o app não tem URL fixa em lugar nenhum, monta os
+links a partir do domínio em que está rodando. Trocar de domínio não exige
+deploy.
+
+### Aprovação de cadastro
+
+Conta nova de cliente nasce **pendente** (`is_active = false`): o vereador cria
+a conta pelo link, cai na tela "Cadastro em análise" e só chega à anamnese
+depois que você aprova em **/admin** (bloco "Cadastros pendentes"). É o que
+impede qualquer pessoa com o link de entrar no sistema. Se preferir que o link
+libere direto, é uma linha em `handle_new_auth_user` (0007) — mas aí o link
+vira porta aberta.
+
+### Mensagem pronta para o WhatsApp
+
+> Vereador, agora a anamnese do Assessor 24h é por aqui:
+> https://assessor24h.ia.br/anamnese
+> São 8 etapas rápidas (uns 10 minutos). Ao terminar, a IA monta o DNA do seu
+> mandato — é o que faz o assistente responder com a sua voz, suas bandeiras e
+> seus limites. O formulário antigo do Google sai do ar.
+
+## 5. Wizard da anamnese
 
 `/onboarding/politico` — 8 etapas: Identificação, Posicionamento, Tom e estilo,
 Limites, Referências, Influências, Preferências e Revisão. Ao enviar, o app:
@@ -175,7 +230,7 @@ Falha de IA na etapa 5 não trava a anamnese: fica registrada em `system_errors`
 (escopo `ai`, visível no painel) e o DNA pode ser regerado refazendo a anamnese
 em `/onboarding/politico?refazer=1`.
 
-## 5. Painel administrativo
+## 6. Painel administrativo
 
 - **/admin** — cards (total, vereadores, com DNA, inativos, teste, cancelados),
   produção, alertas e a lista de clientes com mandato, meta semanal e
@@ -187,16 +242,19 @@ em `/onboarding/politico?refazer=1`.
   referências, histórico de pautas, publicações e logs de IA;
 - **/admin/fontes** — matriz de fontes por segmento (inclui `vereadores`).
 
-## 6. Checklist da virada
+## 7. Checklist da virada
 
 1. [ ] Aplicar `0009_anamnese_politica.sql`.
-2. [ ] Exportar as duas planilhas em CSV (backup) e rodar o importador.
-3. [ ] Conferir `/admin/vereadores`.
-4. [ ] Adaptar o cenário "MEU ASSESSOR - IA" para o `get_vereador`.
-5. [ ] Testar o assistente com um número real (perfil no app e perfil importado).
-6. [ ] Exportar o blueprint e **deletar** o cenário "Anamnese → Planilha de Nomes".
-7. [ ] Desativar o Google Form e avisar os vereadores do novo link.
-8. [ ] Parar de editar as planilhas — a partir daqui a fonte de verdade é o banco.
+2. [ ] Apontar `assessor24h.ia.br` na Vercel + DNS e ajustar as URLs no Supabase.
+3. [ ] Exportar as duas planilhas em CSV (backup) e rodar o importador.
+4. [ ] Conferir `/admin/vereadores`.
+5. [ ] Adaptar o cenário "MEU ASSESSOR - IA" para o `get_vereador`.
+6. [ ] Testar ponta a ponta: um vereador preenche `/anamnese`, você aprova em
+   `/admin`, e o assistente responde por WhatsApp com o DNA novo.
+7. [ ] Mandar o link para os vereadores e desativar o Google Form.
+8. [ ] Rodar em paralelo alguns dias com as planilhas ainda de pé (backup vivo).
+9. [ ] Funcionando: exportar o blueprint e deletar o cenário "Anamnese →
+   Planilha de Nomes". A partir daqui a fonte de verdade é o banco.
 
 ## Variáveis de ambiente
 

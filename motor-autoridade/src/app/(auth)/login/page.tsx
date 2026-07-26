@@ -3,7 +3,15 @@ import Link from "next/link";
 import { LoginForm } from "./LoginForm";
 import { TakeLogo } from "@/components/brand/TakeLogo";
 
-export default function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string }>;
+}) {
+  const { next } = await searchParams;
+  // Mantém o destino ao alternar entre login e cadastro (link do Assessor 24h).
+  const signupHref = next ? `/signup?next=${encodeURIComponent(next)}` : "/signup";
+
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-6 py-12">
       <header className="mb-8 flex flex-col items-center text-center">
@@ -17,7 +25,7 @@ export default function LoginPage() {
       </Suspense>
       <p className="mt-6 text-center text-sm text-ink-500">
         Ainda não tem conta?{" "}
-        <Link href="/signup" className="font-medium text-brand-700 underline">
+        <Link href={signupHref} className="font-medium text-brand-700 underline">
           Criar conta
         </Link>
       </p>

@@ -1,12 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
 import { Button, Field, Input } from "@/components/ui";
 
 export function SignupForm() {
   const router = useRouter();
+  const params = useSearchParams();
+  // Destino após o cadastro. Vindo do link do Assessor 24h, é /anamnese —
+  // sem isso o vereador cairia na anamnese genérica.
+  const next = params.get("next") || "/onboarding";
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -29,7 +33,7 @@ export function SignupForm() {
       password,
       options: {
         data: { full_name: name },
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
       },
     });
     setLoading(false);
@@ -39,7 +43,7 @@ export function SignupForm() {
     }
     // Se a confirmação por e-mail estiver desativada, já há sessão.
     if (data.session) {
-      router.replace("/onboarding");
+      router.replace(next);
       router.refresh();
     } else {
       setInfo("Confirme seu e-mail para ativar a conta.");
