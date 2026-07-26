@@ -96,7 +96,20 @@ function ClientTableRow({ c }: { c: ClientRow }) {
           <span className="block text-xs text-ink-400">{c.email}</span>
         </Link>
       </td>
-      <td className="whitespace-nowrap px-3 py-3 text-sm text-ink-700">{c.profession ?? "—"}</td>
+      <td className="whitespace-nowrap px-3 py-3 text-sm text-ink-700">
+        {c.track === "political" ? (
+          <>
+            <span className="block">{c.politicalName ?? c.name ?? "—"}</span>
+            <span className="block text-xs text-ink-400">
+              {[c.city && `${c.city}${c.state ? `/${c.state}` : ""}`, c.party]
+                .filter(Boolean)
+                .join(" · ") || "mandato"}
+            </span>
+          </>
+        ) : (
+          (c.profession ?? "—")
+        )}
+      </td>
       <td className="px-3 py-3">
         <span className={`rounded-full px-2.5 py-0.5 text-xs ${PLAN_STYLE[c.plan] ?? "bg-sand-200 text-ink-500"}`}>
           {PLAN_LABEL[c.plan] ?? c.plan}
@@ -116,6 +129,9 @@ function ClientTableRow({ c }: { c: ClientRow }) {
       <td className="px-3 py-3">
         <Bar pct={c.weeklyPct} />
       </td>
+      <td className="px-3 py-3">
+        <Bar pct={c.dnaPct} />
+      </td>
       <td className="max-w-[16rem] px-3 py-3">
         <span className="block truncate text-sm text-ink-500" title={c.lastOpportunity ?? ""}>
           {c.lastOpportunity ?? "—"}
@@ -128,6 +144,8 @@ function ClientTableRow({ c }: { c: ClientRow }) {
 export default async function AdminDashboard() {
   const supabase = await createClient();
   const o = await getAdminOverview(supabase);
+  const mandates = o.clients.filter((c) => c.track === "political").length;
+  const withDna = o.clients.filter((c) => c.hasDna).length;
 
   return (
     <div className="space-y-8">
@@ -152,9 +170,10 @@ export default async function AdminDashboard() {
       {/* Clientes */}
       <section>
         <SectionTitle>Clientes</SectionTitle>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           <Stat label="Total" value={String(o.totalClients)} />
-          <Stat label="Ativos" value={String(o.activeClients)} tone="good" />
+          <Stat label="Vereadores" value={String(mandates)} hint="anamnese de mandato" />
+          <Stat label="Com DNA" value={String(withDna)} tone={withDna === o.totalClients ? "good" : "neutral"} />
           <Stat label="Inativos" value={String(o.inactiveClients)} />
           <Stat label="Em teste" value={String(o.trialClients)} />
           <Stat label="Cancelados" value={String(o.canceledClients)} tone={o.canceledClients > 0 ? "alert" : "neutral"} />
@@ -205,7 +224,7 @@ export default async function AdminDashboard() {
               <thead>
                 <tr className="text-[11px] uppercase tracking-wide text-ink-400">
                   <th className="px-3 py-3 font-medium">Nome</th>
-                  <th className="px-3 py-3 font-medium">Profissão</th>
+                  <th className="px-3 py-3 font-medium">Mandato / profissão</th>
                   <th className="px-3 py-3 font-medium">Plano</th>
                   <th className="px-3 py-3 font-medium">Últ. acesso</th>
                   <th className="px-3 py-3 font-medium">Últ. geração</th>
@@ -213,6 +232,7 @@ export default async function AdminDashboard() {
                   <th className="px-3 py-3 font-medium">Status</th>
                   <th className="px-3 py-3 font-medium">Meta</th>
                   <th className="px-3 py-3 font-medium">Concluído</th>
+                  <th className="px-3 py-3 font-medium">DNA</th>
                   <th className="px-3 py-3 font-medium">Última pauta</th>
                 </tr>
               </thead>

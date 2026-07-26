@@ -4,6 +4,7 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { claimIdempotency, finishExecution, verifyMakeSignature, verifyMakeSecret } from "@/lib/make/security";
 import { rateLimit } from "@/lib/rate-limit";
 import { fetchRadar } from "@/lib/radar/fetch";
+import { phoneVariants } from "@/lib/phone";
 
 export const runtime = "nodejs";
 // O get_radar faz buscas externas (Google News) — dá folga além do timeout padrão.
@@ -76,6 +77,8 @@ async function dispatch(supabase: Supabase, action: string, payload: Record<stri
       return deliverOpportunity(supabase, payload);
     case "get_profile":
       return getProfile(supabase, payload);
+    case "get_vereador":
+      return getVereador(supabase, payload);
     case "get_briefing":
       return getBriefing(supabase, payload);
     case "get_sources":
@@ -109,7 +112,7 @@ async function listClients(supabase: Supabase, payload: Record<string, unknown>)
   let query = supabase
     .from("users")
     .select(
-      "id, full_name, tenant_id, client_profiles(main_themes, tone_of_voice, target_audience, segment, positioning_recognition, editorial_dna)"
+      "id, full_name, tenant_id, client_profiles(main_themes, tone_of_voice, target_audience, segment, positioning_recognition, editorial_dna, political_name, party, city, state, phone, profile_track)"
     )
     .in("role", ["client", "admin", "super_admin"])
     .eq("is_active", true)
@@ -153,6 +156,14 @@ async function listClients(supabase: Supabase, payload: Record<string, unknown>)
     return {
       user_id: u.id,
       name: u.full_name,
+      // Identificação do mandato (trilha política): o Make usa o telefone como
+      // chave do WhatsApp e cidade/partido para contextualizar a pauta.
+      political_name: p?.political_name ?? null,
+      phone: p?.phone ?? null,
+      party: p?.party ?? null,
+      city: p?.city ?? null,
+      state: p?.state ?? null,
+      track: p?.profile_track ?? "generic",
       segment: p?.segment ?? null,
       context,
       recent_titles: recentByUser.get(u.id) ?? [],
@@ -345,6 +356,11 @@ async function deliverOpportunity(supabase: Supabase, payload: Record<string, un
     event_type: "conteudo_entregue",
     metadata: { opportunity_id: opp.id },
   });
+  // Marca a última geração no perfil (coluna lida pelo dashboard admin).
+  await supabase
+    .from("client_profiles")
+    .update({ last_generation_at: new Date().toISOString() })
+    .eq("user_id", p.user_id);
 
   return { opportunity_id: opp.id };
 }
@@ -357,6 +373,107 @@ async function getProfile(supabase: Supabase, payload: Record<string, unknown>) 
     .eq("user_id", user_id)
     .maybeSingle();
   return { profile: data ?? null };
+}
+
+/** Campos do mandato que o Assessor 24h carrega a cada resposta de WhatsApp. */
+const VEREADOR_FIELDS =
+  "user_id, display_name, political_name, phone, city, state, party, mandate, positions, " +
+  "political_spectrum, flags, electoral_base, voter_profile, audience_pains, local_context, " +
+  "main_themes, forbidden_themes, adversaries, mayor_relation, history_to_avoid, core_values, " +
+  "tone_profile, tone_of_voice, slang_expressions, emojis, how_to_refer, catchphrase, " +
+  "instagram_url, website_url, reference_publications, local_press, audience_segments, " +
+  "positioning_recognition, editorial_dna, contexto_mestre, dna_generated_at, profile_track";
+
+/**
+ * ASSESSOR 24H — substitui a busca na "Planilha de Nomes".
+ * Dado o telefone do WhatsApp (ou o user_id), devolve o mandato completo com o
+ * DNA Editorial. Se o vereador ainda não fez a anamnese no app, cai no registro
+ * importado da planilha (legacy_vereadores) para o assistente não ficar mudo.
+ */
+async function getVereador(supabase: Supabase, payload: Record<string, unknown>) {
+  const p = z
+    .object({ phone: z.string().optional(), user_id: z.string().uuid().optional() })
+    .refine((v) => v.phone || v.user_id, { message: "informe phone ou user_id" })
+    .parse(payload);
+
+  const variants = p.phone ? phoneVariants(p.phone) : [];
+  if (p.phone && variants.length === 0) {
+    return { found: false, reason: "telefone_invalido", phone: p.phone };
+  }
+
+  let query = supabase.from("client_profiles").select(VEREADOR_FIELDS).limit(1);
+  query = p.user_id ? query.eq("user_id", p.user_id) : query.in("phone", variants);
+  const { data: rows, error } = await query;
+  if (error) throw new Error(error.message);
+
+  // O select é montado a partir de uma constante, então o supabase-js não infere
+  // o formato da linha — tratamos como registro solto e devolvemos como veio.
+  const profile = (rows ?? [])[0] as unknown as Record<string, unknown> | undefined;
+
+  if (!profile) {
+    // Fallback: vereador ainda sem conta no app — usa o que veio das planilhas.
+    const { data: legacy } = await supabase
+      .from("legacy_vereadores")
+      .select("phone, name, political_name, party, city, state, local_context, profile_text, form_answers, editorial_dna")
+      .in("phone", variants)
+      .maybeSingle();
+
+    if (!legacy) return { found: false, reason: "nao_cadastrado", phone: p.phone ?? null };
+
+    return {
+      found: true,
+      source: "legacy",
+      vereador: {
+        user_id: null,
+        name: legacy.name,
+        political_name: legacy.political_name ?? legacy.name,
+        phone: legacy.phone,
+        party: legacy.party,
+        city: legacy.city,
+        state: legacy.state,
+        local_context: legacy.local_context,
+        perfil_texto: legacy.profile_text,
+        respostas_formulario: legacy.form_answers ?? {},
+        editorial_dna: legacy.editorial_dna ?? {},
+        anamnese_pendente: true,
+      },
+    };
+  }
+
+  const userId = profile.user_id as string;
+  const [{ data: user }, { data: sources }, { data: recent }] = await Promise.all([
+    supabase.from("users").select("full_name, email").eq("id", userId).maybeSingle(),
+    supabase
+      .from("influence_sources")
+      .select("kind, label, url, priority, is_blocked")
+      .eq("user_id", userId)
+      .limit(100),
+    supabase
+      .from("daily_opportunities")
+      .select("title, theme, opportunity_date")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(5),
+  ]);
+
+  const allSources = sources ?? [];
+
+  return {
+    found: true,
+    source: "app",
+    vereador: {
+      ...profile,
+      name: user?.full_name ?? profile.political_name ?? null,
+      email: user?.email ?? null,
+      fontes: allSources
+        .filter((s) => !s.is_blocked)
+        .sort((a, b) => (PRIORITY_ORDER[a.priority] ?? 1) - (PRIORITY_ORDER[b.priority] ?? 1))
+        .map((s) => ({ kind: s.kind, name: s.label, url: s.url, priority: s.priority })),
+      fontes_bloqueadas: allSources.filter((s) => s.is_blocked).map((s) => s.label ?? s.url ?? ""),
+      pautas_recentes: recent ?? [],
+      anamnese_pendente: false,
+    },
+  };
 }
 
 async function getHistory(supabase: Supabase, payload: Record<string, unknown>) {

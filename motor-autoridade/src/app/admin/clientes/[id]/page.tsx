@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { computeProgress } from "@/lib/progress/compute";
+import { formatPhoneBR } from "@/lib/phone";
+import { SPECTRUM_LABEL, type PoliticalSpectrum } from "@/lib/validation/anamnese-politica";
 
 const STATUS_LABEL: Record<string, string> = {
   suggested: "Sugerido",
@@ -67,6 +69,17 @@ function Panel({
   );
 }
 
+/** Linha rótulo→valor do painel de mandato. Some quando não há resposta. */
+function Row({ label, value }: { label: string; value: unknown }) {
+  const text = Array.isArray(value) ? value.filter(Boolean).join(", ") : (value ?? "");
+  if (!String(text).trim()) return null;
+  return (
+    <p className="text-ink-700">
+      <span className="text-ink-400">{label}:</span> {String(text)}
+    </p>
+  );
+}
+
 function DnaBlock({ label, value }: { label: string; value: unknown }) {
   if (value == null || value === "" || (Array.isArray(value) && value.length === 0)) return null;
   return (
@@ -112,7 +125,7 @@ export default async function ClientDetail({ params }: { params: Promise<{ id: s
     supabase
       .from("client_profiles")
       .select(
-        "display_name, profession, segment, tone_of_voice, tone_profile, main_themes, forbidden_themes, main_block, editorial_dna, dna_generated_at, positioning_recognition, core_values"
+        "display_name, profession, segment, tone_of_voice, tone_profile, main_themes, forbidden_themes, main_block, editorial_dna, dna_generated_at, positioning_recognition, core_values, profile_track, political_name, phone, party, mandate, positions, city, state, political_spectrum, flags, electoral_base, voter_profile, adversaries, mayor_relation, history_to_avoid, local_context, local_press, reference_publications, instagram_url, website_url, slang_expressions, emojis, how_to_refer, catchphrase, audience_segments"
       )
       .eq("user_id", id)
       .maybeSingle(),
@@ -159,6 +172,7 @@ export default async function ClientDetail({ params }: { params: Promise<{ id: s
   ]);
 
   const cost = (costs ?? []).reduce((s, r) => s + Number(r.cost_usd ?? 0), 0);
+  const isPolitical = profile?.profile_track === "political";
   const dna = (profile?.editorial_dna ?? {}) as Record<string, unknown>;
   const hasDna = Object.keys(dna).length > 0;
   const formatsByItem = new Map<string, string[]>();
@@ -178,11 +192,21 @@ export default async function ClientDetail({ params }: { params: Promise<{ id: s
 
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-serif text-3xl text-ink-900">{client.full_name ?? client.email}</h1>
+          <h1 className="font-serif text-3xl text-ink-900">
+            {isPolitical ? (profile?.political_name ?? client.full_name) : (client.full_name ?? client.email)}
+          </h1>
           <p className="text-sm text-ink-500">
-            {client.email} · {profile?.profession ?? "sem profissão"}
-            {profile?.segment ? ` · ${profile.segment}` : ""} ·{" "}
-            {client.is_active ? "ativo" : "inativo"}
+            {isPolitical
+              ? [
+                  client.full_name,
+                  profile?.city ? `${profile.city}${profile?.state ? `/${profile.state}` : ""}` : null,
+                  profile?.party,
+                  profile?.phone ? formatPhoneBR(profile.phone) : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")
+              : `${client.email} · ${profile?.profession ?? "sem profissão"}${profile?.segment ? ` · ${profile.segment}` : ""}`}{" "}
+            · {client.is_active ? "ativo" : "inativo"}
           </p>
         </div>
       </div>
@@ -301,6 +325,55 @@ export default async function ClientDetail({ params }: { params: Promise<{ id: s
 
         {/* Coluna lateral */}
         <div className="space-y-6">
+          {isPolitical ? (
+            <Panel title="Mandato">
+              <div className="space-y-2 text-sm">
+                <Row label="WhatsApp" value={profile?.phone ? formatPhoneBR(profile.phone) : ""} />
+                <Row
+                  label="Cidade"
+                  value={profile?.city ? `${profile.city}${profile?.state ? `/${profile.state}` : ""}` : ""}
+                />
+                <Row label="Partido" value={profile?.party} />
+                <Row label="Mandato" value={profile?.mandate} />
+                <Row label="Cargos" value={profile?.positions} />
+                <Row
+                  label="Espectro"
+                  value={
+                    profile?.political_spectrum
+                      ? SPECTRUM_LABEL[profile.political_spectrum as PoliticalSpectrum]
+                      : ""
+                  }
+                />
+                <Row label="Bandeiras" value={profile?.flags} />
+                <Row label="Base eleitoral" value={profile?.electoral_base} />
+                <Row label="Eleitorado" value={profile?.voter_profile} />
+                <Row label="Segmentação" value={profile?.audience_segments} />
+                <Row label="Contexto da cidade" value={profile?.local_context} />
+                <Row label="Imprensa local" value={profile?.local_press} />
+                <Row label="Instagram" value={profile?.instagram_url} />
+                <Row label="Site" value={profile?.website_url} />
+              </div>
+              <div className="mt-3 space-y-2 rounded-xl bg-sand-100 p-3 text-sm">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-ink-400">
+                  Estilo verbal
+                </p>
+                <Row label="Como referir" value={profile?.how_to_refer} />
+                <Row label="Expressões" value={profile?.slang_expressions} />
+                <Row label="Emojis" value={profile?.emojis} />
+                <Row label="Bordão" value={profile?.catchphrase} />
+              </div>
+              <div className="mt-3 space-y-2 rounded-xl bg-danger-600/5 p-3 text-sm">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-danger-700">
+                  Limites absolutos
+                </p>
+                <Row label="Adversários (não citar)" value={profile?.adversaries} />
+                <Row label="Relação com o prefeito" value={profile?.mayor_relation} />
+                <Row label="Histórico a evitar" value={profile?.history_to_avoid} />
+                <Row label="Temas proibidos" value={profile?.forbidden_themes} />
+              </div>
+            </Panel>
+          ) : null}
+
           <Panel
             title="DNA Editorial"
             right={
@@ -312,16 +385,22 @@ export default async function ClientDetail({ params }: { params: Promise<{ id: s
             {hasDna ? (
               <div className="space-y-3">
                 <DnaBlock label="Identidade" value={dna.identidade} />
+                <DnaBlock label="Mandato" value={dna.mandato} />
                 <DnaBlock label="Objetivos" value={dna.objetivos} />
                 <DnaBlock label="Público" value={dna.publico} />
                 <DnaBlock label="Pilares" value={dna.pilares} />
                 <DnaBlock label="Tom" value={dna.tom} />
+                <DnaBlock label="Estilo verbal" value={dna.estilo_verbal} />
                 <DnaBlock label="Valores" value={dna.valores} />
                 <DnaBlock label="Assuntos proibidos" value={dna.assuntos_proibidos} />
+                <DnaBlock label="Adversários (não citar)" value={dna.adversarios_nao_citar} />
+                <DnaBlock label="Relação com o prefeito" value={dna.relacao_com_prefeito} />
+                <DnaBlock label="Temas locais" value={dna.temas_locais} />
                 <DnaBlock label="Fontes prioritárias" value={dna.fontes_prioritarias} />
                 <DnaBlock label="Referências" value={dna.referencias} />
                 <DnaBlock label="Estilo editorial" value={dna.estilo_editorial} />
                 <DnaBlock label="Formatos preferidos" value={dna.formatos_preferidos} />
+                <DnaBlock label="Frases-modelo" value={dna.frases_modelo} />
                 <div className="rounded-xl bg-gold-300/20 p-3">
                   <DnaBlock label="Ângulo único" value={dna.angulo_unico} />
                 </div>

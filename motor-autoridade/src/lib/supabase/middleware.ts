@@ -52,7 +52,10 @@ export async function updateSession(request: NextRequest) {
   // banco nas próximas navegações (o gate só precisa rodar uma vez por sessão).
   const onboardingCleared = request.cookies.get("mo_onb")?.value === "1";
   const isWaiting = pathname === "/aguardando" || pathname.startsWith("/aguardando/");
-  if (user && !isPublic && pathname !== "/onboarding" && !onboardingCleared) {
+  // /onboarding e suas trilhas (ex.: /onboarding/politico) ficam fora do gate:
+  // são justamente a tela que o gate exige que o usuário conclua.
+  const isOnboarding = pathname === "/onboarding" || pathname.startsWith("/onboarding/");
+  if (user && !isPublic && !isOnboarding && !onboardingCleared) {
     const { data: profile } = await supabase
       .from("users")
       .select("onboarded_at, role, is_active")

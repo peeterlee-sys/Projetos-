@@ -9,10 +9,18 @@ export type ClientRow = {
   email: string;
   profession: string | null;
   segment: string | null;
+  // Mandato (trilha política): usados na lista de vereadores.
+  track: "generic" | "political";
+  politicalName: string | null;
+  party: string | null;
+  city: string | null;
+  state: string | null;
+  phone: string | null;
   plan: string;                     // status do tenant: trial | active | suspended | canceled
   isActive: boolean;
   onboarded: boolean;
   hasDna: boolean;
+  dnaPct: number;                   // 0..1 — quanto do DNA Editorial está preenchido
   weeklyGoal: number;
   publishedThisWeek: number;
   weeklyPct: number;                // 0..1
@@ -53,6 +61,37 @@ export type AdminOverview = {
   totalCostUsd: number;
   clients: ClientRow[];
 };
+
+/**
+ * Chaves esperadas no DNA Editorial. O percentual de preenchimento é o que o
+ * painel mostra como "DNA completo" — DNA gerado com campos vazios é sinal de
+ * anamnese rasa ou de geração que degradou.
+ */
+const DNA_KEYS = [
+  "identidade",
+  "publico",
+  "pilares",
+  "tom",
+  "valores",
+  "assuntos_proibidos",
+  "fontes_prioritarias",
+  "referencias",
+  "estilo_editorial",
+  "formatos_preferidos",
+  "angulo_unico",
+] as const;
+
+function dnaCompleteness(dna: unknown): number {
+  if (!dna || typeof dna !== "object") return 0;
+  const obj = dna as Record<string, unknown>;
+  if (Object.keys(obj).length === 0) return 0;
+  const filled = DNA_KEYS.filter((k) => {
+    const v = obj[k];
+    if (Array.isArray(v)) return v.length > 0;
+    return typeof v === "string" ? v.trim().length > 0 : v != null;
+  }).length;
+  return filled / DNA_KEYS.length;
+}
 
 function daysSince(iso: string | null): number | null {
   if (!iso) return null;
@@ -107,7 +146,7 @@ export async function getAdminOverview(supabase: SupabaseClient): Promise<AdminO
     supabase
       .from("users")
       .select(
-        "id, full_name, email, is_active, onboarded_at, created_at, tenants(status), client_profiles(profession, segment, dna_generated_at), client_preferences(weekly_goal)"
+        "id, full_name, email, is_active, onboarded_at, created_at, tenants(status), client_profiles(profession, segment, dna_generated_at, editorial_dna, profile_track, political_name, party, city, state, phone), client_preferences(weekly_goal)"
       )
       // Inclui admins/super_admins que também consomem conteúdo (dogfooding).
       .in("role", ["client", "admin", "super_admin"])
@@ -197,7 +236,18 @@ export async function getAdminOverview(supabase: SupabaseClient): Promise<AdminO
     const j = c as JoinedRow;
     const tenant = one(j.tenants) as { status?: string } | null;
     const profile = one(j.client_profiles) as
-      | { profession?: string | null; segment?: string | null; dna_generated_at?: string | null }
+      | {
+          profession?: string | null;
+          segment?: string | null;
+          dna_generated_at?: string | null;
+          editorial_dna?: unknown;
+          profile_track?: string | null;
+          political_name?: string | null;
+          party?: string | null;
+          city?: string | null;
+          state?: string | null;
+          phone?: string | null;
+        }
       | null;
     const prefs = one(j.client_preferences) as { weekly_goal?: number } | null;
 
@@ -212,10 +262,17 @@ export async function getAdminOverview(supabase: SupabaseClient): Promise<AdminO
       email: c.email,
       profession: profile?.profession ?? null,
       segment: profile?.segment ?? null,
+      track: profile?.profile_track === "political" ? "political" : "generic",
+      politicalName: profile?.political_name ?? null,
+      party: profile?.party ?? null,
+      city: profile?.city ?? null,
+      state: profile?.state ?? null,
+      phone: profile?.phone ?? null,
       plan: tenant?.status ?? "trial",
       isActive: c.is_active,
       onboarded: Boolean(c.onboarded_at),
       hasDna: Boolean(profile?.dna_generated_at),
+      dnaPct: dnaCompleteness(profile?.editorial_dna),
       weeklyGoal: goal,
       publishedThisWeek: pubWeek,
       weeklyPct: goal > 0 ? Math.min(1, pubWeek / goal) : 0,
