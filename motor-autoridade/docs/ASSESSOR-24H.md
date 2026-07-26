@@ -157,19 +157,26 @@ absolutas: repita-as explicitamente como proibições.
 | `deliver_opportunity` | pauta | entrega a pauta no app (recusa título duplicado em 14 dias) |
 | `register_error` | `{scope, message, context?}` | registra falha do cenário para o admin |
 
-## 4. Domínio e link do vereador
+## 4. Domínio e links do produto
 
-O link que vai para o vereador é o **curto**:
+Tudo sob `assessor24h.ia.br`. Os dois links do dia a dia são curtos de propósito
+— um para o vereador, um para você:
 
-```
-https://assessor24h.ia.br/anamnese
-```
+| Link | Quem usa | O que é |
+| --- | --- | --- |
+| **`assessor24h.ia.br/anamnese`** | vereador | anamnese em 8 etapas (→ `/onboarding/politico`) |
+| **`assessor24h.ia.br/painel`** | você / equipe | dashboard administrativo (→ `/admin`) |
+| `assessor24h.ia.br/painel` → aba *Vereadores* | você / equipe | mandatos + importados das planilhas |
+| `assessor24h.ia.br/hoje` | vereador | app do dia a dia (pauta, roteiro, teleprompter) |
+| `assessor24h.ia.br/api/make` | Make | endpoint autenticado do assistente |
 
-Ele encaminha para `/onboarding/politico` e sobrevive ao login: quem não tem
-sessão passa por `/login?next=/anamnese` (com "Criar conta" preservando o
-destino) e volta para a anamnese política — nunca para a genérica.
+Os dois links curtos sobrevivem ao login: sem sessão, o visitante passa por
+`/login?next=…` (com "Criar conta" preservando o destino) e volta exatamente
+para onde clicou — o vereador nunca cai na anamnese genérica, e você nunca cai
+no app de cliente ao abrir o painel. O `/painel` só abre para `admin` e
+`super_admin`; qualquer outro papel é mandado para `/hoje`.
 
-Variantes úteis:
+Variantes úteis do link do vereador:
 
 | Link | Para quem |
 | --- | --- |
@@ -231,6 +238,8 @@ Falha de IA na etapa 5 não trava a anamnese: fica registrada em `system_errors`
 em `/onboarding/politico?refazer=1`.
 
 ## 6. Painel administrativo
+
+Acesso: **`assessor24h.ia.br/painel`** (atalho para `/admin`).
 
 - **/admin** — cards (total, vereadores, com DNA, inativos, teste, cancelados),
   produção, alertas e a lista de clientes com mandato, meta semanal e
