@@ -1,8 +1,43 @@
-# Assessor 24h — migração das planilhas para o app
+# Assessor 24h — operação própria, mesma engenharia
 
-Este documento é o passo a passo da virada: sai o Google Form + duas planilhas,
-entra a anamnese web + Postgres. Ele cobre o que rodar, o que apagar no Make e
-como adaptar o cenário do assistente de WhatsApp.
+O **Assessor 24h** (mandatos) e o **Take** (profissionais) são produtos
+distintos rodando a mesma base de código, cada um no seu deploy: domínio
+próprio, banco próprio, clientes próprios, marca própria. Nada que se faça em
+um alcança o outro — o Take segue operando como está.
+
+Este documento cobre (1) como subir a operação do Assessor 24h e (2) a virada
+do fluxo antigo: sai o Google Form + duas planilhas, entra a anamnese web +
+Postgres, com o cenário do WhatsApp buscando no banco.
+
+## 0. Subir a operação do Assessor 24h
+
+Um deploy novo, do mesmo repositório:
+
+1. **Banco** — crie um projeto Supabase separado (ex.: `assessor24h`) e rode
+   `supabase/setup.sql` nele. Banco próprio significa que nenhum cliente do
+   Take aparece no painel do Assessor 24h, e vice-versa.
+2. **Deploy** — na Vercel, *Add New → Project* apontando para o **mesmo
+   repositório** (`motor-autoridade`). É um segundo projeto, não um segundo
+   branch: os dois acompanham a mesma `main` e recebem as mesmas correções.
+3. **Variáveis de ambiente** do projeto novo:
+
+   | Variável | Valor |
+   | --- | --- |
+   | `NEXT_PUBLIC_BRAND` | `assessor24h` |
+   | `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` | do projeto Supabase novo |
+   | `SUPABASE_SERVICE_ROLE_KEY` | do projeto Supabase novo |
+   | `MAKE_WEBHOOK_SECRET` | um segredo **diferente** do Take |
+   | `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` | pode ser a mesma chave |
+
+   No projeto do Take **não mexa em nada**: sem `NEXT_PUBLIC_BRAND`, ele
+   continua sendo o Take, com o banco dele.
+4. **Domínio** — `assessor24h.ia.br` no projeto novo (seção 4).
+
+O que a marca muda: nome e logotipo, título e PWA, textos da landing, persona
+dos prompts de IA e a trilha de anamnese — no Assessor 24h, `/onboarding` já
+abre direto no questionário do mandato, sem passar pelo wizard genérico.
+Tudo o mais (motor de pautas, DNA, teleprompter, painel, `/api/make`) é o mesmo
+código nos dois.
 
 ## O que mudou
 
@@ -17,7 +52,9 @@ como adaptar o cenário do assistente de WhatsApp.
 
 ## 1. Banco de dados
 
-Aplique a migration nova (as anteriores já devem estar aplicadas):
+No banco do Assessor 24h, `supabase/setup.sql` já inclui tudo. Num banco que
+já existia (ex.: se você optar por reaproveitar um), aplique só a migration
+nova:
 
 ```bash
 supabase db push          # ou: psql "$DATABASE_URL" -f supabase/migrations/0009_anamnese_politica.sql
@@ -253,22 +290,25 @@ Acesso: **`assessor24h.ia.br/painel`** (atalho para `/admin`).
 
 ## 7. Checklist da virada
 
-1. [ ] Aplicar `0009_anamnese_politica.sql`.
-2. [ ] Apontar `assessor24h.ia.br` na Vercel + DNS e ajustar as URLs no Supabase.
-3. [ ] Exportar as duas planilhas em CSV (backup) e rodar o importador.
-4. [ ] Conferir `/admin/vereadores`.
-5. [ ] Adaptar o cenário "MEU ASSESSOR - IA" para o `get_vereador`.
-6. [ ] Testar ponta a ponta: um vereador preenche `/anamnese`, você aprova em
-   `/admin`, e o assistente responde por WhatsApp com o DNA novo.
-7. [ ] Mandar o link para os vereadores e desativar o Google Form.
-8. [ ] Rodar em paralelo alguns dias com as planilhas ainda de pé (backup vivo).
-9. [ ] Funcionando: exportar o blueprint e deletar o cenário "Anamnese →
-   Planilha de Nomes". A partir daqui a fonte de verdade é o banco.
+1. [ ] Criar o Supabase do Assessor 24h e rodar `supabase/setup.sql`.
+2. [ ] Criar o projeto na Vercel (mesmo repo) com `NEXT_PUBLIC_BRAND=assessor24h`.
+3. [ ] Apontar `assessor24h.ia.br` na Vercel + DNS e ajustar as URLs no Supabase.
+4. [ ] Criar seu usuário admin no banco novo (`role = 'super_admin'`).
+5. [ ] Exportar as duas planilhas em CSV (backup) e rodar o importador.
+6. [ ] Conferir `assessor24h.ia.br/painel` → aba Vereadores.
+7. [ ] Adaptar o cenário "MEU ASSESSOR - IA" para o `get_vereador`.
+8. [ ] Testar ponta a ponta: um vereador preenche `/anamnese`, você aprova no
+   painel, e o assistente responde por WhatsApp com o DNA novo.
+9. [ ] Mandar o link para os vereadores e desativar o Google Form.
+10. [ ] Rodar em paralelo alguns dias com as planilhas ainda de pé (backup vivo).
+11. [ ] Funcionando: exportar o blueprint e deletar o cenário "Anamnese →
+    Planilha de Nomes". A partir daqui a fonte de verdade é o banco.
 
 ## Variáveis de ambiente
 
 | Variável | Uso |
 | --- | --- |
+| `NEXT_PUBLIC_BRAND` | `assessor24h` neste deploy; ausente/`take` no Take |
 | `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` | app e wizard |
 | `SUPABASE_SERVICE_ROLE_KEY` | `/api/make`, importador (ignora RLS no servidor) |
 | `MAKE_WEBHOOK_SECRET` | autenticação da `/api/make`: header `x-motor-secret` **e** assinatura HMAC `x-motor-signature` |

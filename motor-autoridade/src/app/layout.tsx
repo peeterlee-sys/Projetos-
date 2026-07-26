@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Instrument_Sans, Newsreader } from "next/font/google";
 import "./globals.css";
 import { RegisterSW } from "@/components/pwa/RegisterSW";
+import { brand } from "@/lib/brand";
 
 const sans = Instrument_Sans({
   subsets: ["latin"],
@@ -16,14 +17,13 @@ const serif = Newsreader({
 });
 
 export const metadata: Metadata = {
-  title: "Take",
-  description:
-    "Seu editor-chefe inteligente: do radar de pautas à gravação e publicação, com a sua cara.",
+  title: brand.name,
+  description: brand.description,
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Take",
+    title: brand.name,
   },
   icons: {
     icon: [

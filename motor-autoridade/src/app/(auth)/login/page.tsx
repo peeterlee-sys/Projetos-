@@ -1,7 +1,8 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { LoginForm } from "./LoginForm";
-import { TakeLogo } from "@/components/brand/TakeLogo";
+import { BrandLogo } from "@/components/brand/Logo";
+import { brand } from "@/lib/brand";
 
 export default async function LoginPage({
   searchParams,
@@ -15,10 +16,8 @@ export default async function LoginPage({
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-6 py-12">
       <header className="mb-8 flex flex-col items-center text-center">
-        <TakeLogo size={44} />
-        <p className="mt-3 text-sm text-ink-500">
-          Sua presença editorial, do radar à publicação.
-        </p>
+        <BrandLogo size={44} />
+        <p className="mt-3 text-sm text-ink-500">{brand.tagline}</p>
       </header>
       <Suspense fallback={null}>
         <LoginForm />

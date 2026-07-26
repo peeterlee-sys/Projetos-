@@ -2,6 +2,7 @@ import "server-only";
 import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { generate } from "@/lib/ai";
+import { brand } from "@/lib/brand";
 
 /**
  * DNA EDITORIAL POLÍTICO — o documento que o Assessor 24h carrega em toda
@@ -55,7 +56,7 @@ const DNA_JSON_SCHEMA: Record<string, unknown> = {
   frases_modelo: ["até 6 frases curtas na voz dele, que servem de calibragem para a IA"],
 };
 
-const DNA_SYSTEM = `Você é o Chefe de Comunicação do "Assessor 24h", que atende mandatos municipais.
+const DNA_SYSTEM = `Você é o Chefe de Comunicação do "${brand.name}", que atende mandatos municipais.
 A partir da anamnese completa de um vereador, você redige o DNA EDITORIAL dele: o documento
 que orientará TODA a comunicação daquele mandato — respostas no WhatsApp, pautas e conteúdos.
 Regras:

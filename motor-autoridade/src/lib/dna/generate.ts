@@ -2,6 +2,7 @@ import "server-only";
 import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { generate } from "@/lib/ai";
+import { brand } from "@/lib/brand";
 
 /**
  * DNA EDITORIAL — documento estruturado gerado ao fim da anamnese e usado em
@@ -40,7 +41,7 @@ const DNA_JSON_SCHEMA: Record<string, unknown> = {
   angulo_unico: "o ângulo próprio deste cliente: o recorte que diferencia o conteúdo dele de qualquer outro profissional do mesmo segmento",
 };
 
-const DNA_SYSTEM = `Você é o Editor-Chefe do "Take".
+const DNA_SYSTEM = `Você é o Editor-Chefe do "${brand.name}".
 A partir da anamnese editorial completa de um cliente, você redige o DNA EDITORIAL dele:
 o documento que orientará TODA a produção de conteúdo daquele cliente.
 Regras:

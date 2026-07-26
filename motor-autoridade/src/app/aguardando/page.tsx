@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
-import { TakeLogo } from "@/components/brand/TakeLogo";
+import { BrandLogo } from "@/components/brand/Logo";
+import { brand } from "@/lib/brand";
 
 /**
  * Tela de espera para cadastros pendentes de aprovação. Se a conta já foi
@@ -17,16 +18,16 @@ export default async function AguardandoPage() {
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center px-6 py-12 text-center">
-      <TakeLogo size={44} />
+      <BrandLogo size={44} />
       <div className="mt-8 rounded-3xl bg-white/70 p-8 ring-1 ring-sand-200">
         <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-gold-300/30 text-2xl">
           ⏳
         </span>
         <h1 className="mt-4 font-serif text-2xl text-brand-700">Cadastro em análise</h1>
         <p className="mt-3 text-[15px] leading-relaxed text-ink-700">
-          Recebemos seu cadastro, {user.full_name?.split(" ")[0] || "tudo certo"}! Seu acesso ao
-          Take passa por uma aprovação. Assim que for liberado, você entra e responde a anamnese
-          editorial.
+          Recebemos seu cadastro, {user.full_name?.split(" ")[0] || "tudo certo"}! Seu acesso ao{" "}
+          {brand.name} passa por uma aprovação. Assim que for liberado, você entra e responde a
+          anamnese.
         </p>
         <p className="mt-3 text-sm text-ink-500">
           Você usará o e-mail <span className="font-medium text-ink-900">{user.email}</span> para

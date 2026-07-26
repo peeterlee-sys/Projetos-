@@ -1,16 +1,19 @@
+import { brand } from "@/lib/brand";
+
 /**
- * Identidade visual do Take. `TakeMark` é o ícone (quadrado verde, play creme,
- * ponto dourado). `TakeLogo` combina o ícone com o logotipo "Take.".
+ * Identidade visual do deploy. `BrandMark` é o ícone (quadrado verde, play
+ * creme, ponto dourado); `BrandLogo` combina o ícone com o logotipo da marca
+ * ativa — "Take." ou "Assessor 24h", conforme NEXT_PUBLIC_BRAND.
  */
 
-export function TakeMark({ size = 40, className = "" }: { size?: number; className?: string }) {
+export function BrandMark({ size = 40, className = "" }: { size?: number; className?: string }) {
   return (
     <svg
       width={size}
       height={size}
       viewBox="0 0 512 512"
       role="img"
-      aria-label="Take"
+      aria-label={brand.name}
       className={className}
     >
       <defs>
@@ -28,7 +31,7 @@ export function TakeMark({ size = 40, className = "" }: { size?: number; classNa
   );
 }
 
-export function TakeLogo({
+export function BrandLogo({
   size = 40,
   className = "",
   wordClassName = "",
@@ -39,12 +42,13 @@ export function TakeLogo({
 }) {
   return (
     <span className={`inline-flex items-center gap-2.5 ${className}`}>
-      <TakeMark size={size} />
+      <BrandMark size={size} />
       <span
         className={`font-serif font-semibold leading-none tracking-tight text-brand-700 ${wordClassName}`}
-        style={{ fontSize: size * 0.82 }}
+        style={{ fontSize: size * brand.wordmarkScale }}
       >
-        Take<span className="text-gold-500">.</span>
+        {brand.wordmark.lead}
+        <span className="text-gold-500">{brand.wordmark.accent}</span>
       </span>
     </span>
   );

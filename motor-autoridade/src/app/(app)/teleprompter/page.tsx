@@ -1,9 +1,10 @@
+import { brand } from "@/lib/brand";
 import type { Metadata } from "next";
 import { requireUser } from "@/lib/auth/session";
 import Teleprompter from "./Teleprompter";
 
 export const metadata: Metadata = {
-  title: "Teleprompter — Take",
+  title: `Teleprompter — ${brand.name}`,
 };
 
 /** Teleprompter avulso: o usuário cola ou digita o próprio roteiro. */

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/auth/session";
+import { brand } from "@/lib/brand";
 import { PoliticalWizard } from "./PoliticalWizard";
 
 /** Anamnese do Assessor 24h — trilha de mandato (vereadores). */
@@ -23,14 +24,14 @@ export default async function AnamnesePoliticaPage({
           Você está refazendo a anamnese. Ao concluir, o perfil do mandato e o DNA Editorial serão
           atualizados com as novas respostas.
         </p>
-      ) : (
+      ) : brand.defaultTrack === "generic" ? (
         <p className="mb-4 text-center text-xs text-ink-400">
           Não tem mandato?{" "}
           <Link href="/onboarding" className="underline hover:text-brand-700">
             Faça a anamnese profissional
           </Link>
         </p>
-      )}
+      ) : null}
       <PoliticalWizard defaultName={user.full_name ?? ""} />
     </main>
   );

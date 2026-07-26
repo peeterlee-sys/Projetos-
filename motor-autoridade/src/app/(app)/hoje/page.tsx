@@ -4,7 +4,7 @@ import { requireUser } from "@/lib/auth/session";
 import { Button, Card } from "@/components/ui";
 import { getStimulus } from "@/lib/behavior/detect";
 import { startContent } from "./actions";
-import { TakeLogo } from "@/components/brand/TakeLogo";
+import { BrandLogo } from "@/components/brand/Logo";
 
 const FORMAT_LABEL: Record<string, string> = {
   video: "Vídeo",
@@ -102,7 +102,7 @@ export default async function HojePage() {
   return (
     <main className="px-5 pt-6">
       <div className="mb-4 flex items-center justify-between">
-        <TakeLogo size={26} />
+        <BrandLogo size={26} />
         <Link
           href="/perfil"
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-700 text-base font-medium text-sand-50"
