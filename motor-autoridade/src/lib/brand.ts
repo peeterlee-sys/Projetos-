@@ -76,38 +76,39 @@ const BRANDS: Record<BrandId, Brand> = {
     },
   },
 
+  // Textos e identidade espelham o site assessor24h.ia.br.
   assessor24h: {
     id: "assessor24h",
     name: "Assessor 24h",
-    wordmark: { lead: "Assessor", accent: "24h" },
-    wordmarkScale: 0.52,
-    tagline: "A comunicação do seu mandato, todo dia.",
+    wordmark: { lead: "Assessor ", accent: "24h" },
+    wordmarkScale: 0.5,
+    tagline: "Comunicação e inteligência legislativa para vereadores.",
     description:
-      "O assessor de comunicação do mandato: pauta do dia, conteúdo na sua voz e resposta no WhatsApp — 24 horas por dia.",
+      "Transforme áudios, textos, ideias e discursos em comunicação profissional e produção legislativa, diretamente pelo WhatsApp.",
     audience: "vereador",
     defaultTrack: "political",
     landing: {
-      eyebrow: "O assessor que não dorme",
-      title: ["Mandato que fala", "com o povo todo dia."],
+      eyebrow: "Comunicação e inteligência legislativa",
+      title: ["Seu gabinete pode produzir mais,", "comunicar melhor e responder mais rápido."],
       subtitle:
-        "O Assessor 24h acompanha a sua cidade, entrega a pauta certa do dia e escreve na sua voz — com as suas bandeiras, o seu jeito de falar e os seus limites.",
+        "Transforme áudios, textos, ideias e discursos em comunicação profissional e produção legislativa, diretamente pelo WhatsApp.",
       steps: [
         {
-          title: "Anamnese do mandato",
-          body: "Oito etapas para registrar bandeiras, base eleitoral, jeito de falar e o que nunca pode aparecer. A IA transforma tudo no DNA do seu mandato.",
+          title: "Envie uma mensagem",
+          body: "O vereador fala naturalmente, por áudio ou texto. Não precisa escrever perfeitamente — o sistema organiza rascunhos, anotações e ideias soltas.",
         },
         {
-          title: "Pauta da sua cidade",
-          body: "Todo dia útil, o que está acontecendo no município traduzido para o ângulo do seu mandato — nunca a mesma pauta de outro vereador.",
+          title: "Escolha o que precisa",
+          body: "Requerimento, projeto de lei, discurso na tribuna, matéria jornalística ou publicação para as redes: o Assessor 24h monta o material.",
         },
         {
-          title: "Conteúdo e resposta",
-          body: "Roteiro, carrossel, post e story prontos para gravar, mais o assistente respondendo no WhatsApp com a sua voz.",
+          title: "Receba pronto para usar",
+          body: "Volta estruturado e na linguagem do mandato — com o pedido, a justificativa e o direcionamento certos.",
         },
       ],
       closing: {
-        title: "Pronto para ser lembrado o ano inteiro?",
-        body: "Responda a anamnese do mandato. Em minutos, o Assessor 24h já sabe falar como você.",
+        title: "Comece pela anamnese do mandato",
+        body: "São 8 etapas. É o que ensina o Assessor 24h a falar como você: suas bandeiras, seu jeito de falar e os seus limites.",
       },
     },
   },

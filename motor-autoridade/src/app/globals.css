@@ -51,6 +51,56 @@
   --foreground: var(--color-ink-900);
 }
 
+/*
+ * Paleta do ASSESSOR 24H — espelha o site assessor24h.ia.br (azul #246BFD,
+ * azul-marinho #101D3A, verde #34C17D, tipografia Sora + Plus Jakarta Sans).
+ * Só entra em ação quando o deploy é dessa marca (data-brand no <html>);
+ * o Take continua com a paleta editorial de origem, intocada.
+ */
+html[data-brand="assessor24h"] {
+  /* Marca — azul de ação */
+  --color-brand-900: #0b1226;
+  --color-brand-800: #1a54d6; /* hover do botão principal */
+  --color-brand-700: #246bfd; /* botões e elementos ativos */
+  --color-brand-600: #101d3a;
+  --color-brand-500: #2c3445;
+
+  /* Acento — verde do logo (destaques e avisos) */
+  --color-gold-700: #1f8f5c;
+  --color-gold-500: #34c17d;
+  --color-gold-300: #7fd9ae;
+
+  /* Superfícies — branco e cinza-azulado */
+  --color-sand-50: #ffffff;
+  --color-sand-100: #f4f6f9;
+  --color-sand-200: #e2e7f0;
+  --color-sand-300: #d3dae6;
+
+  /* Neutros / texto */
+  --color-ink-900: #101d3a;
+  --color-ink-700: #2c3445;
+  --color-ink-500: #5a6478;
+  --color-ink-400: #8a93a6;
+
+  /* Estados */
+  --color-danger-600: #e04b3a;
+  --color-danger-700: #b4482e;
+  --color-success-100: #e6f7ef;
+
+  /* Tipografia do site */
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-sora), ui-sans-serif, system-ui, sans-serif;
+}
+
+/*
+ * Títulos: no Assessor 24h o azul fica só nos botões — os títulos usam o
+ * azul-marinho, como no site. Vale apenas para quem pede `text-brand-700`
+ * explicitamente, para não afetar títulos sobre fundo escuro.
+ */
+html[data-brand="assessor24h"] :is(h1, h2, h3).text-brand-700 {
+  color: #101d3a;
+}
+
 html,
 body {
   background: var(--background);

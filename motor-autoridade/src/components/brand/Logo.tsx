@@ -7,6 +7,35 @@ import { brand } from "@/lib/brand";
  */
 
 export function BrandMark({ size = 40, className = "" }: { size?: number; className?: string }) {
+  // Assessor 24h: balão de conversa com relógio — o mesmo símbolo do site.
+  if (brand.id === "assessor24h") {
+    return (
+      <svg
+        width={size}
+        height={size}
+        viewBox="0 0 48 48"
+        fill="none"
+        role="img"
+        aria-label={brand.name}
+        className={className}
+      >
+        <path
+          d="M24 4C12.6 4 4 12.1 4 22.3c0 5.4 2.4 10.3 6.4 13.7c.5.5.8 1.2.6 1.9l-1.6 6c-.3 1.2.8 2.2 2 1.8l7.2-2.6c.5-.2 1-.2 1.5 0c1.3.3 2.6.4 3.9.4c11.4 0 20-8.1 20-18.3S35.4 4 24 4z"
+          fill="#246BFD"
+        />
+        <circle cx="24" cy="22.5" r="10" stroke="#FFFFFF" strokeWidth="2.6" fill="none" />
+        <path
+          d="M24 16.5v6l4.6 2.8"
+          stroke="#34C17D"
+          strokeWidth="2.6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          fill="none"
+        />
+      </svg>
+    );
+  }
+
   return (
     <svg
       width={size}
