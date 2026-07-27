@@ -146,7 +146,7 @@ export async function getAdminOverview(supabase: SupabaseClient): Promise<AdminO
     supabase
       .from("users")
       .select(
-        "id, full_name, email, is_active, onboarded_at, created_at, tenants(status), client_profiles(profession, segment, dna_generated_at, editorial_dna, profile_track, political_name, party, city, state, phone), client_preferences(weekly_goal)"
+        "id, full_name, email, role, is_active, onboarded_at, created_at, tenants(status), client_profiles(profession, segment, dna_generated_at, editorial_dna, profile_track, political_name, party, city, state, phone), client_preferences(weekly_goal)"
       )
       // Inclui admins/super_admins que também consomem conteúdo (dogfooding).
       .in("role", ["client", "admin", "super_admin"])
@@ -188,7 +188,12 @@ export async function getAdminOverview(supabase: SupabaseClient): Promise<AdminO
       .limit(1),
   ]);
 
-  const clientList = clients ?? [];
+  // Quem opera o painel não é cliente: admins que nunca responderam a anamnese
+  // ficam fora das métricas e da lista. O admin que também usa o produto
+  // (respondeu a anamnese) continua aparecendo normalmente.
+  const clientList = (clients ?? []).filter(
+    (c) => Boolean(c.onboarded_at) || (c.role !== "admin" && c.role !== "super_admin")
+  );
   const itemList = items ?? [];
   const eventList = events ?? [];
   const oppList = opps ?? [];
