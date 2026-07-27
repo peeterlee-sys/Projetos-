@@ -39,7 +39,6 @@ export const anamnesePoliticaSchema = z.object({
   party: z.string().optional().default(""),
   mandate: z.string().optional().default(""),
   positions: z.array(z.string()).default([]),
-  local_context: z.string().optional().default(""),
 
   // 2. Posicionamento
   political_spectrum: spectrumEnum.default("nao_declarado"),

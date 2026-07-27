@@ -115,7 +115,6 @@ type State = {
   party: string;
   mandate: string;
   positions: string[];
-  local_context: string;
   political_spectrum: PoliticalSpectrum;
   flags: string[];
   electoral_base: string;
@@ -209,7 +208,6 @@ export function PoliticalWizard({ defaultName }: { defaultName: string }) {
     party: "",
     mandate: "",
     positions: [],
-    local_context: "",
     political_spectrum: "nao_declarado",
     flags: [],
     electoral_base: "",
@@ -403,16 +401,6 @@ export function PoliticalWizard({ defaultName }: { defaultName: string }) {
                 defaultValue={state.positions.join(", ")}
                 onChange={(e) => set("positions", listToArray(e.target.value))}
                 placeholder="Presidente da Comissão de Saúde, Líder de bancada"
-              />
-            </Field>
-            <Field
-              label="Contexto da cidade"
-              hint="O que um assessor precisa saber sobre o município para não errar."
-            >
-              <Textarea
-                value={state.local_context}
-                onChange={(e) => set("local_context", e.target.value)}
-                placeholder="População, economia, principais problemas, obras em andamento…"
               />
             </Field>
           </>

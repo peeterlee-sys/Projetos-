@@ -63,6 +63,28 @@ export async function submitAnamnesePolitica(raw: unknown): Promise<AnamneseResu
     await supabase.from("users").update({ full_name: data.full_name }).eq("id", user.id);
   }
 
+  // Contexto da cidade: é o admin quem mantém (biblioteca por cidade+UF), não
+  // o vereador. Aqui só herdamos o contexto já cadastrado da cidade — e só se
+  // o perfil ainda não tiver um (nunca sobrescreve o que o admin já escreveu,
+  // nem numa segunda vez que o vereador refaça a anamnese).
+  const stateUpper = data.state.toUpperCase();
+  const { data: existingProfile } = await supabase
+    .from("client_profiles")
+    .select("local_context")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  let localContext: string | undefined;
+  if (!existingProfile?.local_context) {
+    const { data: cityCtx } = await supabase
+      .from("city_contexts")
+      .select("context")
+      .ilike("city", data.city)
+      .eq("state", stateUpper)
+      .maybeSingle();
+    if (cityCtx?.context) localContext = cityCtx.context;
+  }
+
   const { error: profileErr } = await supabase.from("client_profiles").upsert(
     {
       tenant_id: tenantId,
@@ -75,11 +97,11 @@ export async function submitAnamnesePolitica(raw: unknown): Promise<AnamneseResu
       political_name: data.political_name,
       phone: data.phone,
       city: data.city,
-      state: data.state.toUpperCase(),
+      state: stateUpper,
       party: data.party || null,
       mandate: data.mandate || null,
       positions: data.positions,
-      local_context: data.local_context || null,
+      ...(localContext ? { local_context: localContext } : {}),
       // 2. Posicionamento
       political_spectrum: data.political_spectrum,
       flags: data.flags,
