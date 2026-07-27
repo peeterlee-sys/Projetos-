@@ -165,5 +165,7 @@ export async function submitAnamnesePolitica(raw: unknown): Promise<AnamneseResu
 
   await supabase.from("users").update({ onboarded_at: new Date().toISOString() }).eq("id", user.id);
 
-  redirect("/hoje");
+  // Não manda para /hoje: aquela tela é o radar de pautas do Take e não
+  // existe no Assessor 24h — o produto é 100% sob demanda pelo WhatsApp.
+  redirect("/anamnese/obrigado");
 }

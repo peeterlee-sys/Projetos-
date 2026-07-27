@@ -37,6 +37,8 @@ export type Brand = {
     steps: { title: string; body: string }[];
     closing: { title: string; body: string };
   };
+  /** Tela exibida logo após concluir a anamnese (antes de liberar o app). */
+  thankYou: { title: string; body: string };
 };
 
 const BRANDS: Record<BrandId, Brand> = {
@@ -74,6 +76,10 @@ const BRANDS: Record<BrandId, Brand> = {
         body: "Crie sua conta e responda a anamnese editorial. Em minutos, seu DNA de conteúdo está pronto.",
       },
     },
+    thankYou: {
+      title: "Prontinho — seu DNA editorial está pronto.",
+      body: "A partir de agora, o Take entrega a pauta certa todo dia útil, com a sua cara.",
+    },
   },
 
   // Textos e identidade espelham o site assessor24h.ia.br.
@@ -108,8 +114,12 @@ const BRANDS: Record<BrandId, Brand> = {
       ],
       closing: {
         title: "Comece pela anamnese do mandato",
-        body: "São 8 etapas. É o que ensina o Assessor 24h a falar como você: suas bandeiras, seu jeito de falar e os seus limites.",
+        body: "São 6 seções rápidas. É o que ensina o Assessor 24h a falar como você: suas bandeiras, seu jeito de falar e os seus limites.",
       },
+    },
+    thankYou: {
+      title: "Muito obrigado — seu mandato já tem um assessor 24 horas por dia.",
+      body: "A partir de agora, é só chamar no WhatsApp: peça um requerimento, um discurso ou uma matéria para a imprensa, e receba pronto, na sua voz. Sem esperar, sem depender de ninguém — o Assessor 24h nunca dorme.",
     },
   },
 };
