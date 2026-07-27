@@ -639,8 +639,9 @@ export function PoliticalWizard({ defaultName }: { defaultName: string }) {
         {step === 5 && (
           <>
             <p className="text-sm text-ink-500">
-              Portais, rádios, jornalistas, colunistas e perfis que você acompanha. Eles alimentam o
-              radar de pautas do mandato, na prioridade que você definir.
+              Portais, rádios, jornalistas, colunistas e perfis que você acompanha. Quando você
+              pedir uma matéria ou um discurso, o Assessor 24h consulta essas fontes na prioridade
+              que você definir — em vez de inventar dados sobre a sua cidade.
             </p>
             {state.influence_sources.map((src, i) => (
               <div key={i} className="space-y-2 rounded-2xl bg-sand-100 p-3">
