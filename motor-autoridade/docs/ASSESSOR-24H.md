@@ -271,6 +271,22 @@ vira porta aberta.
 
 ## 5. Wizard da anamnese
 
+O wizard espelha, seção por seção e alternativa por alternativa, o Google
+Form real do cliente ("Assessor 24h - Anamnese"). Não é um formulário
+genérico adaptado — é a mesma anamnese, só que web: 6 seções (Identificação,
+Posicionamento político, Tom e estilo, Limites e cuidados, Referências,
+Revisão e consentimento), com os mesmos textos de apoio e as mesmas
+alternativas de múltipla escolha do formulário original.
+
+Duas diferenças deliberadas em relação ao Google Form:
+- **Contexto da cidade** não é perguntado ao vereador — vira uma biblioteca
+  do admin (seção "Domínio e links do produto" → `/painel` → Cidades),
+  porque o mesmo texto serve todo mundo da mesma cidade.
+- **WhatsApp** é obrigatório no sistema mesmo sem asterisco no formulário
+  original — é a chave que o assistente usa para reconhecer o vereador.
+
+## 5.1 Wizard da anamnese — fluxo técnico
+
 `/onboarding/politico` — 8 etapas: Identificação, Posicionamento, Tom e estilo,
 Limites, Referências, Influências, Preferências e Revisão. Ao enviar, o app:
 

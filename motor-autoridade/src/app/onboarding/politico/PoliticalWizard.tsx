@@ -3,60 +3,41 @@
 import { useState, useTransition } from "react";
 import { Button, Card, Field, Input, Textarea } from "@/components/ui";
 import { submitAnamnesePolitica } from "./actions";
-import { SPECTRUM_LABEL, type PoliticalSpectrum } from "@/lib/validation/anamnese-politica";
-import type { InfluenceSourceInput, InspirationRefInput } from "@/lib/validation/onboarding";
+import {
+  EMOJI_OPTIONS,
+  FLAG_OPTIONS,
+  HOW_TO_REFER_OPTIONS,
+  MANDATE_OPTIONS,
+  MAYOR_RELATION_OPTIONS,
+  SLANG_OPTIONS,
+  SPECTRUM_LABEL,
+  TONE_OPTIONS,
+  type PoliticalSpectrum,
+} from "@/lib/validation/anamnese-politica";
 import { formatPhoneBR } from "@/lib/phone";
 
+/**
+ * Espelha, seção por seção, o Google Form "Assessor 24h - Anamnese". As
+ * perguntas, os textos de apoio e as alternativas são os mesmos do
+ * formulário original — mudar qualquer um deles é decisão do cliente, não
+ * do código.
+ */
 const STEPS = [
   "Identificação",
-  "Posicionamento",
+  "Posicionamento político",
   "Tom e estilo",
-  "Limites",
+  "Limites e cuidados",
   "Referências",
-  "Influências",
-  "Preferências",
-  "Revisão",
+  "Revisão e consentimento",
 ] as const;
 
 const STEP_HINTS = [
-  "Quem é o mandato",
-  "O que o mandato defende",
-  "Como o vereador fala",
-  "O que nunca pode aparecer",
-  "Onde o mandato já se expressa",
-  "O que o mandato acompanha",
-  "Ritmo e metas de conteúdo",
-  "Confira antes de enviar",
-] as const;
-
-const TONE_OPTIONS = [
-  "Direto e objetivo",
-  "Popular e próximo",
-  "Firme e combativo",
-  "Institucional",
-  "Didático",
-  "Acolhedor",
-  "Bem-humorado",
-  "Técnico",
-  "Inspirador",
-] as const;
-
-const FORMAT_OPTIONS = [
-  { value: "video", label: "Vídeo" },
-  { value: "carousel", label: "Carrossel" },
-  { value: "story", label: "Story" },
-  { value: "post", label: "Texto" },
-  { value: "linkedin", label: "LinkedIn" },
-] as const;
-
-const DAY_OPTIONS = [
-  { value: 1, label: "Seg" },
-  { value: 2, label: "Ter" },
-  { value: 3, label: "Qua" },
-  { value: 4, label: "Qui" },
-  { value: 5, label: "Sex" },
-  { value: 6, label: "Sáb" },
-  { value: 0, label: "Dom" },
+  "Quem é você no mandato e nas urnas",
+  "Onde você se posiciona e o que você defende",
+  "Como o Assessor 24h deve escrever por você",
+  "O que NUNCA deve aparecer nas suas comunicações",
+  "Materiais que ajudam a capturar a sua voz",
+  "Confira e autorize o uso dos seus dados",
 ] as const;
 
 const SPECTRUM_OPTIONS = (Object.keys(SPECTRUM_LABEL) as PoliticalSpectrum[]).map((v) => ({
@@ -64,114 +45,38 @@ const SPECTRUM_OPTIONS = (Object.keys(SPECTRUM_LABEL) as PoliticalSpectrum[]).ma
   label: SPECTRUM_LABEL[v],
 }));
 
-const MAYOR_OPTIONS = [
-  "Situação (apoio o prefeito)",
-  "Independente",
-  "Oposição",
-  "Depende da pauta",
-] as const;
-
-const INFLUENCE_KINDS = [
-  { value: "site", label: "Site / portal" },
-  { value: "blog", label: "Blog" },
-  { value: "newsletter", label: "Newsletter" },
-  { value: "podcast", label: "Podcast" },
-  { value: "youtube", label: "YouTube" },
-  { value: "instagram", label: "Instagram" },
-  { value: "journalist", label: "Jornalista" },
-  { value: "expert", label: "Especialista" },
-  { value: "other", label: "Outro" },
-] as const;
-
-const REFERENCE_KINDS = [
-  { value: "instagram", label: "Instagram" },
-  { value: "youtube", label: "YouTube" },
-  { value: "site", label: "Site" },
-  { value: "linkedin", label: "LinkedIn" },
-  { value: "blog", label: "Blog" },
-] as const;
-
-const PRIORITY_OPTIONS = [
-  { value: "high", label: "Alta" },
-  { value: "medium", label: "Média" },
-  { value: "low", label: "Baixa" },
-] as const;
-
-const FOLLOWUP = [
-  { value: "light", label: "Leve" },
-  { value: "balanced", label: "Equilibrado" },
-  { value: "intense", label: "Intenso" },
-] as const;
-
-const EMOJI_OPTIONS = ["💪", "🙏", "✅", "🚨", "📌", "❤️", "🇧🇷", "👏", "🔊", "🏘️"] as const;
-
-/** Estado do formulário: strings livres; a conversão para array acontece no envio. */
-type State = {
-  full_name: string;
-  political_name: string;
-  phone: string;
-  city: string;
-  state: string;
-  party: string;
-  mandate: string;
-  positions: string[];
-  political_spectrum: PoliticalSpectrum;
-  flags: string[];
-  electoral_base: string;
-  voter_profile: string;
-  audience_pains: string;
-  positioning_recognition: string;
-  tone_profile: string[];
-  tone_of_voice: string;
-  slang_expressions: string[];
-  emojis: string[];
-  how_to_refer: string;
-  catchphrase: string;
-  forbidden_themes: string[];
-  adversaries: string[];
-  mayor_relation: string;
-  history_to_avoid: string;
-  core_values: string;
-  instagram_url: string;
-  website_url: string;
-  reference_publications: string[];
-  local_press: string[];
-  inspiration_refs: InspirationRefInput[];
-  influence_sources: InfluenceSourceInput[];
-  blocked_sources: string;
-  main_themes: string[];
-  audience_segments: string[];
-  preferred_formats: ("video" | "carousel" | "post" | "story" | "linkedin")[];
-  publish_days_per_week: number;
-  weekly_goal: number;
-  preferred_days: number[];
-  video_duration_sec: number;
-  follow_up_level: "light" | "balanced" | "intense";
-};
-
-function Chips<T extends string | number>({
+function Chips<T extends string>({
   options,
   selected,
   onToggle,
+  disabledExtra,
 }: {
-  options: readonly { value: T; label: string }[];
+  options: readonly T[];
   selected: T[];
   onToggle: (v: T) => void;
+  /** Quando true, opções não selecionadas ficam desabilitadas (limite atingido). */
+  disabledExtra?: boolean;
 }) {
   return (
     <div className="flex flex-wrap gap-2">
       {options.map((o) => {
-        const active = selected.includes(o.value);
+        const active = selected.includes(o);
+        const blocked = !active && disabledExtra;
         return (
           <button
             type="button"
-            key={String(o.value)}
-            onClick={() => onToggle(o.value)}
+            key={o}
+            onClick={() => !blocked && onToggle(o)}
+            disabled={blocked}
             className={`rounded-full px-4 py-2 text-sm transition ${
-              active ? "bg-brand-700 text-sand-50" : "bg-sand-100 text-ink-700 hover:bg-sand-200"
+              active
+                ? "bg-brand-700 text-sand-50"
+                : blocked
+                  ? "cursor-not-allowed bg-sand-100 text-ink-400"
+                  : "bg-sand-100 text-ink-700 hover:bg-sand-200"
             }`}
           >
-            {o.label}
+            {o}
           </button>
         );
       })}
@@ -179,7 +84,38 @@ function Chips<T extends string | number>({
   );
 }
 
-/** Linha de revisão. Some quando não há resposta — a revisão mostra o que existe. */
+function RadioGroup<T extends string>({
+  options,
+  value,
+  onChange,
+}: {
+  options: readonly T[];
+  value: T | "";
+  onChange: (v: T) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      {options.map((o) => (
+        <label
+          key={o}
+          className={`flex cursor-pointer items-start gap-3 rounded-2xl border px-4 py-3 text-sm transition ${
+            value === o ? "border-brand-700 bg-brand-700/5" : "border-sand-300 bg-sand-50 hover:bg-sand-100"
+          }`}
+        >
+          <input
+            type="radio"
+            className="mt-0.5"
+            checked={value === o}
+            onChange={() => onChange(o)}
+          />
+          <span className="text-ink-800">{o}</span>
+        </label>
+      ))}
+    </div>
+  );
+}
+
+/** Linha de revisão. Some quando não há resposta. */
 function Review({ label, value }: { label: string; value: string | string[] }) {
   const text = Array.isArray(value) ? value.filter(Boolean).join(", ") : value;
   if (!text?.trim()) return null;
@@ -191,8 +127,49 @@ function Review({ label, value }: { label: string; value: string | string[] }) {
   );
 }
 
-const selectBase =
-  "w-full rounded-2xl border border-sand-300 bg-sand-50 px-4 py-3 text-ink-900 outline-none focus:border-brand-700 focus:ring-2 focus:ring-brand-700/20";
+/**
+ * "Cidade e Estado" — o Google Form pede num único campo. Aqui separamos em
+ * cidade + UF (que o banco guarda à parte) sem pedir dois campos ao vereador.
+ */
+function splitCityState(raw: string): { city: string; state: string } | null {
+  const m = raw.trim().match(/^(.+?)[\s]*[-/,][\s]*([A-Za-z]{2})$/);
+  if (!m) return null;
+  return { city: m[1].trim(), state: m[2].toUpperCase() };
+}
+
+type State = {
+  full_name: string;
+  political_name: string;
+  city_state: string;
+  party: string;
+  mandate: (typeof MANDATE_OPTIONS)[number] | "";
+  positions: string;
+  phone: string;
+  political_spectrum: PoliticalSpectrum | "";
+  flags: (typeof FLAG_OPTIONS)[number][];
+  electoral_base: string;
+  voter_profile: string;
+  tone_of_voice: (typeof TONE_OPTIONS)[number] | "";
+  slang_style: (typeof SLANG_OPTIONS)[number] | "";
+  emoji_style: (typeof EMOJI_OPTIONS)[number] | "";
+  how_to_refer: (typeof HOW_TO_REFER_OPTIONS)[number] | "";
+  catchphrase: string;
+  forbidden_themes: string;
+  adversaries: string;
+  mayor_relation: (typeof MAYOR_RELATION_OPTIONS)[number] | "";
+  history_to_avoid: string;
+  instagram_url: string;
+  website_url: string;
+  reference_publications: string;
+  local_press: string;
+  lgpd_consent: boolean;
+};
+
+const listToArray = (v: string) =>
+  v
+    .split(/[\n,;]+/)
+    .map((x) => x.trim())
+    .filter(Boolean);
 
 export function PoliticalWizard({ defaultName }: { defaultName: string }) {
   const [step, setStep] = useState(0);
@@ -202,112 +179,81 @@ export function PoliticalWizard({ defaultName }: { defaultName: string }) {
   const [state, setState] = useState<State>({
     full_name: defaultName,
     political_name: "",
-    phone: "",
-    city: "",
-    state: "",
+    city_state: "",
     party: "",
     mandate: "",
-    positions: [],
-    political_spectrum: "nao_declarado",
+    positions: "",
+    phone: "",
+    political_spectrum: "",
     flags: [],
     electoral_base: "",
     voter_profile: "",
-    audience_pains: "",
-    positioning_recognition: "",
-    tone_profile: [],
     tone_of_voice: "",
-    slang_expressions: [],
-    emojis: [],
+    slang_style: "",
+    emoji_style: "",
     how_to_refer: "",
     catchphrase: "",
-    forbidden_themes: [],
-    adversaries: [],
+    forbidden_themes: "",
+    adversaries: "",
     mayor_relation: "",
     history_to_avoid: "",
-    core_values: "",
     instagram_url: "",
     website_url: "",
-    reference_publications: [],
-    local_press: [],
-    inspiration_refs: [],
-    influence_sources: [],
-    blocked_sources: "",
-    main_themes: [],
-    audience_segments: [],
-    preferred_formats: ["video"],
-    publish_days_per_week: 3,
-    weekly_goal: 3,
-    preferred_days: [1, 3, 5],
-    video_duration_sec: 60,
-    follow_up_level: "balanced",
+    reference_publications: "",
+    local_press: "",
+    lgpd_consent: false,
   });
 
   const set = <K extends keyof State>(k: K, v: State[K]) => setState((s) => ({ ...s, [k]: v }));
 
-  const toggle = <K extends keyof State>(k: K, v: State[K] extends (infer U)[] ? U : never) =>
+  const toggleFlag = (v: (typeof FLAG_OPTIONS)[number]) =>
     setState((s) => {
-      const arr = s[k] as unknown[];
-      const has = arr.includes(v);
-      return { ...s, [k]: has ? arr.filter((x) => x !== v) : [...arr, v] } as State;
+      const has = s.flags.includes(v);
+      if (has) return { ...s, flags: s.flags.filter((x) => x !== v) };
+      if (s.flags.length >= 3) return s;
+      return { ...s, flags: [...s.flags, v] };
     });
-
-  const listToArray = (v: string) =>
-    v
-      .split(/[\n,;]+/)
-      .map((x) => x.trim())
-      .filter(Boolean);
-
-  // ── Fontes de influência ──────────────────────────────────────────────────
-  const addSource = () =>
-    setState((s) =>
-      s.influence_sources.length >= 80
-        ? s
-        : {
-            ...s,
-            influence_sources: [
-              ...s.influence_sources,
-              { kind: "site", label: "", url: "", priority: "medium", is_blocked: false },
-            ],
-          }
-    );
-  const updateSource = (i: number, patch: Partial<InfluenceSourceInput>) =>
-    setState((s) => ({
-      ...s,
-      influence_sources: s.influence_sources.map((src, j) => (j === i ? { ...src, ...patch } : src)),
-    }));
-  const removeSource = (i: number) =>
-    setState((s) => ({ ...s, influence_sources: s.influence_sources.filter((_, j) => j !== i) }));
-
-  // ── Referências de inspiração ─────────────────────────────────────────────
-  const addRef = () =>
-    setState((s) =>
-      s.inspiration_refs.length >= 10
-        ? s
-        : { ...s, inspiration_refs: [...s.inspiration_refs, { kind: "instagram", url: "", name: "" }] }
-    );
-  const updateRef = (i: number, patch: Partial<InspirationRefInput>) =>
-    setState((s) => ({
-      ...s,
-      inspiration_refs: s.inspiration_refs.map((r, j) => (j === i ? { ...r, ...patch } : r)),
-    }));
-  const removeRef = (i: number) =>
-    setState((s) => ({ ...s, inspiration_refs: s.inspiration_refs.filter((_, j) => j !== i) }));
 
   const isLast = step === STEPS.length - 1;
 
-  /** Validação por etapa: só o essencial trava — o resto é opcional. */
   function validateStep(): string | null {
     if (step === 0) {
       if (state.full_name.trim().length < 2) return "Informe o nome completo.";
-      if (state.political_name.trim().length < 2) return "Informe o nome de urna.";
+      if (state.political_name.trim().length < 2) return "Informe o nome político.";
+      if (!splitCityState(state.city_state)) {
+        return "Informe cidade e UF, ex.: Balneário Camboriú - SC.";
+      }
+      if (!state.party.trim()) return "Informe o partido atual.";
+      if (!state.mandate) return "Selecione o número do mandato.";
+      if (!state.positions.trim()) return 'Preencha os cargos — se não tiver, escreva "Nenhum".';
       if (!formatPhoneBR(state.phone) || state.phone.replace(/\D/g, "").length < 10) {
         return "Informe o WhatsApp com DDD, ex.: (47) 99184-8380.";
       }
-      if (state.city.trim().length < 2) return "Informe a cidade.";
-      if (state.state.trim().length !== 2) return "Use a sigla da UF, ex.: SC.";
     }
-    if (step === 1 && state.flags.length === 0) {
-      return "Informe ao menos uma bandeira do mandato.";
+    if (step === 1) {
+      if (!state.political_spectrum) return "Selecione seu posicionamento no espectro político.";
+      if (state.flags.length === 0) return "Escolha ao menos 1 bandeira (até 3).";
+      if (!state.electoral_base.trim()) return "Informe sua base eleitoral.";
+      if (!state.voter_profile.trim()) return "Descreva o perfil do seu eleitorado.";
+    }
+    if (step === 2) {
+      if (!state.tone_of_voice) return "Selecione o estilo de comunicação.";
+      if (!state.slang_style) return "Selecione uma opção sobre gírias e expressões regionais.";
+      if (!state.emoji_style) return "Selecione uma opção sobre emojis.";
+      if (!state.how_to_refer) return "Selecione como devemos nos referir a você.";
+      if (!state.catchphrase.trim()) return 'Preencha o bordão — se não tiver, escreva "Não".';
+    }
+    if (step === 3) {
+      if (!state.forbidden_themes.trim())
+        return 'Preencha os temas proibidos — se não houver, escreva "Nenhum".';
+      if (!state.adversaries.trim())
+        return 'Preencha os adversários — se não houver, escreva "Nenhum".';
+      if (!state.mayor_relation) return "Selecione sua relação com o atual prefeito.";
+      if (!state.history_to_avoid.trim())
+        return 'Preencha o histórico a evitar — se não houver, escreva "Nenhum".';
+    }
+    if (step === 5 && !state.lgpd_consent) {
+      return "É preciso aceitar o termo de consentimento para enviar a anamnese.";
     }
     return null;
   }
@@ -318,11 +264,40 @@ export function PoliticalWizard({ defaultName }: { defaultName: string }) {
     if (problem) return;
 
     if (isLast) {
+      const cityState = splitCityState(state.city_state);
+      if (!cityState) {
+        setError("Informe cidade e UF, ex.: Balneário Camboriú - SC.");
+        setStep(0);
+        return;
+      }
       startTransition(async () => {
         const res = await submitAnamnesePolitica({
-          ...state,
-          inspiration_refs: state.inspiration_refs.filter((r) => r.url.trim()),
-          influence_sources: state.influence_sources.filter((s) => s.label.trim() || s.url.trim()),
+          full_name: state.full_name,
+          political_name: state.political_name,
+          city: cityState.city,
+          state: cityState.state,
+          party: state.party,
+          mandate: state.mandate as (typeof MANDATE_OPTIONS)[number],
+          positions: listToArray(state.positions),
+          phone: state.phone,
+          political_spectrum: state.political_spectrum as PoliticalSpectrum,
+          flags: state.flags,
+          electoral_base: state.electoral_base,
+          voter_profile: state.voter_profile,
+          tone_of_voice: state.tone_of_voice as (typeof TONE_OPTIONS)[number],
+          slang_style: state.slang_style as (typeof SLANG_OPTIONS)[number],
+          emoji_style: state.emoji_style as (typeof EMOJI_OPTIONS)[number],
+          how_to_refer: state.how_to_refer as (typeof HOW_TO_REFER_OPTIONS)[number],
+          catchphrase: state.catchphrase,
+          forbidden_themes: listToArray(state.forbidden_themes),
+          adversaries: listToArray(state.adversaries),
+          mayor_relation: state.mayor_relation as (typeof MAYOR_RELATION_OPTIONS)[number],
+          history_to_avoid: state.history_to_avoid,
+          instagram_url: state.instagram_url,
+          website_url: state.website_url,
+          reference_publications: listToArray(state.reference_publications),
+          local_press: listToArray(state.local_press),
+          lgpd_consent: state.lgpd_consent,
         });
         if (res && !res.ok) setError(res.error);
       });
@@ -349,459 +324,241 @@ export function PoliticalWizard({ defaultName }: { defaultName: string }) {
       </header>
 
       <Card className="space-y-4">
-        {/* 1. Identificação */}
+        {/* SEÇÃO 1 — Identificação */}
         {step === 0 && (
           <>
-            <Field label="Nome completo">
+            <Field label="Nome Completo">
               <Input value={state.full_name} onChange={(e) => set("full_name", e.target.value)} />
             </Field>
-            <Field label="Nome político" hint="Como aparece na urna e como o povo chama.">
+            <Field
+              label="Nome Político"
+              hint='Como você aparece na urna, nas matérias e nas redes. Ex.: "João da Farmácia", "Professor João".'
+            >
               <Input
                 value={state.political_name}
                 onChange={(e) => set("political_name", e.target.value)}
-                placeholder="Ex.: Zé do Bairro"
               />
             </Field>
-            <Field label="WhatsApp do mandato" hint="É por este número que o Assessor 24h te reconhece.">
+            <Field label="Cidade e Estado" hint="Ex.: Balneário Camboriú - SC">
+              <Input value={state.city_state} onChange={(e) => set("city_state", e.target.value)} />
+            </Field>
+            <Field label="Partido atual">
+              <Input value={state.party} onChange={(e) => set("party", e.target.value)} />
+            </Field>
+            <Field label="Este é o seu...">
+              <RadioGroup
+                options={MANDATE_OPTIONS}
+                value={state.mandate}
+                onChange={(v) => set("mandate", v)}
+              />
+            </Field>
+            <Field
+              label="Cargos ou funções na Câmara"
+              hint='Ex.: Presidente da Comissão de Saúde, Líder de bancada, Mesa Diretora. Se não tiver, escreva "Nenhum".'
+            >
+              <Input value={state.positions} onChange={(e) => set("positions", e.target.value)} />
+            </Field>
+            <Field
+              label="WhatsApp que será usado no Assessor 24h"
+              hint="Com DDD. Ex.: (47) 99999-9999. É por este número que o Assessor 24h te reconhece."
+            >
               <Input
                 value={state.phone}
                 onChange={(e) => set("phone", e.target.value)}
                 inputMode="tel"
-                placeholder="(47) 99184-8380"
-              />
-            </Field>
-            <div className="grid grid-cols-3 gap-3">
-              <div className="col-span-2">
-                <Field label="Cidade">
-                  <Input value={state.city} onChange={(e) => set("city", e.target.value)} />
-                </Field>
-              </div>
-              <Field label="UF">
-                <Input
-                  value={state.state}
-                  onChange={(e) => set("state", e.target.value.toUpperCase().slice(0, 2))}
-                  placeholder="SC"
-                />
-              </Field>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Partido">
-                <Input value={state.party} onChange={(e) => set("party", e.target.value)} />
-              </Field>
-              <Field label="Mandato">
-                <Input
-                  value={state.mandate}
-                  onChange={(e) => set("mandate", e.target.value)}
-                  placeholder="2º (2025–2028)"
-                />
-              </Field>
-            </div>
-            <Field label="Cargos e comissões" hint="Separe por vírgula.">
-              <Input
-                defaultValue={state.positions.join(", ")}
-                onChange={(e) => set("positions", listToArray(e.target.value))}
-                placeholder="Presidente da Comissão de Saúde, Líder de bancada"
+                placeholder="(47) 99999-9999"
               />
             </Field>
           </>
         )}
 
-        {/* 2. Posicionamento */}
+        {/* SEÇÃO 2 — Posicionamento político */}
         {step === 1 && (
           <>
-            <Field label="Espectro político">
-              <select
-                className={selectBase}
-                value={state.political_spectrum}
-                onChange={(e) => set("political_spectrum", e.target.value as PoliticalSpectrum)}
-              >
-                {SPECTRUM_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Bandeiras do mandato" hint="Separe por vírgula. Viram os pilares do conteúdo.">
-              <Input
-                defaultValue={state.flags.join(", ")}
-                onChange={(e) => set("flags", listToArray(e.target.value))}
-                placeholder="Saúde na periferia, mobilidade, pequeno comércio"
+            <Field label="Como você define seu posicionamento no espectro político?">
+              <RadioGroup
+                options={SPECTRUM_OPTIONS.map((o) => o.label)}
+                value={SPECTRUM_LABEL[state.political_spectrum as PoliticalSpectrum] ?? ""}
+                onChange={(label) => {
+                  const found = SPECTRUM_OPTIONS.find((o) => o.label === label);
+                  if (found) set("political_spectrum", found.value);
+                }}
               />
             </Field>
-            <Field label="Base eleitoral" hint="Bairros, regiões e grupos onde estão seus votos.">
+            <Field label="Quais são as principais bandeiras do seu mandato? (escolha até 3)">
+              <Chips
+                options={FLAG_OPTIONS}
+                selected={state.flags}
+                onToggle={toggleFlag}
+                disabledExtra={state.flags.length >= 3}
+              />
+            </Field>
+            <Field label="Quais bairros ou regiões da cidade são sua principal base eleitoral?">
               <Textarea
                 value={state.electoral_base}
                 onChange={(e) => set("electoral_base", e.target.value)}
               />
             </Field>
-            <Field label="Perfil do eleitorado">
+            <Field
+              label="Qual é o perfil predominante do seu eleitorado?"
+              hint="Ex.: famílias de classe média, idosos, jovens, comerciantes, comunidade evangélica, servidores públicos..."
+            >
               <Textarea
                 value={state.voter_profile}
                 onChange={(e) => set("voter_profile", e.target.value)}
-                placeholder="Idade, ocupação, renda, o que consome nas redes…"
-              />
-            </Field>
-            <Field label="Principais dores desse eleitorado">
-              <Textarea
-                value={state.audience_pains}
-                onChange={(e) => set("audience_pains", e.target.value)}
-                placeholder="O que faz a pessoa procurar o gabinete."
-              />
-            </Field>
-            <Field label="Como quer ser reconhecido">
-              <Textarea
-                value={state.positioning_recognition}
-                onChange={(e) => set("positioning_recognition", e.target.value)}
-                placeholder='Ex.: "O vereador que resolve o problema do bairro."'
               />
             </Field>
           </>
         )}
 
-        {/* 3. Tom e estilo */}
+        {/* SEÇÃO 3 — Tom e estilo de comunicação */}
         {step === 2 && (
           <>
-            <Field label="Como o mandato deve soar?" hint="Escolha quantos combinarem.">
-              <Chips
-                options={TONE_OPTIONS.map((o) => ({ value: o, label: o }))}
-                selected={state.tone_profile}
-                onToggle={(v) => toggle("tone_profile", v as never)}
-              />
-            </Field>
-            <Field label="Descreva o tom com suas palavras" hint="Opcional.">
-              <Input
+            <Field label="Qual estilo de comunicação mais combina com você?">
+              <RadioGroup
+                options={TONE_OPTIONS}
                 value={state.tone_of_voice}
-                onChange={(e) => set("tone_of_voice", e.target.value)}
-                placeholder="Falo como quem senta no bar com o eleitor."
+                onChange={(v) => set("tone_of_voice", v)}
               />
             </Field>
-            <Field label="Gírias e expressões que você usa" hint="Separe por vírgula. É o que te faz soar você.">
-              <Input
-                defaultValue={state.slang_expressions.join(", ")}
-                onChange={(e) => set("slang_expressions", listToArray(e.target.value))}
-                placeholder="meu povo, tamo junto, na prática"
+            <Field label="Sobre gírias e expressões regionais">
+              <RadioGroup
+                options={SLANG_OPTIONS}
+                value={state.slang_style}
+                onChange={(v) => set("slang_style", v)}
               />
             </Field>
-            <Field label="Emojis que combinam com você" hint="Se não usa emoji, é só não marcar nenhum.">
-              <Chips
-                options={EMOJI_OPTIONS.map((e) => ({ value: e, label: e }))}
-                selected={state.emojis}
-                onToggle={(v) => toggle("emojis", v as never)}
+            <Field label="Sobre emojis nas publicações">
+              <RadioGroup
+                options={EMOJI_OPTIONS}
+                value={state.emoji_style}
+                onChange={(v) => set("emoji_style", v)}
               />
             </Field>
-            <Field label="Como as pessoas devem se referir a você?">
-              <Input
+            <Field label="Nos textos em terceira pessoa (releases, matérias), como devemos nos referir a você?">
+              <RadioGroup
+                options={HOW_TO_REFER_OPTIONS}
                 value={state.how_to_refer}
-                onChange={(e) => set("how_to_refer", e.target.value)}
-                placeholder="Vereador Zé / Zé do Bairro / Professor Zé"
+                onChange={(v) => set("how_to_refer", v)}
               />
             </Field>
-            <Field label="Seu bordão" hint="A frase que fecha seus vídeos e posts.">
-              <Input
-                value={state.catchphrase}
-                onChange={(e) => set("catchphrase", e.target.value)}
-                placeholder="Trabalho que se vê, resultado que se sente."
-              />
+            <Field
+              label="Existe algum bordão, slogan ou frase de campanha que você usa?"
+              hint='Ex.: "Trabalho que aparece", "Aqui tem trabalho". Se não tiver nenhum, escreva "Não".'
+            >
+              <Input value={state.catchphrase} onChange={(e) => set("catchphrase", e.target.value)} />
             </Field>
           </>
         )}
 
-        {/* 4. Limites */}
+        {/* SEÇÃO 4 — Limites e cuidados */}
         {step === 3 && (
           <>
             <p className="text-sm text-ink-500">
-              Tudo aqui é regra absoluta: nunca aparece no seu conteúdo, nem por insinuação.
+              Tão importante quanto saber o que dizer é saber o que NUNCA dizer. Estas respostas
+              são estritamente confidenciais.
             </p>
-            <Field label="Temas proibidos" hint="Separe por vírgula.">
+            <Field
+              label="Quais temas NUNCA devem aparecer nas suas comunicações?"
+              hint='Ex.: temas polêmicos nacionais, religião, futebol... Se não houver, escreva "Nenhum".'
+            >
               <Input
-                defaultValue={state.forbidden_themes.join(", ")}
-                onChange={(e) => set("forbidden_themes", listToArray(e.target.value))}
-                placeholder="aborto, futebol, religião alheia"
+                value={state.forbidden_themes}
+                onChange={(e) => set("forbidden_themes", e.target.value)}
               />
             </Field>
-            <Field label="Adversários que não devem ser citados" hint="Nomes, separados por vírgula.">
-              <Input
-                defaultValue={state.adversaries.join(", ")}
-                onChange={(e) => set("adversaries", listToArray(e.target.value))}
+            <Field
+              label="Há adversários políticos ou figuras públicas que NÃO devem ser citados nos seus textos?"
+              hint='Se não houver, escreva "Nenhum".'
+            >
+              <Input value={state.adversaries} onChange={(e) => set("adversaries", e.target.value)} />
+            </Field>
+            <Field label="Qual é a sua relação com o atual prefeito?">
+              <RadioGroup
+                options={MAYOR_RELATION_OPTIONS}
+                value={state.mayor_relation}
+                onChange={(v) => set("mayor_relation", v)}
               />
             </Field>
-            <Field label="Relação com o prefeito">
-              <Chips
-                options={MAYOR_OPTIONS.map((o) => ({ value: o, label: o }))}
-                selected={state.mayor_relation ? [state.mayor_relation] : []}
-                onToggle={(v) => set("mayor_relation", state.mayor_relation === v ? "" : (v as string))}
-              />
-            </Field>
-            <Field label="Histórico a evitar" hint="Episódios que não devem ser trazidos à tona.">
+            <Field
+              label="Existe algum assunto do seu histórico pessoal ou político que devemos evitar mencionar?"
+              hint='Estritamente confidencial. Se não houver, escreva "Nenhum".'
+            >
               <Textarea
                 value={state.history_to_avoid}
                 onChange={(e) => set("history_to_avoid", e.target.value)}
               />
             </Field>
-            <Field label="Valores inegociáveis">
-              <Textarea value={state.core_values} onChange={(e) => set("core_values", e.target.value)} />
-            </Field>
           </>
         )}
 
-        {/* 5. Referências */}
+        {/* SEÇÃO 5 — Referências */}
         {step === 4 && (
           <>
-            <div className="grid gap-3">
-              <Field label="Instagram do mandato">
-                <Input
-                  value={state.instagram_url}
-                  onChange={(e) => set("instagram_url", e.target.value)}
-                  placeholder="@vereadorze"
-                />
-              </Field>
-              <Field label="Site ou outra rede">
-                <Input
-                  value={state.website_url}
-                  onChange={(e) => set("website_url", e.target.value)}
-                  placeholder="https://…"
-                />
-              </Field>
-            </div>
-            <Field
-              label="Publicações que representam bem o mandato"
-              hint="Cole os links, um por linha — servem de calibragem de estilo."
-            >
+            <p className="text-sm text-ink-500">Materiais que nos ajudam a capturar a sua voz.</p>
+            <Field label="Link do seu Instagram">
+              <Input
+                value={state.instagram_url}
+                onChange={(e) => set("instagram_url", e.target.value)}
+              />
+            </Field>
+            <Field label="Link do seu site ou outra rede social relevante">
+              <Input value={state.website_url} onChange={(e) => set("website_url", e.target.value)} />
+            </Field>
+            <Field label='Cole aqui o link (ou o texto) de 2 ou 3 publicações que você considera "a sua cara"'>
               <Textarea
-                defaultValue={state.reference_publications.join("\n")}
-                onChange={(e) => set("reference_publications", listToArray(e.target.value))}
+                value={state.reference_publications}
+                onChange={(e) => set("reference_publications", e.target.value)}
               />
             </Field>
             <Field
-              label="Imprensa local"
-              hint="Jornais, rádios, portais e blogs que cobrem sua cidade — um por linha."
+              label="Quais veículos de imprensa locais costumam publicar suas pautas?"
+              hint="Ex.: portais, rádios e jornais da sua cidade"
             >
-              <Textarea
-                defaultValue={state.local_press.join("\n")}
-                onChange={(e) => set("local_press", listToArray(e.target.value))}
-                placeholder="Rádio Cidade AM&#10;Portal Notícias do Vale"
-              />
+              <Textarea value={state.local_press} onChange={(e) => set("local_press", e.target.value)} />
             </Field>
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-ink-700">Quem inspira sua comunicação</p>
-              <p className="text-xs text-ink-400">
-                Até 10 perfis. Analisamos estilo e estrutura para entender o que te atrai — sem
-                copiar nada.
-              </p>
-              {state.inspiration_refs.map((r, i) => (
-                <div key={i} className="space-y-2 rounded-2xl bg-sand-100 p-3">
-                  <div className="flex gap-2">
-                    <select
-                      className={`${selectBase} flex-1`}
-                      value={r.kind}
-                      onChange={(e) => updateRef(i, { kind: e.target.value as InspirationRefInput["kind"] })}
-                    >
-                      {REFERENCE_KINDS.map((k) => (
-                        <option key={k.value} value={k.value}>
-                          {k.label}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      onClick={() => removeRef(i)}
-                      className="shrink-0 rounded-full bg-sand-200 px-3 text-sm text-ink-500 hover:bg-sand-300"
-                      aria-label="Remover referência"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                  <Input
-                    value={r.name}
-                    onChange={(e) => updateRef(i, { name: e.target.value })}
-                    placeholder="Nome da pessoa ou perfil"
-                  />
-                  <Input
-                    value={r.url}
-                    onChange={(e) => updateRef(i, { url: e.target.value })}
-                    placeholder="Link do perfil"
-                  />
-                </div>
-              ))}
-              {state.inspiration_refs.length < 10 ? (
-                <Button variant="secondary" full onClick={addRef} type="button">
-                  + Adicionar referência
-                </Button>
-              ) : (
-                <p className="text-center text-xs text-ink-400">Limite de 10 referências.</p>
-              )}
-            </div>
           </>
         )}
 
-        {/* 6. Influências */}
+        {/* SEÇÃO 6 — Revisão e consentimento */}
         {step === 5 && (
           <>
             <p className="text-sm text-ink-500">
-              Portais, rádios, jornalistas, colunistas e perfis que você acompanha. Quando você
-              pedir uma matéria ou um discurso, o Assessor 24h consulta essas fontes na prioridade
-              que você definir — em vez de inventar dados sobre a sua cidade.
-            </p>
-            {state.influence_sources.map((src, i) => (
-              <div key={i} className="space-y-2 rounded-2xl bg-sand-100 p-3">
-                <div className="flex gap-2">
-                  <select
-                    className={`${selectBase} flex-1`}
-                    value={src.kind}
-                    onChange={(e) => updateSource(i, { kind: e.target.value as InfluenceSourceInput["kind"] })}
-                  >
-                    {INFLUENCE_KINDS.map((k) => (
-                      <option key={k.value} value={k.value}>
-                        {k.label}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={() => removeSource(i)}
-                    className="shrink-0 rounded-full bg-sand-200 px-3 text-sm text-ink-500 hover:bg-sand-300"
-                    aria-label="Remover fonte"
-                  >
-                    ✕
-                  </button>
-                </div>
-                <Input
-                  value={src.label}
-                  onChange={(e) => updateSource(i, { label: e.target.value })}
-                  placeholder="Nome (ex.: Rádio Cidade, @jornalista)"
-                />
-                <Input
-                  value={src.url}
-                  onChange={(e) => updateSource(i, { url: e.target.value })}
-                  placeholder="Link (opcional)"
-                />
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-ink-500">Prioridade:</span>
-                  <Chips
-                    options={PRIORITY_OPTIONS}
-                    selected={[src.priority]}
-                    onToggle={(v) => updateSource(i, { priority: v as InfluenceSourceInput["priority"] })}
-                  />
-                </div>
-              </div>
-            ))}
-            {state.influence_sources.length < 80 ? (
-              <Button variant="secondary" full onClick={addSource} type="button">
-                + Adicionar fonte
-              </Button>
-            ) : (
-              <p className="text-center text-xs text-ink-400">Limite de 80 fontes.</p>
-            )}
-            <Field
-              label="Alguma fonte que NÃO deve ser usada?"
-              hint="Separe por vírgula ou linha. Nunca consultaremos essas fontes."
-            >
-              <Textarea
-                value={state.blocked_sources}
-                onChange={(e) => set("blocked_sources", e.target.value)}
-              />
-            </Field>
-          </>
-        )}
-
-        {/* 7. Preferências */}
-        {step === 6 && (
-          <>
-            <Field
-              label="Temas principais do conteúdo"
-              hint="Separe por vírgula. Em branco, usamos as bandeiras do mandato."
-            >
-              <Input
-                defaultValue={state.main_themes.join(", ")}
-                onChange={(e) => set("main_themes", listToArray(e.target.value))}
-              />
-            </Field>
-            <Field label="Segmentação" hint="Bairros, categorias e grupos que você quer alcançar.">
-              <Input
-                defaultValue={state.audience_segments.join(", ")}
-                onChange={(e) => set("audience_segments", listToArray(e.target.value))}
-                placeholder="Centro, Vila Nova, professores, comerciantes"
-              />
-            </Field>
-            <Field label="Formatos preferidos">
-              <Chips
-                options={FORMAT_OPTIONS}
-                selected={state.preferred_formats}
-                onToggle={(v) => toggle("preferred_formats", v as never)}
-              />
-            </Field>
-            <Field label="Quantos dias por semana pretende publicar?">
-              <Input
-                type="number"
-                min={1}
-                max={7}
-                value={state.publish_days_per_week}
-                onChange={(e) => {
-                  const days = Number(e.target.value);
-                  set("publish_days_per_week", days);
-                  if (days >= 1 && days <= 21) set("weekly_goal", days);
-                }}
-              />
-            </Field>
-            <Field label="Dias preferidos">
-              <Chips
-                options={DAY_OPTIONS}
-                selected={state.preferred_days}
-                onToggle={(v) => toggle("preferred_days", v as never)}
-              />
-            </Field>
-            <Field label="Duração dos vídeos (segundos)">
-              <Input
-                type="number"
-                min={10}
-                max={600}
-                value={state.video_duration_sec}
-                onChange={(e) => set("video_duration_sec", Number(e.target.value))}
-              />
-            </Field>
-            <Field label="Nível de acompanhamento">
-              <Chips
-                options={FOLLOWUP}
-                selected={[state.follow_up_level]}
-                onToggle={(v) => set("follow_up_level", v as State["follow_up_level"])}
-              />
-            </Field>
-          </>
-        )}
-
-        {/* 8. Revisão */}
-        {step === 7 && (
-          <>
-            <p className="text-sm text-ink-500">
-              Confira as respostas. Ao enviar, geramos o DNA Editorial do mandato — o documento que
-              orienta o Assessor 24h em cada resposta.
+              Confira as respostas. Ao enviar, geramos o DNA Editorial do mandato — o documento
+              que orienta o Assessor 24h em cada resposta.
             </p>
             <div className="rounded-2xl bg-sand-100 p-4">
               <Review label="Nome" value={`${state.political_name} (${state.full_name})`} />
               <Review label="WhatsApp" value={formatPhoneBR(state.phone)} />
-              <Review
-                label="Mandato"
-                value={[state.city && `${state.city}/${state.state}`, state.party, state.mandate]
-                  .filter(Boolean)
-                  .join(" · ")}
-              />
+              <Review label="Cidade e Estado" value={state.city_state} />
+              <Review label="Mandato" value={[state.party, state.mandate].filter(Boolean).join(" · ")} />
               <Review label="Cargos" value={state.positions} />
-              <Review label="Espectro" value={SPECTRUM_LABEL[state.political_spectrum]} />
+              <Review
+                label="Espectro"
+                value={state.political_spectrum ? SPECTRUM_LABEL[state.political_spectrum] : ""}
+              />
               <Review label="Bandeiras" value={state.flags} />
-              <Review label="Base eleitoral" value={state.electoral_base} />
-              <Review label="Tom" value={state.tone_profile} />
-              <Review label="Expressões" value={state.slang_expressions} />
-              <Review label="Emojis" value={state.emojis} />
+              <Review label="Estilo de comunicação" value={state.tone_of_voice} />
               <Review label="Bordão" value={state.catchphrase} />
               <Review label="Temas proibidos" value={state.forbidden_themes} />
               <Review label="Adversários (não citar)" value={state.adversaries} />
               <Review label="Relação com o prefeito" value={state.mayor_relation} />
-              <Review label="Imprensa local" value={state.local_press} />
-              <Review label="Fontes" value={`${state.influence_sources.length} cadastrada(s)`} />
-              <Review label="Referências" value={`${state.inspiration_refs.length} link(s)`} />
-              <Review label="Meta semanal" value={`${state.weekly_goal} publicações`} />
             </div>
+
+            <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-sand-300 bg-sand-50 p-4 text-sm">
+              <input
+                type="checkbox"
+                className="mt-0.5"
+                checked={state.lgpd_consent}
+                onChange={(e) => set("lgpd_consent", e.target.checked)}
+              />
+              <span className="text-ink-700">
+                Autorizo o uso das informações fornecidas neste formulário exclusivamente para a
+                personalização e prestação do serviço Assessor 24h, nos termos da Lei Geral de
+                Proteção de Dados (Lei nº 13.709/2018). Estou ciente de que posso solicitar a
+                exclusão dos meus dados a qualquer momento.
+              </span>
+            </label>
           </>
         )}
 

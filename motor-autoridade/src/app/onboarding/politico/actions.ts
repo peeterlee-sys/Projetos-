@@ -8,10 +8,11 @@ import { generatePoliticalDna } from "@/lib/dna/political";
 export type AnamneseResult = { ok: false; error: string } | { ok: true };
 
 /**
- * Persiste a ANAMNESE POLÍTICA do vereador: garante tenant, grava o perfil da
- * trilha 'political', preferências, fontes e referências; constrói o
- * contexto_mestre, gera o DNA Editorial político e marca a anamnese concluída.
- * Todas as escritas respeitam a RLS (o usuário só grava o próprio registro).
+ * Persiste a ANAMNESE POLÍTICA do vereador — espelha o Google Form "Assessor
+ * 24h - Anamnese", pergunta por pergunta. Garante tenant, grava o perfil da
+ * trilha 'political', constrói o contexto_mestre, gera o DNA Editorial
+ * político e marca a anamnese concluída. Todas as escritas respeitam a RLS
+ * (o usuário só grava o próprio registro).
  */
 export async function submitAnamnesePolitica(raw: unknown): Promise<AnamneseResult> {
   const parsed = anamnesePoliticaSchema.safeParse(raw);
@@ -64,10 +65,8 @@ export async function submitAnamnesePolitica(raw: unknown): Promise<AnamneseResu
   }
 
   // Contexto da cidade: é o admin quem mantém (biblioteca por cidade+UF), não
-  // o vereador. Aqui só herdamos o contexto já cadastrado da cidade — e só se
-  // o perfil ainda não tiver um (nunca sobrescreve o que o admin já escreveu,
-  // nem numa segunda vez que o vereador refaça a anamnese).
-  const stateUpper = data.state.toUpperCase();
+  // o vereador — esse campo nem existe no formulário. Aqui só herdamos o
+  // contexto já cadastrado da cidade, e só se o perfil ainda não tiver um.
   const { data: existingProfile } = await supabase
     .from("client_profiles")
     .select("local_context")
@@ -80,7 +79,7 @@ export async function submitAnamnesePolitica(raw: unknown): Promise<AnamneseResu
       .from("city_contexts")
       .select("context")
       .ilike("city", data.city)
-      .eq("state", stateUpper)
+      .eq("state", data.state)
       .maybeSingle();
     if (cityCtx?.context) localContext = cityCtx.context;
   }
@@ -92,124 +91,46 @@ export async function submitAnamnesePolitica(raw: unknown): Promise<AnamneseResu
       profile_track: "political",
       segment: "vereadores",
       profession: "Vereador(a)",
-      // 1. Identificação
+      // SEÇÃO 1 — Identificação
       display_name: data.political_name,
       political_name: data.political_name,
       phone: data.phone,
       city: data.city,
-      state: stateUpper,
-      party: data.party || null,
-      mandate: data.mandate || null,
+      state: data.state,
+      party: data.party,
+      mandate: data.mandate,
       positions: data.positions,
       ...(localContext ? { local_context: localContext } : {}),
-      // 2. Posicionamento
+      // SEÇÃO 2 — Posicionamento político
       political_spectrum: data.political_spectrum,
       flags: data.flags,
-      electoral_base: data.electoral_base || null,
-      voter_profile: data.voter_profile || null,
-      target_audience: data.voter_profile || null,
-      audience_pains: data.audience_pains || null,
-      positioning_recognition: data.positioning_recognition || null,
-      // 3. Tom e estilo
-      tone_profile: data.tone_profile,
-      tone_of_voice: data.tone_of_voice || data.tone_profile.join(", ") || null,
-      slang_expressions: data.slang_expressions,
-      emojis: data.emojis,
-      how_to_refer: data.how_to_refer || null,
-      catchphrase: data.catchphrase || null,
-      // 4. Limites
+      main_themes: data.flags,
+      electoral_base: data.electoral_base,
+      voter_profile: data.voter_profile,
+      target_audience: data.voter_profile,
+      // SEÇÃO 3 — Tom e estilo de comunicação
+      tone_of_voice: data.tone_of_voice,
+      tone_profile: [data.tone_of_voice],
+      slang_expressions: [data.slang_style],
+      emojis: [data.emoji_style],
+      how_to_refer: data.how_to_refer,
+      catchphrase: data.catchphrase,
+      // SEÇÃO 4 — Limites e cuidados
       forbidden_themes: data.forbidden_themes,
       adversaries: data.adversaries,
-      mayor_relation: data.mayor_relation || null,
-      history_to_avoid: data.history_to_avoid || null,
-      core_values: data.core_values || null,
-      // 5. Referências
+      mayor_relation: data.mayor_relation,
+      history_to_avoid: data.history_to_avoid,
+      // SEÇÃO 5 — Referências
       instagram_url: data.instagram_url || null,
       website_url: data.website_url || null,
       reference_publications: data.reference_publications,
       local_press: data.local_press,
-      // 7. Preferências
-      main_themes: data.main_themes.length > 0 ? data.main_themes : data.flags,
-      audience_segments: data.audience_segments,
-      publish_days_per_week: data.publish_days_per_week,
-      follow_up_level: data.follow_up_level,
+      // SEÇÃO 6 — Consentimento (LGPD)
+      lgpd_consent_at: new Date().toISOString(),
     },
     { onConflict: "user_id" }
   );
   if (profileErr) return { ok: false, error: "Falha ao salvar o perfil do mandato." };
-
-  const { error: prefErr } = await supabase.from("client_preferences").upsert(
-    {
-      tenant_id: tenantId,
-      user_id: user.id,
-      video_duration_sec: data.video_duration_sec,
-      preferred_formats: data.preferred_formats,
-      weekly_goal: data.weekly_goal,
-      preferred_days: data.preferred_days,
-      notification_level: data.follow_up_level,
-    },
-    { onConflict: "user_id" }
-  );
-  if (prefErr) return { ok: false, error: "Falha ao salvar as preferências." };
-
-  // Fontes: as escolhidas + a imprensa local (etapa 5) + as bloqueadas em texto
-  // livre. Substitui o conjunto do usuário — a anamnese é sempre idempotente.
-  const pressRows = data.local_press
-    .map((s) => s.trim())
-    .filter(Boolean)
-    .map((label) => ({
-      kind: "site" as const,
-      label,
-      url: "",
-      priority: "high" as const,
-      is_blocked: false,
-    }));
-
-  const blockedRows = (data.blocked_sources ?? "")
-    .split(/[\n,;]+/)
-    .map((s) => s.trim())
-    .filter(Boolean)
-    .map((label) => ({
-      kind: "other" as const,
-      label,
-      url: "",
-      priority: "low" as const,
-      is_blocked: true,
-    }));
-
-  const sourceRows = [...data.influence_sources, ...pressRows, ...blockedRows]
-    .filter((s) => s.label?.trim() || s.url?.trim())
-    .map((s) => ({
-      tenant_id: tenantId,
-      user_id: user.id,
-      kind: s.kind,
-      label: s.label?.trim() || null,
-      url: s.url?.trim() || null,
-      priority: s.priority,
-      is_blocked: s.is_blocked,
-    }));
-
-  await supabase.from("influence_sources").delete().eq("user_id", user.id);
-  if (sourceRows.length > 0) {
-    const { error: srcErr } = await supabase.from("influence_sources").insert(sourceRows);
-    if (srcErr) return { ok: false, error: "Falha ao salvar as fontes." };
-  }
-
-  const refRows = data.inspiration_refs
-    .filter((r) => r.url.trim())
-    .map((r) => ({
-      tenant_id: tenantId,
-      user_id: user.id,
-      kind: r.kind,
-      url: r.url.trim(),
-      name: r.name?.trim() || null,
-    }));
-
-  await supabase.from("inspiration_refs").delete().eq("user_id", user.id);
-  if (refRows.length > 0) {
-    const { error: refErr } = await supabase.from("inspiration_refs").insert(refRows);
-    if (refErr) return { ok: false, error: "Falha ao salvar as referências." };
-  }
 
   const { data: ctx } = await supabase.rpc("build_contexto_mestre", { p_user_id: user.id });
   await supabase
