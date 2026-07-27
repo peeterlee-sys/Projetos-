@@ -232,3 +232,22 @@ Se o DNA estiver vazio: painel → *Falhas de IA*. Ele pode refazer em
 
 Na dúvida, o painel é o termômetro: `assessor24h.ia.br/painel` mostra falhas de
 IA, falhas do Make e a última execução do cenário.
+
+---
+
+## Depois do go-live (decidido, ainda não feito)
+
+Nesta ordem, quando os blocos A–F estiverem redondos:
+
+1. **Dashboard do vereador** — o app já tem a área do cliente (Hoje, Biblioteca,
+   tela de conteúdo com roteiro e legenda). Falta o cenário do Make devolver o
+   que gerou no WhatsApp para o banco (ação `save_content` na `/api/make`), para
+   que apareça na Biblioteca e a assessoria copie de um computador.
+   **Acesso: a assessoria usa o mesmo login e senha do vereador** — sem conta
+   separada, sem gestão de permissão.
+   *Estimativa: meio dia.*
+
+2. **Métricas de atendimento no WhatsApp** — ação `log_interaction` para o
+   painel mostrar última interação, atendimentos na semana e assuntos mais
+   pedidos. Hoje essas colunas ficam vazias porque o vereador só usa WhatsApp.
+   *Estimativa: ~2 horas.*
