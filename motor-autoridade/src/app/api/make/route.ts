@@ -385,6 +385,37 @@ const VEREADOR_FIELDS =
   "positioning_recognition, editorial_dna, contexto_mestre, dna_generated_at, profile_track";
 
 /**
+ * Bloco de texto livre com o perfil e as diretrizes do mandato — equivalente
+ * à coluna "Perfil" da planilha antiga, montado a partir dos campos brutos da
+ * anamnese (não depende do DNA Editorial gerado por IA, que é best-effort).
+ */
+function buildPerfilTexto(p: Record<string, unknown>): string {
+  const lines: string[] = [];
+  const push = (label: string, value: unknown) => {
+    if (Array.isArray(value)) {
+      if (value.length) lines.push(`${label}: ${value.join(", ")}`);
+    } else if (typeof value === "string" && value.trim()) {
+      lines.push(`${label}: ${value.trim()}`);
+    }
+  };
+  push("Espectro político", p.political_spectrum);
+  push("Bandeiras", p.flags);
+  push("Base eleitoral", p.electoral_base);
+  push("Perfil do eleitorado", p.voter_profile);
+  push("Tom de voz", p.tone_of_voice);
+  push("Gírias/expressões", p.slang_expressions);
+  push("Uso de emojis", p.emojis);
+  push("Como se referir a ele(a)", p.how_to_refer);
+  push("Bordão", p.catchphrase);
+  push("Valores inegociáveis", p.core_values);
+  push("Relação com o prefeito", p.mayor_relation);
+  push("NUNCA aborde estes temas", p.forbidden_themes);
+  push("NUNCA cite estes nomes/adversários", p.adversaries);
+  push("Histórico a evitar", p.history_to_avoid);
+  return lines.join("\n");
+}
+
+/**
  * ASSESSOR 24H — substitui a busca na "Planilha de Nomes".
  * Dado o telefone do WhatsApp (ou o user_id), devolve o mandato completo com o
  * DNA Editorial. Se o vereador ainda não fez a anamnese no app, cai no registro
@@ -441,7 +472,9 @@ async function getVereador(supabase: Supabase, payload: Record<string, unknown>)
   }
 
   const userId = profile.user_id as string;
-  const [{ data: user }, { data: sources }, { data: recent }] = await Promise.all([
+  const city = profile.city as string | null;
+  const state = profile.state as string | null;
+  const [{ data: user }, { data: sources }, { data: recent }, { data: cityCtx }] = await Promise.all([
     supabase.from("users").select("full_name, email").eq("id", userId).maybeSingle(),
     supabase
       .from("influence_sources")
@@ -454,9 +487,16 @@ async function getVereador(supabase: Supabase, payload: Record<string, unknown>)
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
       .limit(5),
+    city && state
+      ? supabase.from("city_contexts").select("context").ilike("city", city).eq("state", state).maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
 
   const allSources = sources ?? [];
+  // Contexto da cidade é biblioteca do admin (city_contexts) — busca ao vivo
+  // a cada resposta, para valer a atualização mais recente do admin em vez do
+  // valor que ficou congelado em client_profiles.local_context na anamnese.
+  const localContext = cityCtx?.context?.trim() || (profile.local_context as string | null) || null;
 
   return {
     found: true,
@@ -465,6 +505,8 @@ async function getVereador(supabase: Supabase, payload: Record<string, unknown>)
       ...profile,
       name: user?.full_name ?? profile.political_name ?? null,
       email: user?.email ?? null,
+      local_context: localContext,
+      perfil_texto: buildPerfilTexto(profile),
       fontes: allSources
         .filter((s) => !s.is_blocked)
         .sort((a, b) => (PRIORITY_ORDER[a.priority] ?? 1) - (PRIORITY_ORDER[b.priority] ?? 1))
