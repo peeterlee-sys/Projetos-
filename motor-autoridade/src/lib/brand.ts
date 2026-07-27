@@ -39,6 +39,8 @@ export type Brand = {
   };
   /** Tela exibida logo após concluir a anamnese (antes de liberar o app). */
   thankYou: { title: string; body: string };
+  /** Número do assistente no WhatsApp (CTA na tela de agradecimento). */
+  whatsapp?: { number: string; message: string };
 };
 
 const BRANDS: Record<BrandId, Brand> = {
@@ -120,6 +122,10 @@ const BRANDS: Record<BrandId, Brand> = {
     thankYou: {
       title: "Muito obrigado — seu mandato já tem um assessor 24 horas por dia.",
       body: "A partir de agora, é só chamar no WhatsApp: peça um requerimento, um discurso ou uma matéria para a imprensa, e receba pronto, na sua voz. Sem esperar, sem depender de ninguém — o Assessor 24h nunca dorme.",
+    },
+    whatsapp: {
+      number: "5547999692321",
+      message: "Olá! Acabei de concluir minha anamnese no Assessor 24h.",
     },
   },
 };

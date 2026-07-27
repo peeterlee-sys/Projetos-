@@ -26,6 +26,17 @@ export default async function ObrigadoPage() {
         </h1>
         <p className="mt-3 text-[15px] leading-relaxed text-ink-700">{brand.thankYou.title}</p>
         <p className="mt-3 text-sm leading-relaxed text-ink-500">{brand.thankYou.body}</p>
+
+        {brand.whatsapp ? (
+          <a
+            href={`https://wa.me/${brand.whatsapp.number}?text=${encodeURIComponent(brand.whatsapp.message)}`}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full bg-brand-700 px-6 py-3.5 text-[15px] font-medium text-sand-50 transition hover:bg-brand-800"
+          >
+            Falar no WhatsApp agora
+          </a>
+        ) : null}
       </div>
 
       <form action="/auth/signout" method="post" className="mt-6">
