@@ -56,10 +56,12 @@ export async function updateSession(request: NextRequest) {
   const onboardingCleared = request.cookies.get("mo_onb")?.value === "1";
   const isWaiting = pathname === "/aguardando" || pathname.startsWith("/aguardando/");
   // /onboarding, suas trilhas (ex.: /onboarding/politico) e o link curto
-  // /anamnese ficam fora do gate: são justamente a tela que o gate exige que o
-  // usuário conclua — mandá-lo de volta para /onboarding perderia a trilha.
+  // /anamnese não passam pelo gate DE ONBOARDING — são justamente a tela que o
+  // gate exige que o usuário conclua, e mandá-lo de volta perderia a trilha.
+  // A aprovação de cadastro, porém, vale nelas também: sem isso qualquer pessoa
+  // com o link responderia a anamnese (e gastaria IA) antes de ser aprovada.
   const isOnboarding = ONBOARDING_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));
-  if (user && !isPublic && !isOnboarding && !onboardingCleared) {
+  if (user && !isPublic && !onboardingCleared) {
     const { data: profile } = await supabase
       .from("users")
       .select("onboarded_at, role, is_active")
@@ -90,14 +92,16 @@ export async function updateSession(request: NextRequest) {
       profile.role !== "admin" &&
       profile.role !== "super_admin";
 
-    if (needsOnboarding) {
+    if (needsOnboarding && !isOnboarding) {
       const url = request.nextUrl.clone();
       url.pathname = "/onboarding";
       return NextResponse.redirect(url);
     }
 
     // Liberado (ativo + onboarding ok): marca por 12h para não reconsultar.
-    if (profile) {
+    // Quem ainda deve a anamnese não recebe o cookie — senão o gate seria
+    // pulado nas próximas navegações e ele entraria no app sem responder.
+    if (profile && !needsOnboarding) {
       response.cookies.set("mo_onb", "1", {
         maxAge: 60 * 60 * 12,
         httpOnly: true,
