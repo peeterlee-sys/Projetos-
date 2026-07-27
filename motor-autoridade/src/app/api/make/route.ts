@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const result = await dispatch(supabase, envelope.action, envelope.payload);
+    const result = sanitizeDeep(await dispatch(supabase, envelope.action, envelope.payload));
     await finishExecution(supabase, logId, "done", result, Date.now() - started);
     return NextResponse.json({ status: "ok", ...result }, { status: 200 });
   } catch (err) {
@@ -67,6 +67,25 @@ export async function POST(request: NextRequest) {
     await supabase.from("system_errors").insert({ scope: "make", message, context: { action: envelope.action } });
     return NextResponse.json({ status: "error", message }, { status: 500 });
   }
+}
+
+/**
+ * Remove caracteres invisíveis de controle/quebra-de-linha "exóticos" (ex.:
+ * U+2028 LINE SEPARATOR, que às vezes vem colado de editores ricos e não é
+ * ByteString-safe) de qualquer texto digitado pelo vereador na anamnese, para
+ * nunca virar HTTP header inválido nem quebrar a resposta ao Make.
+ */
+const INVISIBLE_CONTROL_CHARS = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F\u2028\u2029]/g;
+
+function sanitizeDeep<T>(value: T): T {
+  if (typeof value === "string") return value.replace(INVISIBLE_CONTROL_CHARS, "") as unknown as T;
+  if (Array.isArray(value)) return value.map(sanitizeDeep) as unknown as T;
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, sanitizeDeep(v)])
+    ) as T;
+  }
+  return value;
 }
 
 type Supabase = ReturnType<typeof createServiceClient>;
