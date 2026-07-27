@@ -32,6 +32,19 @@ Um deploy novo, do mesmo repositório:
    No projeto do Take **não mexa em nada**: sem `NEXT_PUBLIC_BRAND`, ele
    continua sendo o Take, com o banco dele.
 4. **Domínio** — `assessor24h.ia.br` no projeto novo (seção 4).
+5. **Seu acesso de admin** — cadastre-se normalmente em
+   `assessor24h.ia.br/signup` e depois promova a conta no SQL Editor do
+   Supabase novo:
+
+   ```sql
+   update public.users
+      set role = 'super_admin', is_active = true
+    where email = 'seu@email.com';
+   ```
+
+   `super_admin` enxerga todos os mandatos, independente de tenant. Faça isso
+   **antes** de importar as planilhas — é assim que você entra no painel e
+   aprova os cadastros dos vereadores.
 
 O que a marca muda: nome e logotipo, título e PWA, textos da landing, persona
 dos prompts de IA e a trilha de anamnese — no Assessor 24h, `/onboarding` já
