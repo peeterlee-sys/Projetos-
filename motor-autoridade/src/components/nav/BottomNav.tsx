@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Sun, BookOpen, TrendingUp, User } from "lucide-react";
+import { Sun, BookOpen, History, User } from "lucide-react";
 
 const items = [
   { href: "/hoje", label: "Hoje", icon: Sun },
   { href: "/biblioteca", label: "Biblioteca", icon: BookOpen },
-  { href: "/progresso", label: "Progresso", icon: TrendingUp },
+  { href: "/progresso", label: "Atividade", icon: History },
   { href: "/perfil", label: "Perfil", icon: User },
 ];
 

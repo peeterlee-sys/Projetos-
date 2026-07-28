@@ -113,6 +113,8 @@ async function dispatch(
       return getRadar(supabase, payload);
     case "get_history":
       return getHistory(supabase, payload);
+    case "save_document":
+      return saveDocument(supabase, payload);
     case "list_clients":
       return listClients(supabase, payload);
     case "register_error":
@@ -566,6 +568,57 @@ async function getHistory(supabase: Supabase, payload: Record<string, unknown>) 
     .order("created_at", { ascending: false })
     .limit(limit);
   return { history: data ?? [] };
+}
+
+/**
+ * ASSESSOR 24H — grava no histórico do vereador o documento que o Make acabou
+ * de gerar e entregar pelo WhatsApp (requerimento, projeto de lei, discurso,
+ * matéria...). É o que alimenta a aba "Atividade" do app e o painel do admin —
+ * sem isso, nada do que é feito pelo WhatsApp fica registrado em lugar nenhum.
+ */
+async function saveDocument(supabase: Supabase, payload: Record<string, unknown>) {
+  const schema = z
+    .object({
+      user_id: z.string().uuid().optional(),
+      phone: z.string().optional(),
+      tipo: z.enum(["requerimento", "projeto_lei", "discurso", "materia", "outro"]).default("outro"),
+      canal: z.enum(["audio", "texto"]).default("texto"),
+      titulo: z.string().min(1),
+      resumo: z.string().optional(),
+      conteudo: z.string().min(1),
+    })
+    .refine((v) => v.user_id || v.phone, { message: "informe user_id ou phone" });
+  const p = schema.parse(payload);
+
+  let userId = p.user_id ?? null;
+  if (!userId && p.phone) {
+    const variants = phoneVariants(p.phone);
+    const { data } = await supabase
+      .from("client_profiles")
+      .select("user_id")
+      .in("phone", variants)
+      .limit(1);
+    userId = (data ?? [])[0]?.user_id ?? null;
+  }
+  if (!userId) return { saved: false, reason: "vereador_nao_encontrado" };
+
+  const tenantId = await tenantOf(supabase, userId);
+  const { data: row, error } = await supabase
+    .from("atividades_whatsapp")
+    .insert({
+      tenant_id: tenantId,
+      user_id: userId,
+      tipo: p.tipo,
+      canal: p.canal,
+      titulo: p.titulo,
+      resumo: p.resumo ?? null,
+      conteudo: p.conteudo,
+    })
+    .select("id")
+    .single();
+  if (error || !row) throw new Error(error?.message ?? "falha ao registrar atividade");
+
+  return { saved: true, atividade_id: row.id };
 }
 
 async function registerError(supabase: Supabase, payload: Record<string, unknown>) {

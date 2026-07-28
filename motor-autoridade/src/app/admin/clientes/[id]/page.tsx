@@ -4,6 +4,16 @@ import { createClient } from "@/lib/supabase/server";
 import { computeProgress } from "@/lib/progress/compute";
 import { formatPhoneBR } from "@/lib/phone";
 import { SPECTRUM_LABEL, type PoliticalSpectrum } from "@/lib/validation/anamnese-politica";
+import { SendPushForm } from "./SendPushForm";
+
+const ATIVIDADE_TIPO_LABEL: Record<string, string> = {
+  requerimento: "Requerimento",
+  projeto_lei: "Projeto de lei",
+  discurso: "Discurso",
+  materia: "Matéria",
+  outro: "Outro",
+};
+const ATIVIDADE_CANAL_LABEL: Record<string, string> = { audio: "áudio", texto: "texto" };
 
 const STATUS_LABEL: Record<string, string> = {
   suggested: "Sugerido",
@@ -121,6 +131,7 @@ export default async function ClientDetail({ params }: { params: Promise<{ id: s
     { data: costs },
     { data: genLogs },
     { data: publications },
+    { data: atividades },
   ] = await Promise.all([
     supabase
       .from("client_profiles")
@@ -169,6 +180,12 @@ export default async function ClientDetail({ params }: { params: Promise<{ id: s
       .eq("status", "published")
       .order("published_at", { ascending: false })
       .limit(20),
+    supabase
+      .from("atividades_whatsapp")
+      .select("id, tipo, canal, titulo, resumo, created_at")
+      .eq("user_id", id)
+      .order("created_at", { ascending: false })
+      .limit(30),
   ]);
 
   const cost = (costs ?? []).reduce((s, r) => s + Number(r.cost_usd ?? 0), 0);
@@ -211,6 +228,10 @@ export default async function ClientDetail({ params }: { params: Promise<{ id: s
         </div>
       </div>
 
+      <Panel title="Enviar push motivacional">
+        <SendPushForm userId={id} />
+      </Panel>
+
       {/* KPIs */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
@@ -232,6 +253,29 @@ export default async function ClientDetail({ params }: { params: Promise<{ id: s
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Coluna principal */}
         <div className="space-y-6 lg:col-span-2">
+          <Panel title={`Atividade no WhatsApp (${atividades?.length ?? 0})`}>
+            {atividades && atividades.length > 0 ? (
+              <ul className="space-y-2">
+                {atividades.map((a) => (
+                  <li key={a.id} className="rounded-xl bg-sand-50 p-3 ring-1 ring-sand-200">
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="font-medium text-ink-900">{a.titulo}</span>
+                      <span className="shrink-0 rounded-full bg-success-100 px-2.5 py-0.5 text-xs text-brand-700">
+                        {ATIVIDADE_TIPO_LABEL[a.tipo] ?? a.tipo}
+                      </span>
+                    </div>
+                    {a.resumo ? <p className="mt-1 text-sm text-ink-700">{a.resumo}</p> : null}
+                    <p className="mt-1 text-xs text-ink-500">
+                      {fmt(a.created_at)} · por {ATIVIDADE_CANAL_LABEL[a.canal] ?? a.canal}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-ink-500">Nada gerado pelo WhatsApp ainda.</p>
+            )}
+          </Panel>
+
           <Panel title={`Histórico de pautas (${opportunities?.length ?? 0})`}>
             {opportunities && opportunities.length > 0 ? (
               <ul className="space-y-2">
