@@ -44,13 +44,22 @@ export const metadata: Metadata = {
     statusBarStyle: "default",
     title: brand.name,
   },
-  icons: {
-    icon: [
-      { url: "/icon.svg", type: "image/svg+xml" },
-      { url: "/icon-192.png", type: "image/png", sizes: "192x192" },
-    ],
-    apple: "/apple-touch-icon.png",
-  },
+  icons:
+    brand.id === "assessor24h"
+      ? {
+          icon: [
+            { url: "/icon-assessor24h.svg", type: "image/svg+xml" },
+            { url: "/icon-192-assessor24h.png", type: "image/png", sizes: "192x192" },
+          ],
+          apple: "/apple-touch-icon-assessor24h.png",
+        }
+      : {
+          icon: [
+            { url: "/icon.svg", type: "image/svg+xml" },
+            { url: "/icon-192.png", type: "image/png", sizes: "192x192" },
+          ],
+          apple: "/apple-touch-icon.png",
+        },
 };
 
 export const viewport: Viewport = {

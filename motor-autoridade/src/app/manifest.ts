@@ -19,10 +19,17 @@ export default function manifest(): MetadataRoute.Manifest {
     theme_color: "#143627",
     lang: "pt-BR",
     categories: ["productivity", "business"],
-    icons: [
-      { src: "/icon.svg", sizes: "any", type: "image/svg+xml", purpose: "any" },
-      { src: "/icon-192.png", sizes: "192x192", type: "image/png", purpose: "maskable" },
-      { src: "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
-    ],
+    icons:
+      brand.id === "assessor24h"
+        ? [
+            { src: "/icon-assessor24h.svg", sizes: "any", type: "image/svg+xml", purpose: "any" },
+            { src: "/icon-192-assessor24h.png", sizes: "192x192", type: "image/png", purpose: "maskable" },
+            { src: "/icon-512-assessor24h.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+          ]
+        : [
+            { src: "/icon.svg", sizes: "any", type: "image/svg+xml", purpose: "any" },
+            { src: "/icon-192.png", sizes: "192x192", type: "image/png", purpose: "maskable" },
+            { src: "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+          ],
   };
 }
