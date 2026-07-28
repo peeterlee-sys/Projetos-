@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { anamnesePoliticaSchema } from "@/lib/validation/anamnese-politica";
 import { generatePoliticalDna } from "@/lib/dna/political";
+import { normalizeCityState } from "@/lib/text/normalize-city";
 
 export type AnamneseResult = { ok: false; error: string } | { ok: true };
 
@@ -63,6 +64,16 @@ export async function submitAnamnesePolitica(raw: unknown): Promise<AnamneseResu
   } else if (data.full_name && data.full_name !== me?.full_name) {
     await supabase.from("users").update({ full_name: data.full_name }).eq("id", user.id);
   }
+
+  // Corrige a grafia da cidade (maiúsculas, acentos, abreviações) antes de
+  // gravar e de buscar o contexto — senão erro de digitação do vereador
+  // aparece "cru" nos textos gerados e não casa com a biblioteca do admin.
+  const normalizedCity = await normalizeCityState(data.city, data.state, {
+    tenantId,
+    userId: user.id,
+  });
+  data.city = normalizedCity.city;
+  data.state = normalizedCity.state;
 
   // Contexto da cidade: é o admin quem mantém (biblioteca por cidade+UF), não
   // o vereador — esse campo nem existe no formulário. Aqui só herdamos o
