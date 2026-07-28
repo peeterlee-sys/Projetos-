@@ -69,7 +69,7 @@ export async function submitAnamnesePolitica(raw: unknown): Promise<AnamneseResu
   // contexto já cadastrado da cidade, e só se o perfil ainda não tiver um.
   const { data: existingProfile } = await supabase
     .from("client_profiles")
-    .select("local_context")
+    .select("local_context, subscription_status")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -127,6 +127,14 @@ export async function submitAnamnesePolitica(raw: unknown): Promise<AnamneseResu
       local_press: data.local_press,
       // SEÇÃO 6 — Consentimento (LGPD)
       lgpd_consent_at: new Date().toISOString(),
+      // Trial de 7 dias — só na primeira vez (refazer a anamnese não reinicia
+      // nem mexe em quem já é assinante).
+      ...(existingProfile
+        ? {}
+        : {
+            subscription_status: "trial",
+            trial_ends_at: new Date(Date.now() + 7 * 86_400_000).toISOString(),
+          }),
     },
     { onConflict: "user_id" }
   );

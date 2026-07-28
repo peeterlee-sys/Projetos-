@@ -58,7 +58,9 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const result = sanitizeDeep(await dispatch(supabase, envelope.action, envelope.payload));
+    const result = sanitizeDeep(
+      await dispatch(supabase, envelope.action, envelope.payload, request.nextUrl.origin)
+    );
     await finishExecution(supabase, logId, "done", result, Date.now() - started);
     return NextResponse.json({ status: "ok", ...result }, { status: 200 });
   } catch (err) {
@@ -90,14 +92,19 @@ function sanitizeDeep<T>(value: T): T {
 
 type Supabase = ReturnType<typeof createServiceClient>;
 
-async function dispatch(supabase: Supabase, action: string, payload: Record<string, unknown>) {
+async function dispatch(
+  supabase: Supabase,
+  action: string,
+  payload: Record<string, unknown>,
+  origin: string
+) {
   switch (action) {
     case "deliver_opportunity":
       return deliverOpportunity(supabase, payload);
     case "get_profile":
       return getProfile(supabase, payload);
     case "get_vereador":
-      return getVereador(supabase, payload);
+      return getVereador(supabase, payload, origin);
     case "get_briefing":
       return getBriefing(supabase, payload);
     case "get_sources":
@@ -401,7 +408,8 @@ const VEREADOR_FIELDS =
   "main_themes, forbidden_themes, adversaries, mayor_relation, history_to_avoid, core_values, " +
   "tone_profile, tone_of_voice, slang_expressions, emojis, how_to_refer, catchphrase, " +
   "instagram_url, website_url, reference_publications, local_press, audience_segments, " +
-  "positioning_recognition, editorial_dna, contexto_mestre, dna_generated_at, profile_track";
+  "positioning_recognition, editorial_dna, contexto_mestre, dna_generated_at, profile_track, " +
+  "subscription_status, trial_ends_at";
 
 /**
  * Bloco de texto livre com o perfil e as diretrizes do mandato — equivalente
@@ -440,7 +448,7 @@ function buildPerfilTexto(p: Record<string, unknown>): string {
  * DNA Editorial. Se o vereador ainda não fez a anamnese no app, cai no registro
  * importado da planilha (legacy_vereadores) para o assistente não ficar mudo.
  */
-async function getVereador(supabase: Supabase, payload: Record<string, unknown>) {
+async function getVereador(supabase: Supabase, payload: Record<string, unknown>, origin: string) {
   const p = z
     .object({ phone: z.string().optional(), user_id: z.string().uuid().optional() })
     .refine((v) => v.phone || v.user_id, { message: "informe phone ou user_id" })
@@ -517,9 +525,19 @@ async function getVereador(supabase: Supabase, payload: Record<string, unknown>)
   // valor que ficou congelado em client_profiles.local_context na anamnese.
   const localContext = cityCtx?.context?.trim() || (profile.local_context as string | null) || null;
 
+  const subscriptionStatus = (profile.subscription_status as string | null) ?? "trial";
+  const blocked = subscriptionStatus === "past_due" || subscriptionStatus === "canceled";
+  const billing = {
+    status: subscriptionStatus,
+    trial_ends_at: profile.trial_ends_at ?? null,
+    blocked,
+    payment_link: blocked ? `${origin}/assinar` : null,
+  };
+
   return {
     found: true,
     source: "app",
+    billing,
     vereador: {
       ...profile,
       name: user?.full_name ?? profile.political_name ?? null,
