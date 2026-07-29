@@ -25,7 +25,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-dvh md:flex">
       <SideNav />
-      <main className="min-w-0 flex-1 pb-24 md:pb-0">{children}</main>
+      <div className="min-w-0 flex-1 pb-24 md:pb-0">{children}</div>
       <BottomNav />
     </div>
   );

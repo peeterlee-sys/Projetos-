@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth/session";
 import { EnableNotifications } from "@/components/push/EnableNotifications";
 import { BrandDisclosure } from "./BrandDisclosure";
+import { anamneseHref, brand } from "@/lib/brand";
 
 export default async function PerfilPage() {
   const user = await requireUser();
@@ -25,6 +26,7 @@ export default async function PerfilPage() {
   const themes = (profile?.main_themes ?? []) as string[];
   const forbidden = (profile?.forbidden_themes ?? []) as string[];
   const isAdmin = user.role === "admin" || user.role === "super_admin";
+  const isAssessor = brand.id === "assessor24h";
 
   return (
     <main className="mx-auto max-w-md px-5 pt-8 md:max-w-2xl md:px-8">
@@ -65,36 +67,44 @@ export default async function PerfilPage() {
           ) : null}
         </div>
         <Link
-          href="/onboarding?refazer=1"
+          href={`${anamneseHref}?refazer=1`}
           className="mt-3 inline-block text-sm font-medium text-brand-700"
         >
-          Refazer anamnese editorial →
+          {isAssessor ? "Refazer anamnese do mandato" : "Refazer anamnese editorial"} →
         </Link>
       </div>
 
-      {/* Identidade visual (abre o editor de marca) */}
-      <div className="mt-4">
-        <BrandDisclosure
-          initial={profile ?? {}}
-          preview={{
-            primary: profile?.brand_primary ?? "#1d4a38",
-            accent: profile?.brand_accent ?? "#c9a94e",
-          }}
-        />
-      </div>
+      {/* Identidade visual — só o Take gera peça visual (carrossel, post). */}
+      {isAssessor ? null : (
+        <div className="mt-4">
+          <BrandDisclosure
+            initial={profile ?? {}}
+            preview={{
+              primary: profile?.brand_primary ?? "#1d4a38",
+              accent: profile?.brand_accent ?? "#c9a94e",
+            }}
+          />
+        </div>
+      )}
 
       {/* Preferências */}
       <div className="mt-4 space-y-3 rounded-[24px] bg-white p-5 ring-1 ring-sand-200">
-        <div className="flex items-center justify-between">
-          <span className="text-[15px] text-ink-700">Meta semanal</span>
-          <span className="font-semibold text-ink-900">
-            {prefs?.weekly_goal ?? 3} conteúdos
-          </span>
-        </div>
-        <div className="flex items-center justify-between">
-          <span className="text-[15px] text-ink-700">Pauta do dia às</span>
-          <span className="font-semibold text-ink-900">7h00</span>
-        </div>
+        {/* Meta e pauta do dia são do radar do Take; no Assessor 24h o vereador
+            pede o que quer, na hora que quiser, pelo WhatsApp. */}
+        {isAssessor ? null : (
+          <>
+            <div className="flex items-center justify-between">
+              <span className="text-[15px] text-ink-700">Meta semanal</span>
+              <span className="font-semibold text-ink-900">
+                {prefs?.weekly_goal ?? 3} conteúdos
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[15px] text-ink-700">Pauta do dia às</span>
+              <span className="font-semibold text-ink-900">7h00</span>
+            </div>
+          </>
+        )}
         <div className="flex items-center justify-between gap-3">
           <span className="text-[15px] text-ink-700">Notificações</span>
           <EnableNotifications />

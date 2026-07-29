@@ -111,7 +111,7 @@ export default async function AtividadePage({
 
   if (atividades.length === 0) {
     return (
-      <div className="mx-auto max-w-md px-5 pt-8 md:max-w-2xl md:px-8">
+      <main className="mx-auto max-w-md px-5 pt-8 md:max-w-2xl md:px-8">
         <h1 className="font-serif text-4xl text-ink-900">Atividade</h1>
         <div className="mt-6 rounded-2xl border border-sand-200 bg-white p-8 text-center">
           <p className="text-sm text-ink-500">
@@ -119,12 +119,12 @@ export default async function AtividadePage({
             aparece aqui.
           </p>
         </div>
-      </div>
+      </main>
     );
   }
 
   return (
-    <div className="mx-auto max-w-md px-5 pt-8 md:max-w-6xl md:px-8">
+    <main className="mx-auto max-w-md px-5 pt-8 md:max-w-6xl md:px-8">
       <div className={doc ? "hidden md:block" : "block"}>
         <h1 className="font-serif text-4xl text-ink-900">Atividade</h1>
         <p className="mt-1 text-sm text-ink-500">
@@ -151,6 +151,6 @@ export default async function AtividadePage({
           {aberta ? <Leitura a={aberta} /> : null}
         </div>
       </div>
-    </div>
+    </main>
   );
 }
