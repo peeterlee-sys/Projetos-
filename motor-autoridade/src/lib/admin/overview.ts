@@ -31,7 +31,39 @@ export type ClientRow = {
   lastOpportunity: string | null;   // título da última pauta
   daysSinceAccess: number | null;
   health: ClientHealth;
+  // Assessor 24h — o que realmente diz se o mandato está de pé.
+  subscriptionStatus: string;       // trial | active | past_due | canceled
+  trialEndsAt: string | null;
+  docsTotal: number;                // documentos gerados pelo WhatsApp
+  lastDoc: string | null;           // data do último documento gerado
 };
+
+/** Situação do mandato, na ordem em que importa para quem opera o produto. */
+export type Situacao = {
+  label: string;
+  tone: "ok" | "atencao" | "alerta";
+};
+
+export function situacaoDoMandato(c: ClientRow): Situacao {
+  // 1) Sem anamnese o WhatsApp nem reconhece o número: responde o aviso
+  //    comercial em vez de atender. É o problema mais urgente da lista.
+  if (!c.onboarded) return { label: "Anamnese pendente", tone: "alerta" };
+  if (c.subscriptionStatus === "canceled") return { label: "Cancelado", tone: "alerta" };
+  if (c.subscriptionStatus === "past_due") return { label: "Pagamento pendente", tone: "alerta" };
+
+  if (c.subscriptionStatus === "trial" && c.trialEndsAt) {
+    const dias = Math.ceil((new Date(c.trialEndsAt).getTime() - Date.now()) / 86_400_000);
+    if (dias <= 0) return { label: "Trial vencido", tone: "alerta" };
+    if (dias <= 3) return { label: `Trial vence em ${dias}d`, tone: "atencao" };
+  }
+
+  if (c.docsTotal === 0) return { label: "Ainda não usou", tone: "atencao" };
+
+  const dias = daysSince(c.lastDoc);
+  if (dias != null && dias >= 7) return { label: `Parado há ${dias}d`, tone: "atencao" };
+
+  return { label: c.subscriptionStatus === "active" ? "Assinante" : "Ativo", tone: "ok" };
+}
 
 export type PendingRow = {
   id: string;
@@ -142,11 +174,12 @@ export async function getAdminOverview(supabase: SupabaseClient): Promise<AdminO
     aiErrors,
     makeErrors,
     { data: lastMake },
+    { data: atividades },
   ] = await Promise.all([
     supabase
       .from("users")
       .select(
-        "id, full_name, email, role, is_active, onboarded_at, created_at, tenants(status), client_profiles(profession, segment, dna_generated_at, editorial_dna, profile_track, political_name, party, city, state, phone), client_preferences(weekly_goal)"
+        "id, full_name, email, role, is_active, onboarded_at, created_at, tenants(status), client_profiles(profession, segment, dna_generated_at, editorial_dna, profile_track, political_name, party, city, state, phone, subscription_status, trial_ends_at), client_preferences(weekly_goal)"
       )
       // Inclui admins/super_admins que também consomem conteúdo (dogfooding).
       .in("role", ["client", "admin", "super_admin"])
@@ -186,6 +219,11 @@ export async function getAdminOverview(supabase: SupabaseClient): Promise<AdminO
       .eq("source", "make")
       .order("created_at", { ascending: false })
       .limit(1),
+    supabase
+      .from("atividades_whatsapp")
+      .select("user_id, created_at")
+      .order("created_at", { ascending: false })
+      .limit(5000),
   ]);
 
   // Quem opera o painel não é cliente: admins que nunca responderam a anamnese
@@ -229,6 +267,15 @@ export async function getAdminOverview(supabase: SupabaseClient): Promise<AdminO
   for (const o of oppList)
     if (!lastOppByUser.has(o.user_id)) lastOppByUser.set(o.user_id, o.title as string);
 
+  // Documentos gerados pelo WhatsApp — a métrica que de fato mede uso no
+  // Assessor 24h (a lista já vem ordenada da mais recente para a mais antiga).
+  const docsByUser = new Map<string, number>();
+  const lastDocByUser = new Map<string, string>();
+  for (const a of atividades ?? []) {
+    docsByUser.set(a.user_id, (docsByUser.get(a.user_id) ?? 0) + 1);
+    if (!lastDocByUser.has(a.user_id)) lastDocByUser.set(a.user_id, a.created_at as string);
+  }
+
   type JoinedRow = (typeof clientList)[number] & {
     tenants?: { status: string } | { status: string }[] | null;
     client_profiles?: unknown;
@@ -252,6 +299,8 @@ export async function getAdminOverview(supabase: SupabaseClient): Promise<AdminO
           city?: string | null;
           state?: string | null;
           phone?: string | null;
+          subscription_status?: string | null;
+          trial_ends_at?: string | null;
         }
       | null;
     const prefs = one(j.client_preferences) as { weekly_goal?: number } | null;
@@ -288,6 +337,10 @@ export async function getAdminOverview(supabase: SupabaseClient): Promise<AdminO
       lastOpportunity: lastOppByUser.get(c.id) ?? null,
       daysSinceAccess: days,
       health: healthFor(pub, days),
+      subscriptionStatus: profile?.subscription_status ?? "trial",
+      trialEndsAt: profile?.trial_ends_at ?? null,
+      docsTotal: docsByUser.get(c.id) ?? 0,
+      lastDoc: lastDocByUser.get(c.id) ?? null,
     };
   });
 

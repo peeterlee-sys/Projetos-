@@ -1,7 +1,60 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { getAdminOverview, type ClientHealth, type ClientRow } from "@/lib/admin/overview";
+import {
+  getAdminOverview,
+  situacaoDoMandato,
+  type ClientHealth,
+  type ClientRow,
+} from "@/lib/admin/overview";
 import { PendingApprovals } from "./PendingApprovals";
+import { brand } from "@/lib/brand";
+import { formatPhoneBR } from "@/lib/phone";
+
+const SITUACAO_STYLE = {
+  ok: "bg-success-100 text-brand-700",
+  atencao: "bg-gold-300/40 text-gold-700",
+  alerta: "bg-danger-600/10 text-danger-700",
+} as const;
+
+/**
+ * Linha do Assessor 24h. Meta semanal, publicações e DNA são métricas do Take —
+ * aqui o que importa é se o mandato conseguiu começar a usar: fez a anamnese
+ * (sem ela o WhatsApp nem reconhece o número), está pagando, e quanto gerou.
+ */
+function MandatoTableRow({ c }: { c: ClientRow }) {
+  const s = situacaoDoMandato(c);
+  const local = [c.city, c.state].filter(Boolean).join("/");
+  return (
+    <tr className="border-t border-sand-200 transition hover:bg-sand-100/60">
+      <td className="whitespace-nowrap px-3 py-3">
+        <Link href={`/admin/clientes/${c.id}`} className="block">
+          <span className="font-medium text-ink-900 hover:text-brand-700">
+            {c.politicalName ?? c.name ?? c.email}
+          </span>
+          <span className="block text-xs text-ink-400">{c.email}</span>
+        </Link>
+      </td>
+      <td className="whitespace-nowrap px-3 py-3 text-sm text-ink-700">
+        {local || "—"}
+        {c.party ? <span className="text-ink-400"> · {c.party}</span> : null}
+      </td>
+      <td className="whitespace-nowrap px-3 py-3 text-sm text-ink-500">
+        {c.phone ? formatPhoneBR(c.phone) : "—"}
+      </td>
+      <td className="px-3 py-3">
+        <span className={`whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs ${SITUACAO_STYLE[s.tone]}`}>
+          {s.label}
+        </span>
+      </td>
+      <td className="whitespace-nowrap px-3 py-3 text-sm tabular-nums text-ink-700">
+        {c.docsTotal}
+      </td>
+      <td className="whitespace-nowrap px-3 py-3 text-sm tabular-nums text-ink-500">
+        {date(c.lastDoc)}
+      </td>
+    </tr>
+  );
+}
 
 const HEALTH_STYLE: Record<ClientHealth, string> = {
   healthy: "bg-success-100 text-brand-700",
@@ -144,6 +197,7 @@ function ClientTableRow({ c }: { c: ClientRow }) {
 export default async function AdminDashboard() {
   const supabase = await createClient();
   const o = await getAdminOverview(supabase);
+  const isAssessor = brand.id === "assessor24h";
   const mandates = o.clients.filter((c) => c.track === "political").length;
   const withDna = o.clients.filter((c) => c.hasDna).length;
 
@@ -213,7 +267,7 @@ export default async function AdminDashboard() {
 
       {/* Lista de clientes */}
       <section>
-        <SectionTitle>Lista de clientes</SectionTitle>
+        <SectionTitle>{isAssessor ? "Vereadores" : "Lista de clientes"}</SectionTitle>
         {o.clients.length === 0 ? (
           <div className="rounded-2xl bg-white/80 p-8 text-center text-sm text-ink-500 ring-1 ring-sand-200">
             Nenhum cliente ainda.
@@ -223,28 +277,49 @@ export default async function AdminDashboard() {
             <table className="w-full text-left">
               <thead>
                 <tr className="text-[11px] uppercase tracking-wide text-ink-400">
-                  <th className="px-3 py-3 font-medium">Nome</th>
-                  <th className="px-3 py-3 font-medium">Mandato / profissão</th>
-                  <th className="px-3 py-3 font-medium">Plano</th>
-                  <th className="px-3 py-3 font-medium">Últ. acesso</th>
-                  <th className="px-3 py-3 font-medium">Últ. geração</th>
-                  <th className="px-3 py-3 font-medium">Últ. publicação</th>
-                  <th className="px-3 py-3 font-medium">Status</th>
-                  <th className="px-3 py-3 font-medium">Meta</th>
-                  <th className="px-3 py-3 font-medium">Concluído</th>
-                  <th className="px-3 py-3 font-medium">DNA</th>
-                  <th className="px-3 py-3 font-medium">Última pauta</th>
+                  {isAssessor ? (
+                    <>
+                      <th className="px-3 py-3 font-medium">Vereador</th>
+                      <th className="px-3 py-3 font-medium">Cidade / partido</th>
+                      <th className="px-3 py-3 font-medium">WhatsApp</th>
+                      <th className="px-3 py-3 font-medium">Situação</th>
+                      <th className="px-3 py-3 font-medium">Documentos</th>
+                      <th className="px-3 py-3 font-medium">Último</th>
+                    </>
+                  ) : (
+                    <>
+                      <th className="px-3 py-3 font-medium">Nome</th>
+                      <th className="px-3 py-3 font-medium">Mandato / profissão</th>
+                      <th className="px-3 py-3 font-medium">Plano</th>
+                      <th className="px-3 py-3 font-medium">Últ. acesso</th>
+                      <th className="px-3 py-3 font-medium">Últ. geração</th>
+                      <th className="px-3 py-3 font-medium">Últ. publicação</th>
+                      <th className="px-3 py-3 font-medium">Status</th>
+                      <th className="px-3 py-3 font-medium">Meta</th>
+                      <th className="px-3 py-3 font-medium">Concluído</th>
+                      <th className="px-3 py-3 font-medium">DNA</th>
+                      <th className="px-3 py-3 font-medium">Última pauta</th>
+                    </>
+                  )}
                 </tr>
               </thead>
               <tbody>
-                {o.clients.map((c) => (
-                  <ClientTableRow key={c.id} c={c} />
-                ))}
+                {o.clients.map((c) =>
+                  isAssessor ? (
+                    <MandatoTableRow key={c.id} c={c} />
+                  ) : (
+                    <ClientTableRow key={c.id} c={c} />
+                  )
+                )}
               </tbody>
             </table>
           </div>
         )}
-        <p className="mt-2 text-xs text-ink-400">Clique em um cliente para ver o detalhamento completo.</p>
+        <p className="mt-2 text-xs text-ink-400">
+          {isAssessor
+            ? "Clique em um vereador para ver o mandato e tudo que ele gerou. “Anamnese pendente” significa que o WhatsApp ainda não reconhece o número dele."
+            : "Clique em um cliente para ver o detalhamento completo."}
+        </p>
       </section>
     </div>
   );

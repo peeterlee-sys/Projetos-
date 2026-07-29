@@ -1,7 +1,13 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { getAdminOverview } from "@/lib/admin/overview";
+import { getAdminOverview, situacaoDoMandato } from "@/lib/admin/overview";
 import { formatPhoneBR } from "@/lib/phone";
+
+const SITUACAO_STYLE = {
+  ok: "bg-success-100 text-brand-700",
+  atencao: "bg-gold-300/40 text-gold-700",
+  alerta: "bg-danger-600/10 text-danger-700",
+} as const;
 
 function date(iso: string | null): string {
   if (!iso) return "—";
@@ -13,20 +19,6 @@ function date(iso: string | null): string {
   });
 }
 
-function Bar({ pct }: { pct: number }) {
-  const p = Math.round(pct * 100);
-  return (
-    <div className="flex items-center gap-2">
-      <div className="h-1.5 w-16 overflow-hidden rounded-full bg-sand-200">
-        <div
-          className={`h-full rounded-full ${p >= 100 ? "bg-brand-700" : p > 0 ? "bg-gold-500" : "bg-sand-300"}`}
-          style={{ width: `${Math.min(100, p)}%` }}
-        />
-      </div>
-      <span className="tabular-nums text-xs text-ink-500">{p}%</span>
-    </div>
-  );
-}
 
 /**
  * Painel do Assessor 24h: os mandatos com anamnese concluída no app e os
@@ -45,7 +37,9 @@ export default async function VereadoresPage() {
       .limit(500),
   ]);
 
-  const mandates = overview.clients.filter((c) => c.track === "political");
+  // Quem se cadastrou e ainda não fez a anamnese não tem trilha definida —
+  // mas é justamente quem precisa de atenção, então entra na lista também.
+  const mandates = overview.clients.filter((c) => c.track === "political" || !c.onboarded);
   const legacyRows = legacy ?? [];
   const pendingLegacy = legacyRows.filter((l) => !l.linked_user_id);
 
@@ -64,7 +58,7 @@ export default async function VereadoresPage() {
         </h2>
         {mandates.length === 0 ? (
           <div className="rounded-2xl bg-white/80 p-8 text-center text-sm text-ink-500 ring-1 ring-sand-200">
-            Nenhum vereador concluiu a anamnese política ainda.
+            Nenhum vereador cadastrado ainda.
           </div>
         ) : (
           <div className="overflow-x-auto rounded-2xl bg-white/80 ring-1 ring-sand-200">
@@ -76,7 +70,7 @@ export default async function VereadoresPage() {
                   <th className="px-3 py-3 font-medium">Partido</th>
                   <th className="px-3 py-3 font-medium">WhatsApp</th>
                   <th className="px-3 py-3 font-medium">Últ. pauta</th>
-                  <th className="px-3 py-3 font-medium">DNA</th>
+                  <th className="px-3 py-3 font-medium">Situação</th>
                 </tr>
               </thead>
               <tbody>
@@ -103,7 +97,16 @@ export default async function VereadoresPage() {
                       </span>
                     </td>
                     <td className="px-3 py-3">
-                      <Bar pct={c.dnaPct} />
+                      {(() => {
+                        const s = situacaoDoMandato(c);
+                        return (
+                          <span
+                            className={`whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs ${SITUACAO_STYLE[s.tone]}`}
+                          >
+                            {s.label}
+                          </span>
+                        );
+                      })()}
                     </td>
                   </tr>
                 ))}
