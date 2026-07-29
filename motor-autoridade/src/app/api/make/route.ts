@@ -7,6 +7,7 @@ import { fetchRadar } from "@/lib/radar/fetch";
 import { phoneVariants } from "@/lib/phone";
 import { tituloFromConteudo } from "@/lib/atividades/titulo";
 import { decodeBase64Text } from "@/lib/atividades/decode";
+import { dividirParaWhatsApp } from "@/lib/atividades/dividir";
 
 export const runtime = "nodejs";
 // O get_radar faz buscas externas (Google News) — dá folga além do timeout padrão.
@@ -599,7 +600,12 @@ async function saveDocument(supabase: Supabase, payload: Record<string, unknown>
   const conteudo = (
     p.conteudo_b64 ? decodeBase64Text(p.conteudo_b64) : (p.conteudo ?? "")
   ).trim();
-  if (!conteudo) return { saved: false, reason: "conteudo_vazio" };
+  if (!conteudo) return { saved: false, reason: "conteudo_vazio", partes: [] };
+
+  // As partes acompanham TODA resposta, inclusive as de erro: é delas que o
+  // Make tira as mensagens do WhatsApp, e uma falha de registro não pode
+  // impedir o vereador de receber o documento.
+  const partes = dividirParaWhatsApp(conteudo);
 
   let userId = p.user_id ?? null;
   if (!userId && p.phone) {
@@ -611,25 +617,37 @@ async function saveDocument(supabase: Supabase, payload: Record<string, unknown>
       .limit(1);
     userId = (data ?? [])[0]?.user_id ?? null;
   }
-  if (!userId) return { saved: false, reason: "vereador_nao_encontrado" };
+  if (!userId) return { saved: false, reason: "vereador_nao_encontrado", partes };
 
-  const tenantId = await tenantOf(supabase, userId);
-  const { data: row, error } = await supabase
-    .from("atividades_whatsapp")
-    .insert({
-      tenant_id: tenantId,
-      user_id: userId,
-      tipo: p.tipo,
-      canal: p.canal,
-      titulo: p.titulo?.trim() || tituloFromConteudo(conteudo),
-      resumo: p.resumo ?? null,
-      conteudo,
-    })
-    .select("id")
-    .single();
-  if (error || !row) throw new Error(error?.message ?? "falha ao registrar atividade");
-
-  return { saved: true, atividade_id: row.id };
+  // Daqui pra baixo nada pode lançar: o Make monta as mensagens do WhatsApp a
+  // partir de `partes`, então falha de registro vira aviso no log — nunca uma
+  // resposta de erro que deixaria o vereador sem receber o documento.
+  try {
+    const tenantId = await tenantOf(supabase, userId);
+    const { data: row, error } = await supabase
+      .from("atividades_whatsapp")
+      .insert({
+        tenant_id: tenantId,
+        user_id: userId,
+        tipo: p.tipo,
+        canal: p.canal,
+        titulo: p.titulo?.trim() || tituloFromConteudo(conteudo),
+        resumo: p.resumo ?? null,
+        conteudo,
+      })
+      .select("id")
+      .single();
+    if (error || !row) throw new Error(error?.message ?? "falha ao registrar atividade");
+    return { saved: true, atividade_id: row.id, partes };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "falha ao registrar atividade";
+    await supabase.from("system_errors").insert({
+      scope: "make",
+      message,
+      context: { action: "save_document", user_id: userId },
+    });
+    return { saved: false, reason: message, partes };
+  }
 }
 
 async function registerError(supabase: Supabase, payload: Record<string, unknown>) {
