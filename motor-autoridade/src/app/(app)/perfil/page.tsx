@@ -27,7 +27,7 @@ export default async function PerfilPage() {
   const isAdmin = user.role === "admin" || user.role === "super_admin";
 
   return (
-    <main className="px-5 pt-8">
+    <main className="mx-auto max-w-md px-5 pt-8 md:max-w-2xl md:px-8">
       {/* Cabeçalho: avatar + nome + tagline */}
       <header className="mb-6 flex items-center gap-4">
         <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-brand-700 text-2xl font-medium text-sand-50">

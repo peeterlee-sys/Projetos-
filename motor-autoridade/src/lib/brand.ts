@@ -30,6 +30,8 @@ export type Brand = {
   audience: string;
   /** Trilha padrão: no Assessor 24h todo cliente é mandato. */
   defaultTrack: AnamneseTrack;
+  /** Primeira tela do app autenticado (login, raiz e atalho do PWA). */
+  home: string;
   landing: {
     eyebrow: string;
     title: string[];
@@ -54,6 +56,7 @@ const BRANDS: Record<BrandId, Brand> = {
       "Seu editor-chefe inteligente: do radar de pautas à gravação e publicação, com a sua cara.",
     audience: "cliente",
     defaultTrack: "generic",
+    home: "/hoje",
     landing: {
       eyebrow: "Seu editor-chefe inteligente",
       title: ["Autoridade se constrói", "publicando todo dia."],
@@ -95,6 +98,7 @@ const BRANDS: Record<BrandId, Brand> = {
       "Transforme áudios, textos, ideias e discursos em comunicação profissional e produção legislativa, diretamente pelo WhatsApp.",
     audience: "vereador",
     defaultTrack: "political",
+    home: "/atividade",
     landing: {
       eyebrow: "Comunicação e inteligência legislativa",
       title: ["Seu gabinete pode produzir mais,", "comunicar melhor e responder mais rápido."],

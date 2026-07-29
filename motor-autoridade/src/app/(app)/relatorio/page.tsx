@@ -55,7 +55,7 @@ export default async function RelatorioPage() {
   return (
     <main className="px-5 pt-8">
       <Link href="/progresso" className="text-sm text-ink-500">
-        ← Atividade
+        ← Progresso
       </Link>
 
       <p className="mt-3 text-xs font-semibold uppercase tracking-wider text-gold-700">

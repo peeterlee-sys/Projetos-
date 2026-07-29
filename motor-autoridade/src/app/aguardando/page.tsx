@@ -14,7 +14,7 @@ export default async function AguardandoPage() {
 
   const supabase = await createClient();
   const { data } = await supabase.from("users").select("is_active").eq("id", user.id).maybeSingle();
-  if (data?.is_active) redirect("/hoje");
+  if (data?.is_active) redirect(brand.home);
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center px-6 py-12 text-center">

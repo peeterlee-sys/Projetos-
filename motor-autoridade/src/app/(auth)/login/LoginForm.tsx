@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
 import { Button, Field, Input } from "@/components/ui";
+import { brand } from "@/lib/brand";
 
 export function LoginForm() {
   const router = useRouter();
@@ -24,7 +25,7 @@ export function LoginForm() {
       setError("E-mail ou senha inválidos.");
       return;
     }
-    router.replace(params.get("next") || "/hoje");
+    router.replace(params.get("next") || brand.home);
     router.refresh();
   }
 

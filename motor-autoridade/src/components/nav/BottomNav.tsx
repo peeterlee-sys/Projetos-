@@ -2,22 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Sun, BookOpen, History, User } from "lucide-react";
+import { navItems } from "./items";
 
-const items = [
-  { href: "/hoje", label: "Hoje", icon: Sun },
-  { href: "/biblioteca", label: "Biblioteca", icon: BookOpen },
-  { href: "/progresso", label: "Atividade", icon: History },
-  { href: "/perfil", label: "Perfil", icon: User },
-];
-
-/** Navegação inferior fixa (mobile-first). */
+/** Navegação inferior — só no mobile; no desktop quem manda é a SideNav. */
 export function BottomNav() {
   const pathname = usePathname();
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-sand-200 bg-sand-50/95 backdrop-blur">
+    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-sand-200 bg-sand-50/95 backdrop-blur md:hidden">
       <ul className="mx-auto flex max-w-md items-stretch justify-around px-2 pb-[env(safe-area-inset-bottom)]">
-        {items.map(({ href, label, icon: Icon }) => {
+        {navItems.map(({ href, label, icon: Icon }) => {
           const active = pathname === href || pathname.startsWith(href + "/");
           return (
             <li key={href} className="flex-1">

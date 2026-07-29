@@ -10,7 +10,7 @@ import { brand } from "@/lib/brand";
  */
 export default async function Home() {
   const user = await getSessionUser();
-  if (user) redirect("/hoje");
+  if (user) redirect(brand.home);
 
   const steps = brand.landing.steps;
 

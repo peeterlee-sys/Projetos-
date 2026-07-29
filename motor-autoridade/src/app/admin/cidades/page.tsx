@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getSessionUser } from "@/lib/auth/session";
 import { CityContextEditor, type CityContext } from "./CityContextEditor";
+import { brand } from "@/lib/brand";
 
 /**
  * Biblioteca de contexto por cidade — o admin escreve uma vez por cidade/UF
@@ -10,7 +11,7 @@ import { CityContextEditor, type CityContext } from "./CityContextEditor";
  */
 export default async function CidadesPage() {
   const user = await getSessionUser();
-  if (!user || (user.role !== "admin" && user.role !== "super_admin")) redirect("/hoje");
+  if (!user || (user.role !== "admin" && user.role !== "super_admin")) redirect(brand.home);
 
   const supabase = await createClient();
   const { data } = await supabase

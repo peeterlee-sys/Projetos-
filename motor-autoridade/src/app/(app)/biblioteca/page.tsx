@@ -2,6 +2,8 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth/session";
 import { LibraryItem } from "./LibraryItem";
+import { brand } from "@/lib/brand";
+import { redirect } from "next/navigation";
 
 // Filtros do MVP: Todos / Publicados / Gravados / Salvos.
 const FILTERS = [
@@ -38,6 +40,10 @@ export default async function BibliotecaPage({
 }: {
   searchParams: Promise<{ f?: string }>;
 }) {
+  // No Assessor 24h tudo é produzido no WhatsApp: esta tela é do Take e não
+  // faz sentido para um mandato — quem chegar por URL antiga vai para o app.
+  if (brand.id === "assessor24h") redirect(brand.home);
+
   const { f = "all" } = await searchParams;
   const active = FILTERS.find((x) => x.key === f) ?? FILTERS[0];
 

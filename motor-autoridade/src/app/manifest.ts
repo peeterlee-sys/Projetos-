@@ -11,7 +11,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: brand.name,
     short_name: brand.name,
     description: brand.description,
-    start_url: "/hoje",
+    start_url: brand.home,
     scope: "/",
     display: "standalone",
     orientation: "portrait",

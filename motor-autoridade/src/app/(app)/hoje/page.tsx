@@ -5,6 +5,8 @@ import { Button, Card } from "@/components/ui";
 import { getStimulus } from "@/lib/behavior/detect";
 import { startContent } from "./actions";
 import { BrandLogo } from "@/components/brand/Logo";
+import { brand } from "@/lib/brand";
+import { redirect } from "next/navigation";
 
 const FORMAT_LABEL: Record<string, string> = {
   video: "Vídeo",
@@ -55,6 +57,10 @@ function startOfWeek(): string {
 }
 
 export default async function HojePage() {
+  // No Assessor 24h tudo é produzido no WhatsApp: esta tela é do Take e não
+  // faz sentido para um mandato — quem chegar por URL antiga vai para o app.
+  if (brand.id === "assessor24h") redirect(brand.home);
+
   const user = await requireUser();
   const supabase = await createClient();
 

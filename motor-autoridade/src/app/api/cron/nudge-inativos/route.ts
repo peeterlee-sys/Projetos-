@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { sendPushToUser } from "@/lib/push/send";
+import { brand } from "@/lib/brand";
 
 export const runtime = "nodejs";
 
@@ -59,7 +60,7 @@ async function handle(request: NextRequest) {
       const payload = {
         title: "Assessor 24h",
         body: "Faz um tempo que você não gera nada por aqui — que tal pedir uma matéria ou um requerimento agora?",
-        data: { url: "/hoje" },
+        data: { url: brand.home },
       };
       const { sent } = await sendPushToUser(supabase, u.id, payload);
       await supabase.from("notifications").insert({

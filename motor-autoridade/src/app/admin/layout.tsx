@@ -9,7 +9,7 @@ import { brand } from "@/lib/brand";
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = await getSessionUser();
   if (!user) redirect("/login");
-  if (user.role !== "admin" && user.role !== "super_admin") redirect("/hoje");
+  if (user.role !== "admin" && user.role !== "super_admin") redirect(brand.home);
 
   return (
     <div className="min-h-dvh bg-sand-100">
@@ -27,7 +27,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             <span className="rounded-full bg-brand-700/10 px-3 py-1 text-xs text-brand-700">
               {user.role === "super_admin" ? "Super admin" : "Admin"}
             </span>
-            <Link href="/hoje" className="underline underline-offset-2 hover:text-ink-900">
+            <Link href={brand.home} className="underline underline-offset-2 hover:text-ink-900">
               Ver app
             </Link>
           </div>

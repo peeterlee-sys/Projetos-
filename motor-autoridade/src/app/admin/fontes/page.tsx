@@ -2,12 +2,13 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getSessionUser } from "@/lib/auth/session";
 import { SourcesEditor, type SegmentSource } from "./SourcesEditor";
+import { brand } from "@/lib/brand";
 
 export default async function FontesPage() {
   const user = await getSessionUser();
   // Somente super_admin edita; admin comum só visualiza.
   const canEdit = user?.role === "super_admin";
-  if (!user || (user.role !== "admin" && user.role !== "super_admin")) redirect("/hoje");
+  if (!user || (user.role !== "admin" && user.role !== "super_admin")) redirect(brand.home);
 
   const supabase = await createClient();
   const { data } = await supabase

@@ -5,6 +5,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getSessionUser } from "@/lib/auth/session";
 import { sendPushToUser } from "@/lib/push/send";
+import { brand } from "@/lib/brand";
 
 export type AdminActionResult = { ok: false; error: string } | { ok: true; sent: number };
 
@@ -36,7 +37,7 @@ export async function sendMotivationalPush(raw: unknown): Promise<AdminActionRes
     .maybeSingle();
   if (!target?.tenant_id) return { ok: false, error: "Vereador não encontrado." };
 
-  const payload = { title: "Assessor 24h", body: message, data: { url: "/hoje" } };
+  const payload = { title: "Assessor 24h", body: message, data: { url: brand.home } };
   const { sent } = await sendPushToUser(supabase, userId, payload);
 
   await supabase.from("notifications").insert({
