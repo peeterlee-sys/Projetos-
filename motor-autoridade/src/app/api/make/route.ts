@@ -6,6 +6,7 @@ import { rateLimit } from "@/lib/rate-limit";
 import { fetchRadar } from "@/lib/radar/fetch";
 import { phoneVariants } from "@/lib/phone";
 import { tituloFromConteudo } from "@/lib/atividades/titulo";
+import { decodeBase64Text } from "@/lib/atividades/decode";
 
 export const runtime = "nodejs";
 // O get_radar faz buscas externas (Google News) — dá folga além do timeout padrão.
@@ -596,7 +597,7 @@ async function saveDocument(supabase: Supabase, payload: Record<string, unknown>
   const p = schema.parse(payload);
 
   const conteudo = (
-    p.conteudo_b64 ? Buffer.from(p.conteudo_b64, "base64").toString("utf8") : (p.conteudo ?? "")
+    p.conteudo_b64 ? decodeBase64Text(p.conteudo_b64) : (p.conteudo ?? "")
   ).trim();
   if (!conteudo) return { saved: false, reason: "conteudo_vazio" };
 
