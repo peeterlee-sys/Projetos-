@@ -5,6 +5,7 @@ import { claimIdempotency, finishExecution, verifyMakeSignature, verifyMakeSecre
 import { rateLimit } from "@/lib/rate-limit";
 import { fetchRadar } from "@/lib/radar/fetch";
 import { phoneVariants } from "@/lib/phone";
+import { tituloFromConteudo } from "@/lib/atividades/titulo";
 
 export const runtime = "nodejs";
 // O get_radar faz buscas externas (Google News) — dá folga além do timeout padrão.
@@ -583,12 +584,21 @@ async function saveDocument(supabase: Supabase, payload: Record<string, unknown>
       phone: z.string().optional(),
       tipo: z.enum(["requerimento", "projeto_lei", "discurso", "materia", "outro"]).default("outro"),
       canal: z.enum(["audio", "texto"]).default("texto"),
-      titulo: z.string().min(1),
+      titulo: z.string().optional(),
       resumo: z.string().optional(),
-      conteudo: z.string().min(1),
+      conteudo: z.string().optional(),
+      // O Make manda o texto em base64: requerimento/discurso vêm cheios de
+      // aspas e quebras de linha, que quebrariam o corpo JSON se fossem cruas.
+      conteudo_b64: z.string().optional(),
     })
-    .refine((v) => v.user_id || v.phone, { message: "informe user_id ou phone" });
+    .refine((v) => v.user_id || v.phone, { message: "informe user_id ou phone" })
+    .refine((v) => v.conteudo || v.conteudo_b64, { message: "informe conteudo ou conteudo_b64" });
   const p = schema.parse(payload);
+
+  const conteudo = (
+    p.conteudo_b64 ? Buffer.from(p.conteudo_b64, "base64").toString("utf8") : (p.conteudo ?? "")
+  ).trim();
+  if (!conteudo) return { saved: false, reason: "conteudo_vazio" };
 
   let userId = p.user_id ?? null;
   if (!userId && p.phone) {
@@ -610,9 +620,9 @@ async function saveDocument(supabase: Supabase, payload: Record<string, unknown>
       user_id: userId,
       tipo: p.tipo,
       canal: p.canal,
-      titulo: p.titulo,
+      titulo: p.titulo?.trim() || tituloFromConteudo(conteudo),
       resumo: p.resumo ?? null,
-      conteudo: p.conteudo,
+      conteudo,
     })
     .select("id")
     .single();

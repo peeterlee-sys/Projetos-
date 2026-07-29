@@ -17,7 +17,7 @@ do $$ begin
   create type atividade_canal as enum ('audio', 'texto');
 exception when duplicate_object then null; end $$;
 
-create table atividades_whatsapp (
+create table if not exists atividades_whatsapp (
   id            uuid primary key default gen_random_uuid(),
   tenant_id     uuid not null references tenants(id) on delete cascade,
   user_id       uuid not null references users(id) on delete cascade,
@@ -28,13 +28,14 @@ create table atividades_whatsapp (
   conteudo      text not null,
   created_at    timestamptz not null default now()
 );
-create index ix_atividades_user on atividades_whatsapp(user_id, created_at desc);
-create index ix_atividades_tenant on atividades_whatsapp(tenant_id, created_at desc);
+create index if not exists ix_atividades_user on atividades_whatsapp(user_id, created_at desc);
+create index if not exists ix_atividades_tenant on atividades_whatsapp(tenant_id, created_at desc);
 
 alter table atividades_whatsapp enable row level security;
 alter table atividades_whatsapp force row level security;
 
 -- Mesma regra das demais tabelas "pessoais": dono + admin do tenant + super.
+drop policy if exists p_atividades_whatsapp_rw on atividades_whatsapp;
 create policy p_atividades_whatsapp_rw on atividades_whatsapp
   for all
   using (
