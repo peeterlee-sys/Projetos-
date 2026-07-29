@@ -190,6 +190,7 @@ export default async function ClientDetail({ params }: { params: Promise<{ id: s
 
   const cost = (costs ?? []).reduce((s, r) => s + Number(r.cost_usd ?? 0), 0);
   const isPolitical = profile?.profile_track === "political";
+  const porAudio = (atividades ?? []).filter((a) => a.canal === "audio").length;
   const dna = (profile?.editorial_dna ?? {}) as Record<string, unknown>;
   const hasDna = Object.keys(dna).length > 0;
   const formatsByItem = new Map<string, string[]>();
@@ -232,17 +233,27 @@ export default async function ClientDetail({ params }: { params: Promise<{ id: s
         <SendPushForm userId={id} />
       </Panel>
 
-      {/* KPIs */}
+      {/* KPIs — no Assessor 24h o que mede uso é o que saiu pelo WhatsApp;
+          meta semanal, execução e sequência são do Take e ficariam sempre em
+          zero, dando a impressão errada de que o vereador não usou nada. */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {[
-          {
-            label: "Publicados (semana)",
-            value: `${progress.publishedCount}/${prefs?.weekly_goal ?? progress.target}`,
-          },
-          { label: "Execução", value: `${Math.round(progress.executionRate * 100)}%` },
-          { label: "Sequência", value: `${progress.currentStreak} sem` },
-          { label: "Custo de IA", value: `US$ ${cost.toFixed(2)}` },
-        ].map((k) => (
+        {(isPolitical
+          ? [
+              { label: "Documentos gerados", value: String(atividades?.length ?? 0) },
+              { label: "Por áudio", value: String(porAudio) },
+              { label: "Último documento", value: fmt(atividades?.[0]?.created_at ?? null) },
+              { label: "Custo de IA (app)", value: `US$ ${cost.toFixed(2)}` },
+            ]
+          : [
+              {
+                label: "Publicados (semana)",
+                value: `${progress.publishedCount}/${prefs?.weekly_goal ?? progress.target}`,
+              },
+              { label: "Execução", value: `${Math.round(progress.executionRate * 100)}%` },
+              { label: "Sequência", value: `${progress.currentStreak} sem` },
+              { label: "Custo de IA", value: `US$ ${cost.toFixed(2)}` },
+            ]
+        ).map((k) => (
           <div key={k.label} className="rounded-2xl bg-white/80 p-4 ring-1 ring-sand-200">
             <p className="text-[11px] font-medium uppercase tracking-wide text-ink-400">{k.label}</p>
             <p className="mt-1 text-2xl font-semibold tabular-nums text-ink-900">{k.value}</p>
@@ -276,7 +287,8 @@ export default async function ClientDetail({ params }: { params: Promise<{ id: s
             )}
           </Panel>
 
-          <Panel title={`Histórico de pautas (${opportunities?.length ?? 0})`}>
+          {isPolitical ? null : (
+            <Panel title={`Histórico de pautas (${opportunities?.length ?? 0})`}>
             {opportunities && opportunities.length > 0 ? (
               <ul className="space-y-2">
                 {opportunities.map((op) => (
@@ -298,8 +310,10 @@ export default async function ClientDetail({ params }: { params: Promise<{ id: s
               <p className="text-sm text-ink-500">Nenhuma pauta entregue ainda.</p>
             )}
           </Panel>
+          )}
 
-          <Panel title={`Conteúdos gerados (${items?.length ?? 0})`}>
+          {isPolitical ? null : (
+            <Panel title={`Conteúdos gerados (${items?.length ?? 0})`}>
             {items && items.length > 0 ? (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
@@ -335,8 +349,10 @@ export default async function ClientDetail({ params }: { params: Promise<{ id: s
               <p className="text-sm text-ink-500">Sem conteúdos ainda.</p>
             )}
           </Panel>
+          )}
 
-          <Panel title={`Histórico de publicação (${publications?.length ?? 0})`}>
+          {isPolitical ? null : (
+            <Panel title={`Histórico de publicação (${publications?.length ?? 0})`}>
             {publications && publications.length > 0 ? (
               <ul className="space-y-1.5">
                 {publications.map((p) => (
@@ -350,6 +366,7 @@ export default async function ClientDetail({ params }: { params: Promise<{ id: s
               <p className="text-sm text-ink-500">Nenhuma publicação registrada.</p>
             )}
           </Panel>
+          )}
 
           <Panel title={`Logs de geração — IA (${genLogs?.length ?? 0})`}>
             {genLogs && genLogs.length > 0 ? (
