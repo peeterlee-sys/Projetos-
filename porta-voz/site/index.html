@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Radar Público | Monitoramento de rádio e inteligência de mídia local</title>
+<meta name="description" content="Monitore rádios locais em tempo real, identifique reclamações, crises e oportunidades e receba alertas no WhatsApp com áudio, contexto e recomendação de ação.">
+<meta property="og:title" content="Radar Público — Inteligência de mídia local em tempo real">
+<meta property="og:description" content="Ouça o que o público está dizendo. Antes que vire crise. Alertas de rádio no WhatsApp com áudio, contexto, prioridade e recomendação de ação.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://radarpublico.ia.br/">
+<meta name="theme-color" content="#0e3a5c">
+<style>
+  :root{
+    --navy:#0e3a5c; --navy-2:#0a2c47; --amber:#c47f17; --amber-2:#e0a63c;
+    --ink:#1a2332; --muted:#5a6577; --line:#dce2ea; --bg:#ffffff;
+    --bg-soft:#f5f7fa; --bg-cream:#faf6ee; --green:#e7f4e4; --green-line:#c4dfc0;
+    --red:#c0392b; --radius:14px;
+    --sans:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --serif:Georgia,"Times New Roman",serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{font-family:var(--sans);color:var(--ink);background:var(--bg);line-height:1.55;-webkit-font-smoothing:antialiased}
+  img{max-width:100%}
+  a{color:inherit}
+  .wrap{width:100%;max-width:1120px;margin:0 auto;padding:0 22px}
+  .eyebrow{font-size:13px;letter-spacing:2px;text-transform:uppercase;color:var(--amber);font-weight:700}
+  h1,h2,h3{font-family:var(--serif);color:var(--navy);line-height:1.18;font-weight:700}
+  h2.section-title{font-size:clamp(24px,3.4vw,34px);margin-bottom:8px}
+  .section-lead{color:var(--muted);font-size:17px;max-width:720px;margin-bottom:34px}
+  section{padding:64px 0}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:999px;
+    font-weight:700;font-size:15.5px;padding:14px 26px;text-decoration:none;border:2px solid transparent;
+    cursor:pointer;transition:transform .12s ease,background .18s ease,box-shadow .18s ease}
+  .btn:hover{transform:translateY(-1px)}
+  .btn-primary{background:var(--amber);color:#241708}
+  .btn-primary:hover{background:var(--amber-2)}
+  .btn-ghost{background:transparent;color:#fff;border-color:rgba(255,255,255,.55)}
+  .btn-ghost:hover{background:rgba(255,255,255,.1)}
+  .btn-navy{background:var(--navy);color:#fff}
+  .btn-navy:hover{background:var(--navy-2)}
+
+  /* NAV */
+  header.nav{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.94);
+    backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+  .nav-inner{display:flex;align-items:center;justify-content:space-between;height:64px}
+  .logo{font-family:var(--sans);font-weight:800;letter-spacing:1px;font-size:19px;color:var(--navy);text-decoration:none}
+  .logo b{color:var(--amber)}
+  .nav-links{display:flex;gap:26px;align-items:center}
+  .nav-links a{text-decoration:none;color:var(--muted);font-size:14.5px;font-weight:600}
+  .nav-links a:hover{color:var(--navy)}
+  .nav-links .btn{padding:10px 18px;font-size:14px}
+
+  /* HERO */
+  .hero{background:linear-gradient(160deg,var(--navy) 0%,var(--navy-2) 100%);color:#fff;padding:78px 0 88px;position:relative;overflow:hidden}
+  .hero::after{content:"";position:absolute;right:-120px;top:-120px;width:420px;height:420px;
+    border-radius:50%;background:radial-gradient(circle,rgba(196,127,23,.28),transparent 65%)}
+  .hero .eyebrow{color:var(--amber-2)}
+  .hero h1{color:#fff;font-size:clamp(30px,5vw,52px);margin:16px 0 18px;max-width:15ch}
+  .hero p.desc{font-size:19px;color:#cdd8e6;max-width:640px;margin-bottom:14px}
+  .hero .microcopy{font-size:14.5px;color:#9fb2c8;font-style:italic;margin-bottom:30px}
+  .hero-cta{display:flex;gap:14px;flex-wrap:wrap}
+  .hero-badges{display:flex;gap:22px;flex-wrap:wrap;margin-top:34px;color:#9fb2c8;font-size:13.5px}
+  .hero-badges span{display:flex;align-items:center;gap:7px}
+  .hero-badges b{color:#fff;font-weight:700}
+
+  /* PROBLEM */
+  .problem{background:var(--bg-soft)}
+  .problem-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:40px;align-items:center}
+  ul.checks{list-style:none;display:flex;flex-direction:column;gap:11px}
+  ul.checks li{position:relative;padding-left:30px;color:var(--ink);font-size:15.5px}
+  ul.checks li::before{content:"!";position:absolute;left:0;top:1px;width:20px;height:20px;
+    background:#fdecec;color:var(--red);border-radius:50%;font-weight:800;font-size:13px;
+    display:flex;align-items:center;justify-content:center}
+  .impact{background:var(--navy);color:#fff;border-radius:var(--radius);padding:34px 30px;font-family:var(--serif)}
+  .impact .q{font-size:23px;line-height:1.35}
+  .impact .q span{color:var(--amber-2)}
+
+  /* STEPS */
+  .steps{display:grid;grid-template-columns:repeat(4,1fr);gap:20px}
+  .step{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:26px 22px;position:relative}
+  .step .n{width:40px;height:40px;border-radius:11px;background:var(--navy);color:#fff;font-family:var(--serif);
+    font-weight:700;font-size:19px;display:flex;align-items:center;justify-content:center;margin-bottom:16px}
+  .step h3{font-size:18px;margin-bottom:8px}
+  .step p{font-size:14.5px;color:var(--muted)}
+
+  /* SEGMENTS */
+  .segments{background:var(--bg-cream)}
+  .seg-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+  .seg{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:26px 24px;
+    border-top:4px solid var(--amber)}
+  .seg h3{font-size:19px;margin-bottom:6px}
+  .seg .sub{color:var(--muted);font-size:14px;margin-bottom:14px}
+  .seg .tags{display:flex;flex-wrap:wrap;gap:7px}
+  .seg .tags span{background:var(--bg-soft);border:1px solid var(--line);color:#42506a;
+    font-size:12px;padding:4px 9px;border-radius:7px}
+  .seg.gov{border-top-color:var(--navy)}
+
+  /* AREAS */
+  .areas-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+  .area{border:1px solid var(--line);border-radius:12px;padding:22px 20px;background:#fff}
+  .area .ico{font-size:22px;margin-bottom:10px}
+  .area h3{font-size:16.5px;margin-bottom:6px}
+  .area p{font-size:14px;color:var(--muted)}
+
+  /* ALERT DEMO */
+  .demo{background:var(--navy);color:#fff}
+  .demo .section-title,.demo h2{color:#fff}
+  .demo .section-lead{color:#b9c8da}
+  .demo-wrap{display:grid;grid-template-columns:.95fr 1.05fr;gap:36px;align-items:start}
+  .phone{background:var(--green);border:1px solid var(--green-line);border-radius:18px;padding:20px 20px 16px;
+    color:#16281f;font-size:13.5px;line-height:1.5;box-shadow:0 18px 40px rgba(0,0,0,.28);position:relative}
+  .phone .pill{position:absolute;top:-11px;left:20px;background:var(--amber);color:#241708;font-size:11px;
+    font-weight:800;padding:3px 12px;border-radius:999px;letter-spacing:.5px;text-transform:uppercase}
+  .phone .head{font-weight:800;color:var(--navy);margin:6px 0 12px}
+  .phone .row{margin-bottom:5px}
+  .phone .row b{color:var(--navy)}
+  .phone .block{margin:11px 0}
+  .phone .label{font-weight:800;color:var(--navy);font-size:12.5px}
+  .phone .pos{background:#fff;border:1px dashed #8aa08c;border-radius:8px;padding:9px 11px;font-style:italic;
+    font-size:12.5px;margin-top:6px;color:#2d4636}
+  .phone .play{margin-top:12px;display:inline-flex;align-items:center;gap:7px;background:var(--navy);color:#fff;
+    border:none;border-radius:999px;padding:8px 16px;font-weight:700;font-size:12.5px;font-family:var(--sans)}
+  .phone .stamp{text-align:right;font-size:10.5px;color:#6a7f6f;margin-top:8px}
+  .demo-copy h3{color:#fff;font-size:20px;margin:0 0 10px}
+  .demo-copy p{color:#c7d4e2;font-size:15px;margin-bottom:16px}
+  .demo-note{font-size:12.5px;color:#94a8bd;font-style:italic;border-left:3px solid var(--amber);padding-left:12px}
+
+  /* TERRITORY */
+  .territory{background:var(--bg-soft)}
+  .terr-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px 30px;margin:8px 0 26px}
+  .terr-grid ul{list-style:none;display:flex;flex-direction:column;gap:9px}
+  .terr-grid li{padding-left:24px;position:relative;font-size:15px}
+  .terr-grid li::before{content:"◆";position:absolute;left:0;color:var(--amber);font-size:11px;top:3px}
+  .terr-quote{font-family:var(--serif);font-size:22px;color:var(--navy);border-left:4px solid var(--amber);
+    padding:6px 0 6px 20px;max-width:820px;line-height:1.4}
+
+  /* COMPARE */
+  .cmp-grid{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+  .cmp{border-radius:var(--radius);padding:28px 26px}
+  .cmp.old{background:#fbfbfc;border:1px solid var(--line)}
+  .cmp.new{background:var(--navy);color:#fff}
+  .cmp h3{font-size:19px;margin-bottom:16px}
+  .cmp.new h3{color:#fff}
+  .cmp ul{list-style:none;display:flex;flex-direction:column;gap:10px}
+  .cmp li{padding-left:28px;position:relative;font-size:14.5px}
+  .cmp.old li{color:var(--muted)}
+  .cmp.old li::before{content:"✕";position:absolute;left:0;color:#b9424f;font-weight:800}
+  .cmp.new li::before{content:"✓";position:absolute;left:0;color:var(--amber-2);font-weight:800}
+
+  /* FEATURES */
+  .features{background:var(--bg-cream)}
+  .feat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px 26px}
+  .feat-grid div{padding:9px 0 9px 26px;position:relative;font-size:14.5px;border-bottom:1px solid #ece4d5}
+  .feat-grid div::before{content:"✔";position:absolute;left:0;color:var(--amber);font-weight:700}
+  .feat-grid .soon::before{content:"◔";color:var(--muted)}
+  .feat-grid .soon{color:var(--muted)}
+  .tag-soon{font-size:10.5px;background:#ece4d5;color:#7a6a4a;border-radius:5px;padding:1px 6px;margin-left:6px;
+    font-weight:700;vertical-align:middle;letter-spacing:.3px}
+
+  /* CTA */
+  .cta-final{background:linear-gradient(160deg,var(--navy),var(--navy-2));color:#fff;text-align:center}
+  .cta-final h2{color:#fff;font-size:clamp(26px,3.6vw,38px);max-width:20ch;margin:0 auto 14px}
+  .cta-final p{color:#c7d4e2;font-size:18px;max-width:640px;margin:0 auto 28px}
+
+  /* FORM */
+  .form-sec{background:#fff}
+  .form-card{background:#fff;border:1px solid var(--line);border-radius:var(--radius);
+    box-shadow:0 12px 40px rgba(14,58,92,.08);padding:34px;max-width:760px;margin:0 auto}
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .field{display:flex;flex-direction:column;gap:6px}
+  .field.full{grid-column:1/-1}
+  label{font-size:13px;font-weight:700;color:var(--navy)}
+  input,select,textarea{font-family:var(--sans);font-size:15px;padding:11px 13px;border:1px solid var(--line);
+    border-radius:9px;background:#fff;color:var(--ink);width:100%}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--amber);box-shadow:0 0 0 3px rgba(196,127,23,.15)}
+  textarea{resize:vertical;min-height:76px}
+  .form-note{font-size:12.5px;color:var(--muted);margin-top:14px;text-align:center}
+
+  /* FOOTER */
+  footer.site{background:var(--navy-2);color:#aebdcd;padding:40px 0 28px;font-size:14px}
+  .foot-inner{display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap;align-items:flex-start}
+  footer.site .logo{color:#fff}
+  footer.site a{color:#cdd8e6;text-decoration:none}
+  footer.site a:hover{color:#fff}
+  .foot-cols{display:flex;gap:48px;flex-wrap:wrap}
+  .foot-cols h4{color:#fff;font-family:var(--sans);font-size:13px;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px}
+  .foot-cols ul{list-style:none;display:flex;flex-direction:column;gap:7px}
+  .copyright{margin-top:26px;padding-top:16px;border-top:1px solid rgba(255,255,255,.12);font-size:12.5px;color:#8698ab}
+
+  @media(max-width:900px){
+    .problem-grid,.demo-wrap,.cmp-grid{grid-template-columns:1fr}
+    .steps,.seg-grid,.areas-grid,.feat-grid,.terr-grid{grid-template-columns:1fr 1fr}
+    .nav-links{display:none}
+    .nav-links.mini{display:flex;gap:12px}
+  }
+  @media(max-width:560px){
+    section{padding:48px 0}
+    .steps,.seg-grid,.areas-grid,.feat-grid,.terr-grid,.form-grid{grid-template-columns:1fr}
+    .hero h1{font-size:31px}
+    .hero p.desc{font-size:17px}
+    .hero-cta .btn{width:100%}
+    .form-card{padding:22px}
+    .impact .q{font-size:20px}
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<header class="nav">
+  <div class="wrap nav-inner">
+    <a href="#topo" class="logo">RADAR <b>PÚBLICO</b></a>
+    <nav class="nav-links mini">
+      <a href="#como-funciona">Como funciona</a>
+      <a href="#segmentos">Segmentos</a>
+      <a href="#exemplo">Exemplo</a>
+      <a href="#demo" class="btn btn-navy">Solicitar demonstração</a>
+    </nav>
+  </div>
+</header>
+
+<!-- HERO -->
+<section class="hero" id="topo">
+  <div class="wrap">
+    <div class="eyebrow">Inteligência de mídia local em tempo real</div>
+    <h1>Ouça o que o público está dizendo. Antes que vire crise.</h1>
+    <p class="desc">O Radar Público monitora emissoras locais, identifica menções à sua organização,
+      serviços, lideranças e operações e envia alertas diretamente no WhatsApp — com áudio, contexto,
+      prioridade e recomendação de ação.</p>
+    <p class="microcopy">Para organizações que impactam a vida das cidades.</p>
+    <div class="hero-cta">
+      <a href="#demo" class="btn btn-primary">Solicitar uma demonstração</a>
+      <a href="#como-funciona" class="btn btn-ghost">Ver como funciona</a>
+    </div>
+    <div class="hero-badges">
+      <span>📻 <b>Emissoras selecionadas</b> por cidade e região</span>
+      <span>⚡ Alertas em <b>poucos minutos</b></span>
+      <span>💬 Direto no <b>WhatsApp</b>, com áudio</span>
+    </div>
+  </div>
+</section>
+
+<!-- PROBLEMA -->
+<section class="problem" id="problema">
+  <div class="wrap">
+    <div class="eyebrow">O problema</div>
+    <h2 class="section-title">A crise começa no rádio — e sua equipe é a última a saber</h2>
+    <div class="problem-grid" style="margin-top:26px">
+      <ul class="checks">
+        <li>Reclamações surgem primeiro nas rádios locais, na voz do ouvinte.</li>
+        <li>Problemas operacionais ganham repercussão antes de a organização ser avisada.</li>
+        <li>Comunicadores recebem denúncias e mensagens da população durante os programas.</li>
+        <li>Equipes de comunicação descobrem crises tarde demais.</li>
+        <li>Operação, atendimento e comunicação trabalham desconectados.</li>
+        <li>Ninguém consegue acompanhar várias emissoras e cidades ao mesmo tempo.</li>
+        <li>O clipping tradicional mostra o que aconteceu, mas não ajuda a decidir o que fazer.</li>
+      </ul>
+      <div class="impact">
+        <div class="q">Enquanto sua equipe descobre o problema depois, o rádio já está
+          <span>formando a opinião pública.</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- COMO FUNCIONA -->
+<section id="como-funciona">
+  <div class="wrap">
+    <div class="eyebrow">Como funciona</div>
+    <h2 class="section-title">Da menção no ar à ação da sua equipe</h2>
+    <p class="section-lead">Quatro etapas, em tempo próximo ao real, durante os períodos monitorados.</p>
+    <div class="steps">
+      <div class="step"><div class="n">1</div><h3>O Radar escuta</h3>
+        <p>A plataforma acompanha simultaneamente as principais emissoras selecionadas para cada
+          cidade ou região.</p></div>
+      <div class="step"><div class="n">2</div><h3>A IA identifica</h3>
+        <p>A inteligência artificial reconhece menções à organização, serviços, marcas, lideranças,
+          unidades, bairros, cidades e temas estratégicos.</p></div>
+      <div class="step"><div class="n">3</div><h3>O alerta é classificado</h3>
+        <p>Cada ocorrência recebe classificação por tema, sentimento, urgência, território, potencial
+          de repercussão e área responsável.</p></div>
+      <div class="step"><div class="n">4</div><h3>Sua equipe recebe e age</h3>
+        <p>O alerta chega ao WhatsApp com o trecho em áudio, resumo, contexto, recomendação de ação
+          e sugestão de posicionamento.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- SEGMENTOS -->
+<section class="segments" id="segmentos">
+  <div class="wrap">
+    <div class="eyebrow">Segmentos atendidos</div>
+    <h2 class="section-title">Feito para quem tem alta exposição pública</h2>
+    <p class="section-lead">Organizações que prestam serviços essenciais, possuem operações territoriais
+      ou impactam diretamente a vida das cidades.</p>
+    <div class="seg-grid">
+      <div class="seg gov">
+        <h3>Gestão pública</h3>
+        <div class="sub">Prefeituras, governos, câmaras, autarquias e órgãos públicos.</div>
+        <div class="tags"><span>Prefeito e secretários</span><span>Obras</span><span>Saúde</span>
+          <span>Educação</span><span>Trânsito</span><span>Segurança</span>
+          <span>Reclamações da população</span><span>Temas políticos</span><span>Possíveis crises</span></div>
+      </div>
+      <div class="seg">
+        <h3>Água e saneamento</h3>
+        <div class="sub">Concessionárias de abastecimento, esgoto e serviços relacionados.</div>
+        <div class="tags"><span>Falta de água</span><span>Vazamentos</span><span>Baixa pressão</span>
+          <span>Qualidade da água</span><span>Extravasamento de esgoto</span><span>Obras</span>
+          <span>Cobranças</span><span>Atendimento</span><span>Falha de comunicação</span></div>
+      </div>
+      <div class="seg">
+        <h3>Serviços essenciais</h3>
+        <div class="sub">Energia, transporte, resíduos, rodovias, portos, aeroportos e serviços urbanos.</div>
+        <div class="tags"><span>Interrupções</span><span>Acidentes</span><span>Atrasos</span>
+          <span>Problemas operacionais</span><span>Manutenções</span><span>Reclamações</span>
+          <span>Falhas no atendimento</span><span>Emergências</span></div>
+      </div>
+      <div class="seg">
+        <h3>Operações territoriais</h3>
+        <div class="sub">Instituições que atuam em diferentes municípios ou regiões.</div>
+        <div class="tags"><span>Menções por unidade</span><span>Menções por cidade</span>
+          <span>Problemas recorrentes</span><span>Comparação entre territórios</span>
+          <span>Risco reputacional local</span><span>Demandas de comunidades</span></div>
+      </div>
+      <div class="seg">
+        <h3>Agências de comunicação</h3>
+        <div class="sub">Monitore vários clientes em uma única estrutura.</div>
+        <div class="tags"><span>Painel por cliente</span><span>Alertas personalizados</span>
+          <span>Palavras-chave próprias</span><span>Relatórios</span><span>Gestão centralizada</span>
+          <span>Recomendações de posicionamento</span></div>
+      </div>
+      <div class="seg">
+        <h3>Hospitais e instituições</h3>
+        <div class="sub">Organizações de saúde, ensino e entidades de grande exposição.</div>
+        <div class="tags"><span>Atendimento</span><span>Filas e leitos</span><span>Denúncias</span>
+          <span>Menções institucionais</span><span>Reputação local</span><span>Gestão de crise</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- AREAS BENEFICIADAS -->
+<section id="areas">
+  <div class="wrap">
+    <div class="eyebrow">Áreas beneficiadas</div>
+    <h2 class="section-title">Mais do que assessoria de imprensa</h2>
+    <p class="section-lead">O Radar Público integra comunicação, operação e atendimento em torno do que
+      é dito sobre a organização no rádio.</p>
+    <div class="areas-grid">
+      <div class="area"><div class="ico">📣</div><h3>Comunicação</h3>
+        <p>Crises, entrevistas, denúncias, informações incorretas, elogios e oportunidades de pauta.</p></div>
+      <div class="area"><div class="ico">🔧</div><h3>Operações</h3>
+        <p>Problemas relatados pela população antes de chegarem aos canais oficiais.</p></div>
+      <div class="area"><div class="ico">🎧</div><h3>Atendimento ao cliente</h3>
+        <p>Reclamações recorrentes, demandas locais e falhas na experiência do usuário.</p></div>
+      <div class="area"><div class="ico">🤝</div><h3>Relações institucionais</h3>
+        <p>Manifestações de autoridades, lideranças comunitárias, entidades e comunicadores.</p></div>
+      <div class="area"><div class="ico">🚨</div><h3>Gestão de crise</h3>
+        <p>Classificação de urgência, potencial de repercussão e necessidade de resposta.</p></div>
+      <div class="area"><div class="ico">🗺️</div><h3>Gestores regionais</h3>
+        <p>Visão territorial das cidades, unidades e regiões com mais ocorrências.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- EXEMPLO DE ALERTA -->
+<section class="demo" id="exemplo">
+  <div class="wrap">
+    <div class="eyebrow">Exemplo de alerta</div>
+    <h2 class="section-title">O que chega no WhatsApp da sua equipe</h2>
+    <p class="section-lead">Um alerta ilustrativo para uma concessionária de saneamento.</p>
+    <div class="demo-wrap">
+      <div class="phone">
+        <div class="pill">🔴 Alta prioridade</div>
+        <div class="head">RADAR PÚBLICO — ABASTECIMENTO</div>
+        <div class="row"><b>📍 Cidade:</b> Camboriú</div>
+        <div class="row"><b>📻 Emissora:</b> Rádio Exemplo FM</div>
+        <div class="row"><b>🎙️ Programa:</b> Jornal da Manhã</div>
+        <div class="row"><b>🕐 Horário:</b> 08h17</div>
+        <div class="block"><span class="label">Resumo</span><br>
+          O apresentador leu mensagens de moradores do bairro Santa Regina reclamando de falta de água
+          desde a noite anterior.</div>
+        <div class="row"><b>Classificação:</b> Reclamação recorrente</div>
+        <div class="row"><b>Tema:</b> Abastecimento · <b>Sentimento:</b> Negativo</div>
+        <div class="row"><b>Potencial de repercussão:</b> Alto</div>
+        <div class="block"><span class="label">Por que importa</span><br>
+          Três bairros foram citados e o apresentador afirmou que tentará contato com a concessionária
+          durante o programa.</div>
+        <div class="row"><b>Área sugerida:</b> Operações + Comunicação</div>
+        <div class="block"><span class="label">Ação recomendada</span><br>
+          Verificar manutenção ou interrupção no abastecimento e retornar à emissora ainda durante o programa.</div>
+        <span class="label">Posicionamento sugerido</span>
+        <div class="pos">"A concessionária está verificando a situação relatada pelos moradores e mobilizou
+          sua equipe operacional para identificar a origem da interrupção. Assim que a análise for concluída,
+          novas informações serão divulgadas."</div>
+        <button class="play" type="button" onclick="document.getElementById('demo').scrollIntoView()">▶ Ouvir trecho da rádio</button>
+        <div class="stamp">Exemplo ilustrativo · ✓✓</div>
+      </div>
+      <div class="demo-copy">
+        <h3>Não é um resumo do que já passou. É um convite para agir agora.</h3>
+        <p>Cada alerta transforma uma menção no ar em uma decisão: quem precisa saber, com qual
+          urgência, e o que responder. Sua equipe recebe o áudio original como prova, o contexto
+          completo e uma sugestão de posicionamento pronta para adaptar.</p>
+        <p>Em vez de descobrir a crise pela repercussão, você chega antes dela.</p>
+        <div class="demo-note">Este é um exemplo ilustrativo do formato de alerta. As menções são
+          identificadas conforme os critérios e as emissoras configurados para cada cliente.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- INTELIGENCIA TERRITORIAL -->
+<section class="territory" id="territorio">
+  <div class="wrap">
+    <div class="eyebrow">Inteligência territorial</div>
+    <h2 class="section-title">Uma central de inteligência para cada território</h2>
+    <p class="section-lead">Organizações que atuam em várias cidades acompanham, em um só lugar,
+      onde e como estão sendo faladas.</p>
+    <div class="terr-grid">
+      <ul>
+        <li>Menções por estado, cidade, unidade, bairro ou região</li>
+        <li>Assuntos mais recorrentes</li>
+        <li>Sentimento predominante</li>
+        <li>Emissoras mais relevantes</li>
+        <li>Comunicadores mais influentes</li>
+        <li>Evolução das ocorrências</li>
+      </ul>
+      <ul>
+        <li>Tempo de resposta</li>
+        <li>Problemas resolvidos</li>
+        <li>Problemas reincidentes</li>
+        <li>Comparação entre territórios</li>
+        <li>Riscos reputacionais locais</li>
+        <li>Demandas por comunidade</li>
+      </ul>
+    </div>
+    <div class="terr-quote">Não basta saber que falaram da sua organização. É preciso saber onde,
+      por que, com qual gravidade e quem precisa agir.</div>
+  </div>
+</section>
+
+<!-- CLIPPING x RADAR -->
+<section id="clipping">
+  <div class="wrap">
+    <div class="eyebrow">Diferença</div>
+    <h2 class="section-title">Mais do que clipping. Inteligência para agir.</h2>
+    <div class="cmp-grid" style="margin-top:26px">
+      <div class="cmp old">
+        <h3>Clipping tradicional</h3>
+        <ul>
+          <li>Mostra o que foi publicado</li>
+          <li>Geralmente chega depois</li>
+          <li>Exige análise manual</li>
+          <li>Não classifica a urgência</li>
+          <li>Não recomenda uma ação</li>
+          <li>Não integra comunicação e operação</li>
+        </ul>
+      </div>
+      <div class="cmp new">
+        <h3>Radar Público</h3>
+        <ul>
+          <li>Identifica a menção durante o programa</li>
+          <li>Envia o áudio original</li>
+          <li>Resume e contextualiza</li>
+          <li>Classifica a prioridade e o território</li>
+          <li>Recomenda uma ação</li>
+          <li>Sugere um posicionamento</li>
+          <li>Direciona para a equipe responsável</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FUNCIONALIDADES -->
+<section class="features" id="funcionalidades">
+  <div class="wrap">
+    <div class="eyebrow">Funcionalidades</div>
+    <h2 class="section-title">Da escuta ao encaminhamento</h2>
+    <p class="section-lead">Recursos disponíveis hoje. Itens marcados como
+      <span class="tag-soon">Em desenvolvimento</span> estão no roteiro de evolução.</p>
+    <div class="feat-grid">
+      <div>Monitoramento simultâneo de rádios</div>
+      <div>Transcrição automática do áudio</div>
+      <div>Identificação de palavras-chave</div>
+      <div>Reconhecimento de marcas, pessoas, serviços e locais</div>
+      <div>Classificação por assunto</div>
+      <div>Classificação de sentimento</div>
+      <div>Nível de urgência</div>
+      <div>Potencial de repercussão</div>
+      <div>Identificação de cidade, bairro ou região</div>
+      <div>Encaminhamento para a área responsável</div>
+      <div>Envio de alertas pelo WhatsApp</div>
+      <div>Áudio original da menção</div>
+      <div>Resumo automático</div>
+      <div>Contextualização da ocorrência</div>
+      <div>Recomendação de ação</div>
+      <div>Sugestão de posicionamento</div>
+      <div>Histórico de ocorrências</div>
+      <div>Painel de acompanhamento</div>
+      <div class="soon">Dashboard por cidade, unidade, tema e período <span class="tag-soon">Em desenvolvimento</span></div>
+      <div class="soon">Relatórios estratégicos <span class="tag-soon">Em desenvolvimento</span></div>
+      <div class="soon">Comparação entre territórios <span class="tag-soon">Em desenvolvimento</span></div>
+      <div class="soon">Integrações com sistemas do cliente <span class="tag-soon">Em desenvolvimento</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA FINAL -->
+<section class="cta-final">
+  <div class="wrap">
+    <div class="eyebrow" style="color:var(--amber-2)">Comece agora</div>
+    <h2>Descubra o que estão dizendo sobre sua organização</h2>
+    <p>Monitore as rádios dos territórios onde sua organização atua e transforme cada menção
+      relevante em uma ação rápida e estratégica.</p>
+    <a href="#demo" class="btn btn-primary">Solicitar uma demonstração</a>
+  </div>
+</section>
+
+<!-- FORMULARIO -->
+<section class="form-sec" id="demo">
+  <div class="wrap">
+    <div class="eyebrow" style="text-align:center">Fale com um especialista</div>
+    <h2 class="section-title" style="text-align:center">Monte o radar da sua organização</h2>
+    <p class="section-lead" style="margin:8px auto 30px;text-align:center">Conte onde você atua e o que
+      precisa monitorar. Retornamos com uma proposta ou uma prova de conceito.</p>
+    <div class="form-card">
+      <form id="lead-form">
+        <div class="form-grid">
+          <div class="field"><label>Nome*</label><input name="nome" required></div>
+          <div class="field"><label>Organização*</label><input name="org" required></div>
+          <div class="field"><label>Cargo</label><input name="cargo"></div>
+          <div class="field"><label>Telefone / WhatsApp*</label><input name="telefone" required></div>
+          <div class="field"><label>E-mail*</label><input name="email" type="email" required></div>
+          <div class="field"><label>Segmento*</label>
+            <select name="segmento" required>
+              <option value="">Selecione…</option>
+              <option>Prefeitura ou órgão público</option>
+              <option>Água e saneamento</option>
+              <option>Energia</option>
+              <option>Transporte</option>
+              <option>Rodovias</option>
+              <option>Resíduos</option>
+              <option>Agência de comunicação</option>
+              <option>Instituição</option>
+              <option>Outro</option>
+            </select>
+          </div>
+          <div class="field full"><label>Cidades ou regiões de interesse</label>
+            <input name="cidades" placeholder="Ex.: Itapema, Balneário Camboriú, Camboriú"></div>
+          <div class="field"><label>Qtde. estimada de emissoras</label><input name="emissoras" placeholder="Ex.: 3"></div>
+          <div class="field"><label>Objetivo do monitoramento</label>
+            <select name="objetivo">
+              <option value="">Selecione…</option>
+              <option>Gestão de crise</option>
+              <option>Comunicação e reputação</option>
+              <option>Operação e atendimento</option>
+              <option>Relações institucionais</option>
+              <option>Vários objetivos</option>
+            </select></div>
+          <div class="field full"><label>Principais temas ou palavras-chave</label>
+            <textarea name="temas" placeholder="Ex.: falta de água, nome da concessionária, bairros críticos…"></textarea></div>
+        </div>
+        <div style="text-align:center;margin-top:22px">
+          <button type="submit" class="btn btn-navy">Solicitar demonstração</button>
+        </div>
+        <p class="form-note">Ao enviar, o formulário abre o WhatsApp com seus dados já preenchidos para
+          nossa equipe. Seus dados não são compartilhados com terceiros.</p>
+      </form>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="site">
+  <div class="wrap foot-inner">
+    <div>
+      <a href="#topo" class="logo">RADAR <b style="color:var(--amber-2)">PÚBLICO</b></a>
+      <p style="margin-top:10px;max-width:280px">Inteligência de mídia local: escuta, entende e transforma
+        o rádio em ação para a sua organização.</p>
+    </div>
+    <div class="foot-cols">
+      <div>
+        <h4>Segmentos</h4>
+        <ul>
+          <li><a href="#segmentos">Gestão pública</a></li>
+          <li><a href="#segmentos">Água e saneamento</a></li>
+          <li><a href="#segmentos">Serviços essenciais</a></li>
+          <li><a href="#segmentos">Agências</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Plataforma</h4>
+        <ul>
+          <li><a href="#como-funciona">Como funciona</a></li>
+          <li><a href="#exemplo">Exemplo de alerta</a></li>
+          <li><a href="#funcionalidades">Funcionalidades</a></li>
+          <li><a href="#demo">Solicitar demonstração</a></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="wrap"><div class="copyright">© <span id="ano"></span> Radar Público · radarpublico.ia.br ·
+    Monitoramento contínuo durante os períodos contratados, em emissoras previamente selecionadas.</div></div>
+</footer>
+
+<script>
+  document.getElementById('ano').textContent = new Date().getFullYear();
+
+  // Envio do formulário → abre WhatsApp com os dados preenchidos.
+  // TROQUE o número abaixo pelo WhatsApp comercial (formato internacional, só dígitos).
+  var WHATSAPP_COMERCIAL = "55SEUNUMERO"; // ex.: 5547999999999
+  document.getElementById('lead-form').addEventListener('submit', function(e){
+    e.preventDefault();
+    var f = e.target;
+    var linhas = [
+      "*Nova solicitação — Radar Público*",
+      "Nome: " + f.nome.value,
+      "Organização: " + f.org.value,
+      "Cargo: " + (f.cargo.value || "-"),
+      "Telefone: " + f.telefone.value,
+      "E-mail: " + f.email.value,
+      "Segmento: " + f.segmento.value,
+      "Cidades/regiões: " + (f.cidades.value || "-"),
+      "Emissoras estimadas: " + (f.emissoras.value || "-"),
+      "Objetivo: " + (f.objetivo.value || "-"),
+      "Temas/palavras-chave: " + (f.temas.value || "-")
+    ];
+    var url = "https://wa.me/" + WHATSAPP_COMERCIAL + "?text=" + encodeURIComponent(linhas.join("\n"));
+    window.open(url, "_blank");
+  });
+</script>
+</body>
+</html>
