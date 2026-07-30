@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Radar Público — Inteligência Comparativa · Saneamento (Demonstração)</title>
+<style>
+  :root{
+    --navy:#0e3a5c; --navy-2:#0a2c47; --amber:#c47f17; --ink:#0b0b0b;
+    --text-2:#52514e; --muted:#7a8494; --line:#e2e7ee; --bg:#eef2f7;
+    --surface:#ffffff; --surface-soft:#f7f9fc;
+    /* categorical — validado (pairs all, light) */
+    --c-aguas:#2a78d6; --c-casan:#e34948; --c-emasa:#1baf7a; --c-semasa:#eda100; --c-conasa:#4a3aa7;
+    /* sentimento (status) */
+    --s-pos:#008300; --s-neu:#9aa3af; --s-neg:#c0392b;
+    --sans:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --serif:Georgia,"Times New Roman",serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:var(--sans);background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;line-height:1.5}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 20px}
+
+  /* HEADER */
+  header{background:linear-gradient(160deg,var(--navy),var(--navy-2));color:#fff;padding:22px 0}
+  .head-in{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+  .brand{font-weight:800;letter-spacing:1px;font-size:19px}
+  .brand b{color:#e0a63c}
+  .head-sub{font-size:13px;color:#b8c6d8;margin-top:2px}
+  .demo-flag{background:#e0a63c;color:#241708;font-weight:800;font-size:12px;letter-spacing:.5px;
+    padding:7px 14px;border-radius:8px;text-transform:uppercase}
+  .filters{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+  .filters .chip{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);color:#eaf1f8;
+    font-size:12.5px;padding:6px 12px;border-radius:999px}
+  .filters .chip b{color:#fff}
+
+  /* KPI */
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin:22px 0}
+  .kpi{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px 20px;
+    box-shadow:0 2px 8px rgba(14,58,92,.04)}
+  .kpi .lbl{font-size:12.5px;color:var(--muted);font-weight:600}
+  .kpi .val{font-family:var(--serif);font-size:32px;color:var(--navy);line-height:1.1;margin-top:4px}
+  .kpi .val small{font-size:15px;color:var(--text-2)}
+  .kpi .trend{font-size:12px;margin-top:5px;font-weight:600}
+  .kpi .up{color:#008300}.kpi .down{color:#c0392b}
+
+  /* GRID de cards */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:22px 22px 18px;
+    box-shadow:0 2px 10px rgba(14,58,92,.05);min-width:0}
+  .card h2{font-family:var(--serif);font-size:18px;color:var(--navy)}
+  .card .desc{font-size:12.5px;color:var(--muted);margin:3px 0 14px}
+  .card.full{grid-column:1/-1}
+
+  /* Pizza + legenda */
+  .pie-row{display:flex;gap:22px;align-items:center;flex-wrap:wrap}
+  .pie-svg{flex:0 0 auto}
+  .legend{list-style:none;display:flex;flex-direction:column;gap:9px;min-width:180px;flex:1}
+  .legend li{display:flex;align-items:center;gap:10px;font-size:13.5px}
+  .legend .dot{width:13px;height:13px;border-radius:4px;flex:0 0 auto}
+  .legend .nm{font-weight:600;color:var(--ink)}
+  .legend .pc{margin-left:auto;font-variant-numeric:tabular-nums;color:var(--text-2);font-weight:700}
+  .legend .hero .nm{color:var(--navy)}
+
+  /* Barras horizontais */
+  .hbar{display:flex;flex-direction:column;gap:13px;margin-top:4px}
+  .hbar .row{display:grid;grid-template-columns:120px 1fr 48px;align-items:center;gap:12px}
+  .hbar .nm{font-size:13.5px;font-weight:600;color:var(--ink);text-align:right}
+  .hbar .track{background:var(--surface-soft);border-radius:6px;height:22px;overflow:hidden;border:1px solid var(--line)}
+  .hbar .fill{height:100%;border-radius:6px 4px 4px 6px;display:block}
+  .hbar .pc{font-size:13px;font-weight:700;color:var(--text-2);font-variant-numeric:tabular-nums}
+  .hbar .hero .nm{color:var(--navy);font-weight:800}
+
+  /* Barras verticais (cidades) */
+  .vbars{display:flex;align-items:flex-end;gap:16px;height:180px;padding-top:10px}
+  .vbar{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:8px;height:100%}
+  .vbar .col{width:100%;max-width:56px;background:var(--c-aguas);border-radius:6px 6px 0 0;position:relative}
+  .vbar .col .n{position:absolute;top:-20px;left:0;right:0;text-align:center;font-size:12.5px;font-weight:700;color:var(--navy)}
+  .vbar .cty{font-size:12.5px;color:var(--text-2);text-align:center;font-weight:600}
+
+  /* Tabela */
+  .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:6px;min-width:560px}
+  th,td{padding:9px 10px;text-align:left;border-bottom:1px solid var(--line)}
+  th{font-size:11.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:700}
+  td.num{text-align:right;font-variant-numeric:tabular-nums}
+  tr.hero td{background:#f0f6fd}
+  tr.hero td:first-child{font-weight:800;color:var(--navy)}
+  .swatch{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:7px;vertical-align:middle}
+
+  .insight{background:#f0f6fd;border-left:4px solid var(--amber);border-radius:0 10px 10px 0;
+    padding:14px 16px;font-size:14px;color:#28405a;margin-top:16px}
+  .insight b{color:var(--navy)}
+
+  footer{color:var(--muted);font-size:12px;text-align:center;padding:26px 0 34px;line-height:1.6}
+
+  @media(max-width:820px){
+    .kpis{grid-template-columns:1fr 1fr}
+    .grid{grid-template-columns:1fr}
+    .vbars{height:150px}
+  }
+  @media(max-width:480px){
+    .kpis{grid-template-columns:1fr 1fr}
+    .hbar .row{grid-template-columns:86px 1fr 40px}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="head-in">
+      <div>
+        <div class="brand">RADAR <b>PÚBLICO</b> · Inteligência Comparativa</div>
+        <div class="head-sub">Setor de Saneamento · Litoral Norte de Santa Catarina</div>
+      </div>
+      <div class="demo-flag">Demonstração · dados simulados</div>
+    </div>
+    <div class="filters">
+      <span class="chip">Período: <b>Últimos 30 dias</b></span>
+      <span class="chip">Cidades: <b>Itajaí · BC · Itapema · Camboriú · Navegantes</b></span>
+      <span class="chip">Emissoras monitoradas: <b>9</b></span>
+      <span class="chip">Empresas: <b>5</b></span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- KPIs -->
+  <div class="kpis">
+    <div class="kpi"><div class="lbl">Menções captadas</div><div class="val">377</div>
+      <div class="trend up">▲ 12% vs. mês anterior</div></div>
+    <div class="kpi"><div class="lbl">Alertas de alta prioridade</div><div class="val">41</div>
+      <div class="trend down">▲ 6 crises potenciais</div></div>
+    <div class="kpi"><div class="lbl">Tempo médio até o alerta</div><div class="val">3<small> min</small></div>
+      <div class="trend up">durante o programa</div></div>
+    <div class="kpi"><div class="lbl">Share of voice · Águas (AEGEA)</div><div class="val">34<small>%</small></div>
+      <div class="trend">líder na região monitorada</div></div>
+  </div>
+
+  <div class="grid">
+
+    <!-- PIZZA 1 — Share of voice -->
+    <div class="card">
+      <h2>Share of voice por empresa</h2>
+      <p class="desc">Participação de cada empresa no total de menções captadas nas rádios monitoradas.</p>
+      <div class="pie-row">
+        <svg class="pie-svg" id="pie-share" width="220" height="220" viewBox="0 0 220 220" role="img"
+          aria-label="Gráfico de pizza de share of voice por empresa"></svg>
+        <ul class="legend" id="leg-share"></ul>
+      </div>
+    </div>
+
+    <!-- PIZZA 2 — Sentimento AEGEA -->
+    <div class="card">
+      <h2>Sentimento das menções · Águas (AEGEA)</h2>
+      <p class="desc">Distribuição do tom das 128 menções à AEGEA no período.</p>
+      <div class="pie-row">
+        <svg class="pie-svg" id="pie-sent" width="220" height="220" viewBox="0 0 220 220" role="img"
+          aria-label="Gráfico de pizza de sentimento das menções à AEGEA"></svg>
+        <ul class="legend" id="leg-sent"></ul>
+      </div>
+    </div>
+
+    <!-- BARRAS — % negativo por empresa (o cruzamento competitivo) -->
+    <div class="card">
+      <h2>Reclamação por empresa</h2>
+      <p class="desc">% de menções negativas sobre o total de cada empresa. Quanto menor, melhor.</p>
+      <div class="hbar" id="hbar-neg"></div>
+      <div class="insight" id="insight-neg"></div>
+    </div>
+
+    <!-- BARRAS — menções por cidade -->
+    <div class="card">
+      <h2>Menções por cidade</h2>
+      <p class="desc">Onde o setor de saneamento mais aparece no rádio, no período.</p>
+      <div class="vbars" id="vbars-city"></div>
+    </div>
+
+    <!-- TABELA comparativa -->
+    <div class="card full">
+      <h2>Quadro comparativo</h2>
+      <p class="desc">Cruzamento de volume, participação e tom por empresa. Visão para decisão.</p>
+      <div class="table-scroll">
+      <table>
+        <thead><tr>
+          <th>Empresa</th><th class="num">Menções</th><th class="num">Share of voice</th>
+          <th class="num">% Negativo</th><th class="num">% Neutro</th><th class="num">% Positivo</th>
+          <th class="num">Cidade com mais menções</th>
+        </tr></thead>
+        <tbody id="tbl-body"></tbody>
+      </table>
+      </div>
+      <div class="insight">
+        <b>Leitura da demonstração:</b> a Águas (AEGEA) lidera em presença no rádio (34%) e, ao mesmo tempo,
+        tem a 2ª menor taxa de reclamação entre as cinco empresas — fica <b>à frente de Casan, Semasa e Conasa</b>
+        em percepção negativa. Esse é o tipo de cruzamento que o Radar Público entrega a partir do rádio local,
+        em tempo quase real e com o áudio de cada menção como prova.
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<footer>
+  <b>Demonstração ilustrativa</b> — os números desta tela são simulados e servem apenas para mostrar o formato
+  do produto. Em operação, os dados refletem as menções captadas nas emissoras e conforme os critérios
+  configurados para cada cliente. Share of voice de rádio é uma amostra das emissoras monitoradas, não o total da mídia.<br>
+  RADAR PÚBLICO · radarpublico.ia.br
+</footer>
+
+<script>
+(function(){
+  var TAU = Math.PI*2, cx=110, cy=110, r=100;
+  function polar(cx,cy,r,a){ return [cx+r*Math.cos(a), cy+r*Math.sin(a)]; }
+
+  // Desenha uma pizza com fatias separadas por 2px (gap via stroke branco) e rótulo % dentro.
+  function drawPie(svgId, data){ // data: [{label,value,color,hero}]
+    var svg = document.getElementById(svgId);
+    var total = data.reduce(function(s,d){return s+d.value;},0);
+    var ang = -Math.PI/2; // começa no topo
+    data.forEach(function(d){
+      var frac = d.value/total, sweep = frac*TAU, end = ang+sweep;
+      var large = sweep > Math.PI ? 1 : 0;
+      var p1 = polar(cx,cy,r,ang), p2 = polar(cx,cy,r,end);
+      var path = document.createElementNS("http://www.w3.org/2000/svg","path");
+      path.setAttribute("d","M "+cx+" "+cy+" L "+p1[0].toFixed(2)+" "+p1[1].toFixed(2)+
+        " A "+r+" "+r+" 0 "+large+" 1 "+p2[0].toFixed(2)+" "+p2[1].toFixed(2)+" Z");
+      path.setAttribute("fill", d.color);
+      path.setAttribute("stroke", "#ffffff");
+      path.setAttribute("stroke-width", "2");
+      path.setAttribute("stroke-linejoin","round");
+      var t = document.createElementNS("http://www.w3.org/2000/svg","title");
+      t.textContent = d.label+": "+Math.round(frac*100)+"% ("+d.value+")";
+      path.appendChild(t);
+      svg.appendChild(path);
+      // rótulo % (só se a fatia for grande o suficiente)
+      if(frac >= 0.06){
+        var mid = ang + sweep/2, lp = polar(cx,cy,r*0.62,mid);
+        var lab = document.createElementNS("http://www.w3.org/2000/svg","text");
+        lab.setAttribute("x", lp[0].toFixed(1)); lab.setAttribute("y", lp[1].toFixed(1));
+        lab.setAttribute("text-anchor","middle"); lab.setAttribute("dominant-baseline","central");
+        lab.setAttribute("fill","#ffffff"); lab.setAttribute("font-size","15");
+        lab.setAttribute("font-weight","800"); lab.setAttribute("font-family","-apple-system,Segoe UI,Arial,sans-serif");
+        lab.textContent = Math.round(frac*100)+"%";
+        svg.appendChild(lab);
+      }
+      ang = end;
+    });
+  }
+
+  function drawLegend(id, data){
+    var ul = document.getElementById(id);
+    var total = data.reduce(function(s,d){return s+d.value;},0);
+    data.forEach(function(d){
+      var li = document.createElement("li");
+      if(d.hero) li.className="hero";
+      li.innerHTML = '<span class="dot" style="background:'+d.color+'"></span>'+
+        '<span class="nm">'+d.label+'</span>'+
+        '<span class="pc">'+Math.round(d.value/total*100)+'%</span>';
+      ul.appendChild(li);
+    });
+  }
+
+  // ---- Dados simulados ----
+  var share = [
+    {label:"Águas (AEGEA)", value:128, color:getCSS('--c-aguas'), hero:true},
+    {label:"Casan",        value:102, color:getCSS('--c-casan')},
+    {label:"Emasa",        value:60,  color:getCSS('--c-emasa')},
+    {label:"Semasa",       value:49,  color:getCSS('--c-semasa')},
+    {label:"Conasa",       value:38,  color:getCSS('--c-conasa')}
+  ];
+  var sent = [
+    {label:"Negativo", value:67, color:getCSS('--s-neg')},
+    {label:"Neutro",   value:42, color:getCSS('--s-neu')},
+    {label:"Positivo", value:19, color:getCSS('--s-pos'), hero:false}
+  ];
+  var neg = [ // % negativo por empresa
+    {label:"Semasa", pc:61, color:getCSS('--c-semasa')},
+    {label:"Casan",  pc:58, color:getCSS('--c-casan')},
+    {label:"Conasa", pc:55, color:getCSS('--c-conasa')},
+    {label:"Águas (AEGEA)", pc:52, color:getCSS('--c-aguas'), hero:true},
+    {label:"Emasa",  pc:44, color:getCSS('--c-emasa')}
+  ];
+  var cities = [
+    {city:"Itajaí", n:96}, {city:"B. Camboriú", n:88}, {city:"Itapema", n:71},
+    {city:"Camboriú", n:68}, {city:"Navegantes", n:54}
+  ];
+  var tableRows = [
+    {nm:"Águas (AEGEA)", c:'--c-aguas', men:128, sov:34, neg:52, neu:33, pos:15, city:"Itapema", hero:true},
+    {nm:"Casan",  c:'--c-casan', men:102, sov:27, neg:58, neu:30, pos:12, city:"Itajaí"},
+    {nm:"Emasa",  c:'--c-emasa', men:60,  sov:16, neg:44, neu:38, pos:18, city:"B. Camboriú"},
+    {nm:"Semasa", c:'--c-semasa',men:49,  sov:13, neg:61, neu:28, pos:11, city:"Itajaí"},
+    {nm:"Conasa", c:'--c-conasa',men:38,  sov:10, neg:55, neu:33, pos:12, city:"Itapema"}
+  ];
+
+  function getCSS(v){ return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+
+  // Render pizzas + legendas
+  drawPie("pie-share", share);   drawLegend("leg-share", share);
+  drawPie("pie-sent", sent);     drawLegend("leg-sent", sent);
+
+  // Barras horizontais (% negativo)
+  var hb = document.getElementById("hbar-neg");
+  var maxNeg = Math.max.apply(null, neg.map(function(d){return d.pc;}));
+  neg.forEach(function(d){
+    var row = document.createElement("div"); row.className = "row"+(d.hero?" hero":"");
+    row.innerHTML = '<div class="nm">'+d.label+'</div>'+
+      '<div class="track"><span class="fill" style="width:'+(d.pc/maxNeg*100)+'%;background:'+d.color+'" title="'+d.label+': '+d.pc+'% negativo"></span></div>'+
+      '<div class="pc">'+d.pc+'%</div>';
+    hb.appendChild(row);
+  });
+  document.getElementById("insight-neg").innerHTML =
+    '<b>Cruzamento:</b> a AEGEA tem a 2ª menor taxa de reclamação — melhor que Casan, Semasa e Conasa.';
+
+  // Barras verticais (cidades)
+  var vb = document.getElementById("vbars-city");
+  var maxCity = Math.max.apply(null, cities.map(function(d){return d.n;}));
+  cities.forEach(function(d){
+    var col = document.createElement("div"); col.className="vbar";
+    col.innerHTML = '<div class="col" style="height:'+(d.n/maxCity*100)+'%" title="'+d.city+': '+d.n+' menções">'+
+      '<span class="n">'+d.n+'</span></div><div class="cty">'+d.city+'</div>';
+    vb.appendChild(col);
+  });
+
+  // Tabela
+  var tb = document.getElementById("tbl-body");
+  tableRows.forEach(function(d){
+    var tr = document.createElement("tr"); if(d.hero) tr.className="hero";
+    tr.innerHTML = '<td><span class="swatch" style="background:'+getCSS(d.c)+'"></span>'+d.nm+'</td>'+
+      '<td class="num">'+d.men+'</td><td class="num">'+d.sov+'%</td>'+
+      '<td class="num">'+d.neg+'%</td><td class="num">'+d.neu+'%</td><td class="num">'+d.pos+'%</td>'+
+      '<td class="num">'+d.city+'</td>';
+    tb.appendChild(tr);
+  });
+})();
+</script>
+</body>
+</html>
