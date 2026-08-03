@@ -239,6 +239,22 @@ export default async function HojePage() {
             </section>
           ) : null}
 
+          {/* Sugerir a própria pauta */}
+          <Link
+            href="/sugerir"
+            className="mt-6 flex items-center justify-between rounded-[24px] border border-dashed border-sand-300 bg-white/60 p-4 transition hover:border-brand-700 hover:bg-white"
+          >
+            <span className="min-w-0">
+              <span className="block font-medium text-ink-900">
+                ✍️ Tenho um tema em mente
+              </span>
+              <span className="block text-sm text-ink-500">
+                Sugira sua própria pauta — a IA monta com a sua cara
+              </span>
+            </span>
+            <span className="shrink-0 text-ink-400">→</span>
+          </Link>
+
           <details className="mt-5 pb-2 text-center">
             <summary className="cursor-pointer list-none text-sm font-medium text-gold-700">
               Hoje está difícil?
@@ -270,6 +286,12 @@ export default async function HojePage() {
           </p>
           <Link href="/biblioteca" className="mt-5">
             <Button>Ver meus melhores conteúdos</Button>
+          </Link>
+          <Link
+            href="/sugerir"
+            className="mt-3 text-sm font-medium text-gold-700 underline-offset-4 hover:underline"
+          >
+            Sugerir um tema manualmente
           </Link>
         </div>
       )}
