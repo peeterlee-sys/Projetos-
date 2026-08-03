@@ -35,10 +35,12 @@ export function SuggestForm({ error }: { error: string | null }) {
       />
       {localError ? <p className="text-sm text-danger-600">{localError}</p> : null}
       <Button full onClick={submit} disabled={pending || idea.trim().length < 3}>
-        {pending ? "Montando sua pauta…" : "Transformar em pauta"}
+        {pending ? "Pesquisando e montando…" : "Transformar em pauta"}
       </Button>
       <p className="text-center text-xs text-ink-400">
-        A IA respeita seu tom e seus temas — a pauta sai com a sua cara.
+        {pending
+          ? "Buscando o que há de mais atual sobre o tema — leva alguns segundos."
+          : "A IA pesquisa fatos atuais e respeita seu tom — a pauta sai com a sua cara."}
       </p>
     </div>
   );

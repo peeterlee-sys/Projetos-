@@ -5,6 +5,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth/session";
 import { generate } from "@/lib/ai";
+import { generateWithWebSearch } from "@/lib/ai/webResearch";
 
 export type SuggestResult = { ok: false; error: string } | { ok: true; oppId: string };
 
@@ -50,26 +51,43 @@ export async function suggestTopic(idea: string): Promise<SuggestResult> {
     .eq("user_id", user.id)
     .maybeSingle();
 
+  const prompt = [
+    `CONTEXTO DO CLIENTE (contexto_mestre):`,
+    JSON.stringify(profile?.contexto_mestre ?? {}, null, 2),
+    ``,
+    `TEMA SUGERIDO PELO CLIENTE: "${clean}"`,
+    ``,
+    `Pesquise o que está acontecendo AGORA sobre esse tema (últimos dias/semanas)`,
+    `e transforme numa oportunidade de pauta pronta para produção, com a cara do`,
+    `cliente, ancorada em fatos atuais. Recomende o formato que melhor serve.`,
+    ``,
+    `Responda no formato JSON:`,
+    JSON.stringify(JSON_SCHEMA),
+  ].join("\n");
+
   let payload: z.infer<typeof suggestionSchema>;
   try {
-    payload = await generate({
-      scenario: "generation",
+    // 1ª tentativa: com busca na web (fatos atuais).
+    payload = await generateWithWebSearch({
       system: SYSTEM,
-      prompt: [
-        `CONTEXTO DO CLIENTE (contexto_mestre):`,
-        JSON.stringify(profile?.contexto_mestre ?? {}, null, 2),
-        ``,
-        `TEMA SUGERIDO PELO CLIENTE: "${clean}"`,
-        ``,
-        `Transforme esse tema numa oportunidade de pauta pronta para produção,`,
-        `com a cara do cliente. Recomende o formato que melhor serve a esse tema.`,
-      ].join("\n"),
+      prompt,
       schema: suggestionSchema,
-      jsonSchema: JSON_SCHEMA,
-      cost: { tenantId: user.tenant_id, userId: user.id },
+      maxSearches: 4,
     });
   } catch {
-    return { ok: false, error: "A IA não conseguiu montar a pauta agora. Tente de novo." };
+    // Fallback: geração normal (sem web) — nunca deixa o cliente na mão.
+    try {
+      payload = await generate({
+        scenario: "generation",
+        system: SYSTEM,
+        prompt,
+        schema: suggestionSchema,
+        jsonSchema: JSON_SCHEMA,
+        cost: { tenantId: user.tenant_id, userId: user.id },
+      });
+    } catch {
+      return { ok: false, error: "A IA não conseguiu montar a pauta agora. Tente de novo." };
+    }
   }
 
   const { data: opp, error } = await supabase
