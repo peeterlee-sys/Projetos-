@@ -2,6 +2,10 @@ import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/auth/session";
 import { OnboardingWizard } from "./OnboardingWizard";
 
+// A conclusão do onboarding gera a primeira pauta com busca na web (~15-25s);
+// amplia o limite de execução para essa etapa não estourar timeout.
+export const maxDuration = 60;
+
 export default async function OnboardingPage({
   searchParams,
 }: {

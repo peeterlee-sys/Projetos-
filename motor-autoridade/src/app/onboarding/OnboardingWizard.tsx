@@ -717,7 +717,11 @@ export function OnboardingWizard({ defaultName }: { defaultName: string }) {
           </Button>
         ) : null}
         <Button full onClick={next} disabled={pending}>
-          {pending ? "Gerando seu DNA Editorial…" : isLast ? "Concluir anamnese" : "Continuar"}
+          {pending
+            ? "Montando seu DNA e a 1ª pauta…"
+            : isLast
+              ? "Concluir anamnese"
+              : "Continuar"}
         </Button>
       </div>
       {isLast ? (

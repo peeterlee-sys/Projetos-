@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { onboardingSchema } from "@/lib/validation/onboarding";
 import { generateEditorialDna } from "@/lib/dna/generate";
+import { generateFirstPauta } from "@/lib/ai/firstPauta";
 
 export type OnboardingResult = { ok: false; error: string } | { ok: true };
 
@@ -191,6 +192,15 @@ export async function submitOnboarding(raw: unknown): Promise<OnboardingResult> 
 
   // Marca a anamnese como concluída.
   await supabase.from("users").update({ onboarded_at: new Date().toISOString() }).eq("id", user.id);
+
+  // Gera a PRIMEIRA pauta na hora, para o cliente não cair num radar vazio no
+  // primeiro acesso (best-effort: falha não trava o onboarding; o radar das 7h
+  // cobre os próximos dias).
+  try {
+    await generateFirstPauta(supabase, { tenantId, userId: user.id });
+  } catch {
+    /* radar vazio no pior caso — o cron diário resolve depois */
+  }
 
   redirect("/hoje");
 }
