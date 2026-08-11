@@ -157,6 +157,21 @@ export async function submitAnamnesePolitica(raw: unknown): Promise<AnamneseResu
     .update({ contexto_mestre: ctx ?? {} })
     .eq("user_id", user.id);
 
+  // Vincula o registro importado da planilha (mesmo telefone), se existir:
+  // a partir daqui o assistente responde pelo perfil vivo do app.
+  if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    await createServiceClient()
+      .from("legacy_vereadores")
+      .update({ linked_user_id: user.id })
+      .eq("phone", data.phone);
+  }
+
+  // Conclui a anamnese ANTES de chamar a IA. O DNA é a etapa mais lenta daqui
+  // (Opus, até 4.000 tokens) e a única que pode estourar o tempo da função —
+  // se ela morresse antes desta linha, o vereador teria preenchido tudo e
+  // continuaria marcado como "anamnese pendente", voltando para o formulário.
+  await supabase.from("users").update({ onboarded_at: new Date().toISOString() }).eq("id", user.id);
+
   // DNA Editorial político (best-effort: falha de IA não trava a anamnese —
   // o DNA pode ser regerado depois e o erro fica registrado para o admin).
   try {
@@ -172,17 +187,6 @@ export async function submitAnamnesePolitica(raw: unknown): Promise<AnamneseResu
       });
     }
   }
-
-  // Vincula o registro importado da planilha (mesmo telefone), se existir:
-  // a partir daqui o assistente responde pelo perfil vivo do app.
-  if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    await createServiceClient()
-      .from("legacy_vereadores")
-      .update({ linked_user_id: user.id })
-      .eq("phone", data.phone);
-  }
-
-  await supabase.from("users").update({ onboarded_at: new Date().toISOString() }).eq("id", user.id);
 
   // Não manda para /hoje: aquela tela é o radar de pautas do Take e não
   // existe no Assessor 24h — o produto é 100% sob demanda pelo WhatsApp.

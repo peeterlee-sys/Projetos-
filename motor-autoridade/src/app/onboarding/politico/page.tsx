@@ -4,6 +4,13 @@ import { getSessionUser } from "@/lib/auth/session";
 import { brand } from "@/lib/brand";
 import { PoliticalWizard } from "./PoliticalWizard";
 
+/**
+ * Tempo máximo da função desta rota. O envio da anamnese gera o DNA Editorial
+ * com Opus na mesma requisição, o que passa longe do padrão curto da
+ * plataforma — sem isto, a função pode ser encerrada no meio da geração.
+ */
+export const maxDuration = 60;
+
 /** Anamnese do Assessor 24h — trilha de mandato (vereadores). */
 export default async function AnamnesePoliticaPage({
   searchParams,

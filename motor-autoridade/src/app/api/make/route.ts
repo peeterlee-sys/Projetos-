@@ -26,9 +26,13 @@ const envelopeSchema = z.object({
 export async function POST(request: NextRequest) {
   const started = Date.now();
 
-  // Rate limit por origem (best-effort): 60 req/min.
+  // Rate limit por origem (best-effort). Todo o tráfego chega pelo mesmo IP do
+  // Make, e cada mensagem de WhatsApp gasta 2 chamadas (get_vereador +
+  // save_document): numa sala com dezenas de vereadores testando ao mesmo
+  // tempo, 60/min recusaria atendimento legítimo. A trava existe contra abuso,
+  // não contra uso normal — daí a folga.
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-  if (!rateLimit(`make:${ip}`, 60, 60_000)) {
+  if (!rateLimit(`make:${ip}`, 600, 60_000)) {
     return NextResponse.json({ error: "muitas requisições" }, { status: 429 });
   }
 
