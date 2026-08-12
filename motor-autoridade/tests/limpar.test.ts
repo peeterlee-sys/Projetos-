@@ -2,6 +2,26 @@ import { describe, expect, it } from "vitest";
 import { limparMarcadores } from "../src/lib/atividades/limpar";
 
 describe("limparMarcadores", () => {
+  it("remove a marca ---CORTE--- que a IA insere para dividir no WhatsApp", () => {
+    const texto = "Primeiro parágrafo.\n\n---CORTE---\n\nSegundo parágrafo.";
+    expect(limparMarcadores(texto)).toBe("Primeiro parágrafo.\n\nSegundo parágrafo.");
+  });
+
+  it("não deixa buraco de linhas em branco onde estava a marca", () => {
+    const texto = "A\n\n---CORTE---\n\nB\n\n---CORTE---\n\nC";
+    expect(limparMarcadores(texto)).toBe("A\n\nB\n\nC");
+  });
+
+  it("aceita variações de traço e espaço na marca", () => {
+    expect(limparMarcadores("A\n--CORTE--\nB")).toBe("A\nB");
+    expect(limparMarcadores("A\n  ---- corte ----  \nB")).toBe("A\nB");
+  });
+
+  it("não mexe na palavra corte dentro de uma frase", () => {
+    const texto = "O corte de gastos foi aprovado --- e entra em vigor.";
+    expect(limparMarcadores(texto)).toBe(texto);
+  });
+
   it("tira o marcador de parte do começo do texto", () => {
     expect(limparMarcadores("(1/3) *PROJETO DE LEI Nº ___/2026*")).toBe(
       "*PROJETO DE LEI Nº ___/2026*"
