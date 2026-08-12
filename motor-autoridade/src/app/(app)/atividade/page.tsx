@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth/session";
 import { CopiarTexto } from "./CopiarTexto";
 import { dividirEmSecoes } from "@/lib/atividades/secoes";
+import { limparMarcadores } from "@/lib/atividades/limpar";
 import { estiloDe, ORDEM_TIPOS, TIPOS } from "@/lib/atividades/tipos";
 
 const CANAL_LABEL: Record<string, string> = { audio: "por áudio", texto: "por texto" };
@@ -70,7 +71,10 @@ function ItemLista({ a, ativo }: { a: Atividade; ativo: boolean }) {
  */
 function Leitura({ a }: { a: Atividade }) {
   const e = estiloDe(a.tipo);
-  const secoes = dividirEmSecoes(a.conteudo);
+  // O painel mostra o documento inteiro: os marcadores "(1/3)" são artefato da
+  // entrega no WhatsApp, onde o texto chega picotado pelo limite de caracteres.
+  const conteudo = limparMarcadores(a.conteudo);
+  const secoes = dividirEmSecoes(conteudo);
 
   return (
     <article className="overflow-hidden rounded-2xl bg-white ring-1 ring-sand-200">
@@ -87,7 +91,7 @@ function Leitura({ a }: { a: Atividade }) {
               {a.titulo}
             </h2>
           </div>
-          <CopiarTexto texto={a.conteudo} rotulo="Copiar tudo" cor={e.cor} />
+          <CopiarTexto texto={conteudo} rotulo="Copiar tudo" cor={e.cor} />
         </div>
       </header>
 
@@ -115,7 +119,7 @@ function Leitura({ a }: { a: Atividade }) {
       ) : (
         <div className="p-5">
           <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-ink-700">
-            {a.conteudo}
+            {conteudo}
           </p>
         </div>
       )}
