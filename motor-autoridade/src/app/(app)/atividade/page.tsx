@@ -5,6 +5,7 @@ import { requireUser } from "@/lib/auth/session";
 import { CopiarTexto } from "./CopiarTexto";
 import { dividirEmSecoes } from "@/lib/atividades/secoes";
 import { limparMarcadores } from "@/lib/atividades/limpar";
+import { tituloDeExibicao } from "@/lib/atividades/titulo";
 import { estiloDe, ORDEM_TIPOS, TIPOS } from "@/lib/atividades/tipos";
 
 const CANAL_LABEL: Record<string, string> = { audio: "por áudio", texto: "por texto" };
@@ -59,7 +60,9 @@ function ItemLista({ a, ativo }: { a: Atividade; ativo: boolean }) {
           {quando(a.created_at)} · {CANAL_LABEL[a.canal] ?? a.canal}
         </span>
       </div>
-      <p className="mt-2 line-clamp-2 font-medium text-ink-900">{a.titulo}</p>
+      <p className="mt-2 line-clamp-2 font-medium text-ink-900">
+        {tituloDeExibicao(a.titulo, limparMarcadores(a.conteudo))}
+      </p>
     </Link>
   );
 }
@@ -88,7 +91,7 @@ function Leitura({ a }: { a: Atividade }) {
               </span>
             </div>
             <h2 className="mt-2 font-medium" style={{ color: e.cor }}>
-              {a.titulo}
+              {tituloDeExibicao(a.titulo, conteudo)}
             </h2>
           </div>
           <CopiarTexto texto={conteudo} rotulo="Copiar tudo" cor={e.cor} />
