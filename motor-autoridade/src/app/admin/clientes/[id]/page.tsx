@@ -5,6 +5,7 @@ import { computeProgress } from "@/lib/progress/compute";
 import { formatPhoneBR } from "@/lib/phone";
 import { SPECTRUM_LABEL, type PoliticalSpectrum } from "@/lib/validation/anamnese-politica";
 import { SendPushForm } from "./SendPushForm";
+import { EditarMandato } from "./EditarMandato";
 
 const ATIVIDADE_TIPO_LABEL: Record<string, string> = {
   requerimento: "Requerimento",
@@ -228,6 +229,21 @@ export default async function ClientDetail({ params }: { params: Promise<{ id: s
           </p>
         </div>
       </div>
+
+      {isPolitical ? (
+        <Panel title="Editar mandato">
+          <EditarMandato
+            userId={id}
+            inicial={{
+              phone: profile?.phone ? formatPhoneBR(profile.phone) : "",
+              politicalName: profile?.political_name ?? "",
+              city: profile?.city ?? "",
+              state: profile?.state ?? "",
+              party: profile?.party ?? "",
+            }}
+          />
+        </Panel>
+      ) : null}
 
       <Panel title="Enviar push motivacional">
         <SendPushForm userId={id} />
