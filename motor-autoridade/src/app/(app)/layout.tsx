@@ -22,8 +22,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     );
   }
 
+  // Fundo levemente acinzentado: no Assessor 24h o branco da marca é o mesmo
+  // do cartão, então tudo se fundia numa mancha só. Com o fundo recuado, cada
+  // documento ganha contorno sem precisar de borda.
   return (
-    <div className="min-h-dvh md:flex">
+    <div className="min-h-dvh bg-sand-100 md:flex">
       <SideNav />
       <div className="min-w-0 flex-1 pb-24 md:pb-0">{children}</div>
       <BottomNav />
