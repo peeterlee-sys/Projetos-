@@ -3,12 +3,15 @@
 import { useState, useTransition } from "react";
 import { Button, Field, Input, Textarea } from "@/components/ui";
 import { deleteCityContext, upsertCityContext } from "./actions";
+import { AutoridadesEditor } from "./AutoridadesEditor";
+import { vocativoDe, type Autoridade } from "@/lib/autoridades";
 
 export type CityContext = {
   id: string;
   city: string;
   state: string;
   context: string;
+  autoridades: Autoridade[];
   updatedAt: string;
 };
 
@@ -21,8 +24,8 @@ function fmt(iso: string): string {
   });
 }
 
-type Draft = { city: string; state: string; context: string };
-const EMPTY_DRAFT: Draft = { city: "", state: "", context: "" };
+type Draft = { city: string; state: string; context: string; autoridades: Autoridade[] };
+const EMPTY_DRAFT: Draft = { city: "", state: "", context: "", autoridades: [] };
 
 /**
  * Biblioteca de cidades: um contexto por cidade/UF, escrito pelo admin e
@@ -41,7 +44,16 @@ export function CityContextEditor({ initial }: { initial: CityContext[] }) {
     setError(null);
     setInfo(null);
     setEditing(item?.id ?? "new");
-    setDraft(item ? { city: item.city, state: item.state, context: item.context } : EMPTY_DRAFT);
+    setDraft(
+      item
+        ? {
+            city: item.city,
+            state: item.state,
+            context: item.context,
+            autoridades: item.autoridades.map((a) => ({ ...a })),
+          }
+        : EMPTY_DRAFT
+    );
   }
 
   function save() {
@@ -72,6 +84,7 @@ export function CityContextEditor({ initial }: { initial: CityContext[] }) {
             city: draft.city,
             state: draft.state.toUpperCase(),
             context: draft.context,
+            autoridades: draft.autoridades,
             updatedAt: new Date().toISOString(),
           },
         ].sort((a, b) => a.city.localeCompare(b.city));
@@ -116,6 +129,11 @@ export function CityContextEditor({ initial }: { initial: CityContext[] }) {
               className="min-h-32"
             />
           </Field>
+          <AutoridadesEditor
+            value={draft.autoridades}
+            onChange={(autoridades) => setDraft((d) => ({ ...d, autoridades }))}
+            disabled={pending}
+          />
           {error ? <p className="text-sm text-danger-600">{error}</p> : null}
           <div className="flex gap-2">
             <Button onClick={save} disabled={pending}>
@@ -157,6 +175,20 @@ export function CityContextEditor({ initial }: { initial: CityContext[] }) {
                 </div>
               </div>
               <p className="mt-2 whitespace-pre-wrap text-sm text-ink-700">{item.context}</p>
+              {item.autoridades.length > 0 ? (
+                <ul className="mt-3 space-y-1 border-t border-sand-200 pt-3">
+                  {item.autoridades.map((a, i) => (
+                    <li key={i} className="text-xs text-ink-500">
+                      <span className="text-ink-700">{a.cargo}:</span> {a.nome}
+                      <span className="text-ink-400"> · {vocativoDe(a)}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-3 border-t border-sand-200 pt-3 text-xs text-gold-700">
+                  Sem autoridades cadastradas — ofícios desta cidade sairão sem nome.
+                </p>
+              )}
             </div>
           ))}
         </div>

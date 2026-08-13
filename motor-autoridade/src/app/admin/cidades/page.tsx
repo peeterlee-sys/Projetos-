@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getSessionUser } from "@/lib/auth/session";
 import { CityContextEditor, type CityContext } from "./CityContextEditor";
 import { brand } from "@/lib/brand";
+import { parseAutoridades } from "@/lib/autoridades";
 
 /**
  * Biblioteca de contexto por cidade — o admin escreve uma vez por cidade/UF
@@ -16,7 +17,7 @@ export default async function CidadesPage() {
   const supabase = await createClient();
   const { data } = await supabase
     .from("city_contexts")
-    .select("id, city, state, context, updated_at")
+    .select("id, city, state, context, autoridades, updated_at")
     .order("city", { ascending: true })
     .limit(500);
 
@@ -25,6 +26,7 @@ export default async function CidadesPage() {
     city: c.city,
     state: c.state,
     context: c.context,
+    autoridades: parseAutoridades(c.autoridades),
     updatedAt: c.updated_at,
   }));
 

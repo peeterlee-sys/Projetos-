@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getSessionUser } from "@/lib/auth/session";
+import { autoridadesSchema } from "@/lib/autoridades";
 
 /**
  * Biblioteca de contexto por cidade — mantida pelo admin, não pelo vereador.
@@ -24,6 +25,9 @@ const upsertSchema = z.object({
   city: z.string().min(2, "Informe a cidade."),
   state: z.string().min(2, "Informe a UF.").max(2, "Use a sigla da UF, ex.: SC."),
   context: z.string().min(1, "Escreva o contexto da cidade."),
+  // Lista fechada de nomes que o assistente pode citar em ofício, requerimento
+  // e indicação. Fora daqui, nada é inventado.
+  autoridades: autoridadesSchema.default([]),
 });
 
 export type CityActionResult = { ok: false; error: string } | { ok: true; appliedTo?: number };
@@ -41,6 +45,7 @@ export async function upsertCityContext(raw: unknown): Promise<CityActionResult>
     city: d.city.trim(),
     state: d.state.trim().toUpperCase(),
     context: d.context.trim(),
+    autoridades: d.autoridades,
     updated_by: admin.id,
   };
 

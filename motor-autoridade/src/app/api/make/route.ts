@@ -8,6 +8,7 @@ import { phoneVariants } from "@/lib/phone";
 import { tituloFromConteudo } from "@/lib/atividades/titulo";
 import { decodeBase64Text } from "@/lib/atividades/decode";
 import { dividirParaWhatsApp } from "@/lib/atividades/dividir";
+import { autoridadesTexto, parseAutoridades } from "@/lib/autoridades";
 
 export const runtime = "nodejs";
 // O get_radar faz buscas externas (Google News) — dá folga além do timeout padrão.
@@ -500,6 +501,11 @@ async function getVereador(supabase: Supabase, payload: Record<string, unknown>,
         state: legacy.state,
         local_context: legacy.local_context,
         perfil_texto: legacy.profile_text,
+        // Vereador ainda sem conta no app não tem cidade cadastrada na
+        // biblioteca do admin: lista vazia, e o prompt trata vazio como
+        // "nenhum nome autorizado" — não como permissão para inventar.
+        autoridades: [],
+        autoridades_texto: "",
         respostas_formulario: legacy.form_answers ?? {},
         editorial_dna: legacy.editorial_dna ?? {},
         anamnese_pendente: true,
@@ -524,7 +530,12 @@ async function getVereador(supabase: Supabase, payload: Record<string, unknown>,
       .order("created_at", { ascending: false })
       .limit(5),
     city && state
-      ? supabase.from("city_contexts").select("context").ilike("city", city).eq("state", state).maybeSingle()
+      ? supabase
+          .from("city_contexts")
+          .select("context, autoridades")
+          .ilike("city", city)
+          .eq("state", state)
+          .maybeSingle()
       : Promise.resolve({ data: null }),
   ]);
 
@@ -533,6 +544,11 @@ async function getVereador(supabase: Supabase, payload: Record<string, unknown>,
   // a cada resposta, para valer a atualização mais recente do admin em vez do
   // valor que ficou congelado em client_profiles.local_context na anamnese.
   const localContext = cityCtx?.context?.trim() || (profile.local_context as string | null) || null;
+
+  // Autoridades da cidade: a lista fechada de nomes que o assistente pode
+  // escrever num documento oficial. Vai como array (para quem quiser o campo
+  // solto) e como bloco de texto pronto, que é o que o prompt do Make injeta.
+  const autoridades = parseAutoridades(cityCtx?.autoridades);
 
   const subscriptionStatus = (profile.subscription_status as string | null) ?? "trial";
   const blocked = subscriptionStatus === "past_due" || subscriptionStatus === "canceled";
@@ -553,6 +569,8 @@ async function getVereador(supabase: Supabase, payload: Record<string, unknown>,
       email: user?.email ?? null,
       local_context: localContext,
       perfil_texto: buildPerfilTexto(profile),
+      autoridades,
+      autoridades_texto: autoridadesTexto(autoridades),
       fontes: allSources
         .filter((s) => !s.is_blocked)
         .sort((a, b) => (PRIORITY_ORDER[a.priority] ?? 1) - (PRIORITY_ORDER[b.priority] ?? 1))
@@ -588,8 +606,17 @@ async function saveDocument(supabase: Supabase, payload: Record<string, unknown>
     .object({
       user_id: z.string().uuid().optional(),
       phone: z.string().optional(),
-      tipo: z.enum(["requerimento", "projeto_lei", "discurso", "materia", "outro"]).default("outro"),
-      canal: z.enum(["audio", "texto"]).default("texto"),
+      // `catch` em vez de só `default`: tipo desconhecido vira "outro" em vez
+      // de derrubar a chamada inteira. Foi assim que toda "indicacao" se perdeu
+      // — o Make passou a mandar o tipo antes de o enum existir aqui, e cada
+      // gravação virava 500. O documento chega ao vereador de qualquer jeito
+      // (o Make monta a mensagem do texto da IA, não da resposta desta API),
+      // então a falha era invisível: sumia só do painel.
+      tipo: z
+        .enum(["requerimento", "projeto_lei", "indicacao", "oficio", "discurso", "materia", "outro"])
+        .default("outro")
+        .catch("outro"),
+      canal: z.enum(["audio", "texto"]).default("texto").catch("texto"),
       titulo: z.string().optional(),
       resumo: z.string().optional(),
       conteudo: z.string().optional(),
