@@ -52,6 +52,48 @@ Nome que não está nessa lista o assistente **não escreve por conta própria**
 sai exatamente como o vereador digitou, sem cargo nem tratamento completados, e
 a mensagem termina com o aviso para conferir antes de protocolar.
 
+## v34 — conserto da regra do destinatário
+
+O v33 produziu, num ofício real de Balneário Camboriú para um nome fora do
+cadastro, este documento:
+
+```
+À Excelentíssima Senhora
+RODRIGO CARDOSO
+Presidente do PL de Balneário Camboriú
+
+Excelentíssima Senhora Presidente,
+
+_Confira o nome e o cargo do destinatário antes de protocolar — ..._
+```
+
+Dois defeitos, ambos da redação da regra, não do modelo:
+
+1. **O documento parava no aviso.** "Encerre a mensagem com esta linha" foi
+   lido como instrução de parada: sumiram abertura, corpo, fecho, data e
+   assinatura.
+2. **O gênero era chutado.** A regra mandava não inventar tratamento e a
+   estrutura, logo abaixo, obrigava a escolher entre "Ao Excelentíssimo Senhor"
+   e "À Excelentíssima Senhora". Sem saída, o modelo escolhia.
+
+O v34 reescreve a regra em dois casos explícitos. Fora da lista, o tratamento
+vai na forma dupla — `Ao(À) Excelentíssimo(a) Senhor(a)` — o documento sai
+inteiro do mesmo jeito, e o aviso é acréscimo depois da assinatura.
+
+As três formas de endereçamento viraram tabela depois que a redação corrida
+produziu `À Excelentíssimo Senhor` — preposição feminina com tratamento
+masculino — no teste de regressão.
+
+### Testar antes de importar
+
+```bash
+python3 testar_prompt.py assessor24h-v34.json
+```
+
+Resolve as variáveis do Make, chama a API com o prompt real e imprime o
+documento. Rode sempre os dois casos: destinatário na lista e fora dela. Os
+dois defeitos acima teriam aparecido na primeira execução.
+
 ## Ordem de implantação (importa)
 
 1. **Migration `0015` no Supabase, primeiro.** Ela cria o tipo `oficio` e a
