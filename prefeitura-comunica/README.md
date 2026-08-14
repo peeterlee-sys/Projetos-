@@ -1,36 +1,84 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Porta Voz — Prefeitura Comunica
 
-## Getting Started
+Backend + painel da assessoria de comunicação municipal. O secretário manda um
+áudio (ou texto/foto) no WhatsApp; a IA gera **headline + release + post de
+Instagram**; a comunicação **revisa, edita e publica** por este painel.
 
-First, run the development server:
+Multi-tenant: cada prefeitura acessa apenas os seus próprios dados. Há também um
+painel de **administrador** com a visão de todas as prefeituras.
+
+## Stack
+
+- **Next.js 16** (App Router — API e telas no mesmo projeto)
+- **Drizzle ORM + libSQL/SQLite** (arquivo local em dev, Turso em produção)
+- **Autenticação própria** — sessão em cookie httpOnly assinado (HMAC) + bcrypt
+- **Tailwind CSS**, **lucide-react**
+
+## Rodando localmente
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+cp .env.example .env      # e preencha AUTH_SECRET / WEBHOOK_SECRET
+npm run seed              # cria as tabelas e popula dados de demonstração
+npm run dev               # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Logins de demonstração (após `npm run seed`)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Perfil | E-mail | Senha |
+| --- | --- | --- |
+| Administrador | `peeterlee@gmail.com` | `admin123` |
+| Comunicação — Itapema | `comunicacao@itapema.sc.gov.br` | `itapema123` |
+| Comunicação — Balneário | `comunicacao@balneario.sc.gov.br` | `balneario123` |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+> Troque essas senhas antes de qualquer uso real.
 
-## Learn More
+## Estrutura
 
-To learn more about Next.js, take a look at the following resources:
+```
+app/
+  login/                 tela de login
+  app/                   painel da comunicação (guard: papel "comunicacao")
+  admin/                 painel do administrador (guard: papel "admin")
+  api/
+    auth/login|logout    autenticação
+    app/data             dados da prefeitura logada
+    releases/[id]        editar/mudar status/excluir release
+    secretarios          cadastro de secretários (CRUD)
+    contexto             anamnese da cidade (GET/PUT)
+    admin/overview       visão geral (admin)
+    webhook/ingest       Make grava um release gerado
+    webhook/media        Make entrega uma foto do secretário
+lib/
+  db/schema.ts           modelo de dados (Drizzle)
+  auth.ts                sessão, hash de senha, guarda
+scripts/seed.mjs         cria tabelas + dados de demonstração
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Integração com o Make (substitui a planilha)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+O Make identifica a prefeitura pelo **telefone do secretário** (cadastro) e grava
+direto no banco. Header obrigatório em ambos: `x-webhook-secret: <WEBHOOK_SECRET>`.
 
-## Deploy on Vercel
+**Novo release** — `POST /api/webhook/ingest`
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```json
+{ "telefone": "5547999999999", "origem": "audio",
+  "transcricao": "...", "headline": "...", "release": "...", "instagram": "..." }
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+**Foto do secretário** — `POST /api/webhook/media`
+
+```json
+{ "telefone": "5547999999999", "url": "https://...", "legenda": "..." }
+```
+
+Se houver um release recente (< 2h) do secretário, a foto é anexada a ele.
+Senão, é criado um item **"aguardando assunto"** e o `askMsg` de resposta ao
+secretário é retornado.
+
+## Produção
+
+- Banco: criar um banco no **Turso** e definir `DATABASE_URL` + `DATABASE_AUTH_TOKEN`.
+- Rodar o seed uma vez (ou criar as tabelas via Drizzle) e cadastrar a prefeitura real.
+- Definir `AUTH_SECRET` e `WEBHOOK_SECRET` fortes no ambiente.
