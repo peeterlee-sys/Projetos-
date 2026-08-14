@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024" role="img" aria-label="Porta Voz">
+  <rect width="1024" height="1024" rx="228" fill="#1B74E4"/>
+  <g fill="#ffffff">
+    <rect x="158" y="375" width="76" height="274" rx="38"/>
+    <rect x="316" y="280" width="76" height="464" rx="38"/>
+    <rect x="474" y="145" width="76" height="734" rx="38"/>
+    <rect x="632" y="280" width="76" height="464" rx="38"/>
+    <rect x="790" y="375" width="76" height="274" rx="38"/>
+  </g>
+</svg>

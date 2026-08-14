@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Megaphone, Inbox, Users, FileText, BarChart3, LogOut, Check, Send, Eye,
+  Inbox, Users, FileText, BarChart3, LogOut, Check, Send, Eye,
   RotateCcw, Trash2, Plus, Phone, Image as ImageIcon, TriangleAlert, Search,
   X, Mic, Pencil, Power, LoaderCircle, Copy,
 } from "lucide-react";
@@ -161,9 +161,8 @@ export default function DashboardClient() {
       {/* Sidebar */}
       <aside className="flex flex-col gap-1 border-r border-slate-200 bg-white p-4 max-lg:hidden">
         <div className="mb-4 flex items-center gap-3 px-1">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-700 text-white">
-            <Megaphone className="h-5 w-5" />
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.svg" alt="Porta Voz" className="h-10 w-10 rounded-xl" />
           <div className="min-w-0">
             <div className="truncate font-bold leading-tight">Porta Voz</div>
             <div className="truncate text-xs text-slate-500">{data?.prefeitura?.nome ?? "Comunicação"}</div>
@@ -178,7 +177,7 @@ export default function DashboardClient() {
             <button
               key={f.key}
               onClick={() => { setView("fila"); setFilter(f.key); setSelId(null); }}
-              className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm ${active ? "bg-teal-50 font-semibold text-teal-800" : "text-slate-600 hover:bg-slate-50"}`}
+              className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm ${active ? "bg-blue-50 font-semibold text-blue-800" : "text-slate-600 hover:bg-slate-50"}`}
             >
               <span className={`h-2 w-2 rounded-full ${STATUS[f.key].dot}`} />
               <span className="flex-1">{f.label}</span>
@@ -227,7 +226,7 @@ export default function DashboardClient() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Buscar…"
-                className="w-56 rounded-full border border-slate-300 py-2 pl-9 pr-3 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20"
+                className="w-56 rounded-full border border-slate-300 py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20"
               />
             </div>
           )}
@@ -272,7 +271,7 @@ function SideLabel({ children }: { children: React.ReactNode }) {
 }
 function NavItem({ icon, active, onClick, children }: { icon: React.ReactNode; active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
-    <button onClick={onClick} className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm ${active ? "bg-teal-50 font-semibold text-teal-800" : "text-slate-600 hover:bg-slate-50"}`}>
+    <button onClick={onClick} className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm ${active ? "bg-blue-50 font-semibold text-blue-800" : "text-slate-600 hover:bg-slate-50"}`}>
       {icon}<span className="flex flex-1 items-center">{children}</span>
     </button>
   );
@@ -297,7 +296,7 @@ function Kpis({ view, releases, secretarios, ranking }: {
   if (view === "ranking") {
     const lider = ranking[0];
     cards = (<>
-      <Kpi value={releases.length} label="Releases no mês" hint="Total recebido" bar="bg-teal-600" />
+      <Kpi value={releases.length} label="Releases no mês" hint="Total recebido" bar="bg-blue-600" />
       <Kpi value={c("publicado")} label="Publicados no mês" hint="Já veiculados" bar="bg-slate-500" />
       <Kpi value={ranking.length} label="Secretarias ativas" hint="Enviaram ao menos 1" bar="bg-sky-500" />
       <Kpi value={lider ? lider.total : 0} label="Secretaria líder" hint={lider ? `${lider.sec} · ${lider.nome}` : "—"} bar="bg-emerald-500" />
@@ -306,7 +305,7 @@ function Kpis({ view, releases, secretarios, ranking }: {
     const ativos = secretarios.filter((s) => s.ativo).length;
     const areas = new Set(secretarios.filter((s) => s.ativo).map((s) => s.secretaria));
     cards = (<>
-      <Kpi value={secretarios.length} label="Secretários cadastrados" hint="Reconhecidos pelo sistema" bar="bg-teal-600" />
+      <Kpi value={secretarios.length} label="Secretários cadastrados" hint="Reconhecidos pelo sistema" bar="bg-blue-600" />
       <Kpi value={ativos} label="Ativos" hint="Podem enviar agora" bar="bg-emerald-500" />
       <Kpi value={secretarios.length - ativos} label="Inativos" hint="Cadastro desativado" bar="bg-slate-500" />
       <Kpi value={areas.size} label="Secretarias cobertas" hint="Áreas com secretário ativo" bar="bg-sky-500" />
@@ -345,7 +344,7 @@ function Fila({ releases, filter, query, selId, setSelId, flash, reload, openFot
           <button
             key={r.id}
             onClick={() => setSelId(r.id)}
-            className={`flex flex-col gap-2 rounded-xl border bg-white p-3.5 text-left transition ${selId === r.id ? "border-teal-600 ring-1 ring-teal-600" : "border-slate-200 hover:border-slate-300"}`}
+            className={`flex flex-col gap-2 rounded-xl border bg-white p-3.5 text-left transition ${selId === r.id ? "border-blue-600 ring-1 ring-blue-600" : "border-slate-200 hover:border-slate-300"}`}
           >
             <div className="flex items-center gap-2.5">
               <Avatar name={r.secretarioNome ?? "?"} />
@@ -415,7 +414,7 @@ function Detalhe({ r, flash, reload, openFoto }: {
           <Fotos fotos={r.fotos} openFoto={openFoto} />
           <div>
             <div className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-400">Resposta automática ao secretário</div>
-            <div className="rounded-2xl rounded-bl-sm border border-teal-200 bg-teal-50 px-4 py-3 text-sm">{r.askMsg}</div>
+            <div className="rounded-2xl rounded-bl-sm border border-blue-200 bg-blue-50 px-4 py-3 text-sm">{r.askMsg}</div>
             <div className="mt-2.5 flex items-center gap-2 text-xs text-amber-700"><TriangleAlert className="h-3.5 w-3.5" />Aguardando o secretário responder com o assunto…</div>
           </div>
         </div>
@@ -462,18 +461,18 @@ function Detalhe({ r, flash, reload, openFoto }: {
         <Fotos fotos={r.fotos} openFoto={openFoto} linked />
 
         <Campo label="1. Headline" onCopy={() => copy(headline, "Headline")}>
-          <input value={headline} onChange={(e) => setHeadline(e.target.value)} className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-[15px] font-semibold outline-none focus:border-teal-600 focus:bg-white" />
+          <input value={headline} onChange={(e) => setHeadline(e.target.value)} className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-[15px] font-semibold outline-none focus:border-blue-600 focus:bg-white" />
         </Campo>
         <Campo label="2. Release para imprensa" onCopy={() => copy(release, "Release")}>
-          <textarea value={release} onChange={(e) => setRelease(e.target.value)} rows={7} className="w-full resize-y rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm leading-relaxed outline-none focus:border-teal-600 focus:bg-white" />
+          <textarea value={release} onChange={(e) => setRelease(e.target.value)} rows={7} className="w-full resize-y rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm leading-relaxed outline-none focus:border-blue-600 focus:bg-white" />
         </Campo>
         <Campo label="3. Post para Instagram" onCopy={() => copy(instagram, "Post")}>
-          <textarea value={instagram} onChange={(e) => setInstagram(e.target.value)} rows={5} className="w-full resize-y rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm leading-relaxed outline-none focus:border-teal-600 focus:bg-white" />
+          <textarea value={instagram} onChange={(e) => setInstagram(e.target.value)} rows={5} className="w-full resize-y rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm leading-relaxed outline-none focus:border-blue-600 focus:bg-white" />
         </Campo>
       </div>
 
       <div className="flex flex-wrap items-center gap-2 border-t border-slate-200 p-4">
-        {dirty && <button onClick={() => patch({ headline, release, instagram }, "Alterações salvas")} disabled={busy} className="inline-flex items-center gap-1.5 rounded-lg border border-teal-600 bg-teal-50 px-3 py-2 text-sm font-semibold text-teal-800">{busy ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}Salvar edição</button>}
+        {dirty && <button onClick={() => patch({ headline, release, instagram }, "Alterações salvas")} disabled={busy} className="inline-flex items-center gap-1.5 rounded-lg border border-blue-600 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-800">{busy ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}Salvar edição</button>}
         <div className="ml-auto flex flex-wrap gap-2">
           {r.status === "pendente" && <Acao primary onClick={() => patch({ status: "revisao" }, "Em revisão")} icon={<Eye className="h-4 w-4" />}>Iniciar revisão</Acao>}
           {r.status === "revisao" && <Acao primary onClick={() => patch({ status: "aprovado" }, "Aprovado")} icon={<Check className="h-4 w-4" />}>Aprovar</Acao>}
@@ -492,8 +491,8 @@ function Campo({ label, onCopy, children }: { label: string; onCopy: () => void;
   return (
     <div>
       <div className="mb-1.5 flex items-center">
-        <span className="text-[11px] font-bold uppercase tracking-wide text-slate-400"><span className="text-teal-700">{label.split(".")[0]}.</span>{label.slice(label.indexOf(".") + 1)}</span>
-        <button onClick={onCopy} className="ml-auto inline-flex items-center gap-1 rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-semibold text-slate-500 hover:text-teal-700"><Copy className="h-3 w-3" />Copiar</button>
+        <span className="text-[11px] font-bold uppercase tracking-wide text-slate-400"><span className="text-blue-700">{label.split(".")[0]}.</span>{label.slice(label.indexOf(".") + 1)}</span>
+        <button onClick={onCopy} className="ml-auto inline-flex items-center gap-1 rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-semibold text-slate-500 hover:text-blue-700"><Copy className="h-3 w-3" />Copiar</button>
       </div>
       {children}
     </div>
@@ -501,7 +500,7 @@ function Campo({ label, onCopy, children }: { label: string; onCopy: () => void;
 }
 function Acao({ primary, onClick, icon, children }: { primary?: boolean; onClick: () => void; icon: React.ReactNode; children: React.ReactNode }) {
   return (
-    <button onClick={onClick} className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-semibold ${primary ? "bg-teal-700 text-white hover:bg-teal-800" : "border border-slate-300 hover:bg-slate-50"}`}>{icon}{children}</button>
+    <button onClick={onClick} className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-semibold ${primary ? "bg-blue-700 text-white hover:bg-blue-800" : "border border-slate-300 hover:bg-slate-50"}`}>{icon}{children}</button>
   );
 }
 
@@ -515,7 +514,7 @@ function Fotos({ fotos, openFoto, linked }: { fotos: Foto[]; openFoto: (f: Foto)
       </div>
       <div className="flex flex-wrap gap-2.5">
         {fotos.map((f) => (
-          <button key={f.id} onClick={() => openFoto(f)} className="w-36 overflow-hidden rounded-lg border border-slate-200 bg-slate-100 text-left hover:border-teal-600">
+          <button key={f.id} onClick={() => openFoto(f)} className="w-36 overflow-hidden rounded-lg border border-slate-200 bg-slate-100 text-left hover:border-blue-600">
             <FotoImg foto={f} className="h-24 w-full" />
             <div className="px-2 py-1.5 text-[11px] font-medium text-slate-600">{f.legenda ?? "Foto"}</div>
           </button>
@@ -547,7 +546,7 @@ function Lightbox({ foto, onClose }: { foto: Foto; onClose: () => void }) {
 }
 
 function Avatar({ name, big }: { name: string; big?: boolean }) {
-  return <div className={`flex shrink-0 items-center justify-center rounded-lg bg-teal-50 font-bold text-teal-800 ${big ? "h-11 w-11 text-sm" : "h-8 w-8 text-xs"}`}>{initials(name)}</div>;
+  return <div className={`flex shrink-0 items-center justify-center rounded-lg bg-blue-50 font-bold text-blue-800 ${big ? "h-11 w-11 text-sm" : "h-8 w-8 text-xs"}`}>{initials(name)}</div>;
 }
 
 function Ranking({ ranking, muni }: { ranking: { sec: string; nome: string; total: number; publicado: number }[]; muni: string }) {
@@ -564,12 +563,12 @@ function Ranking({ ranking, muni }: { ranking: { sec: string; nome: string; tota
         {ranking.length === 0 && <div className="py-8 text-center text-sm text-slate-400">Ainda não há releases.</div>}
         {ranking.map((r, i) => (
           <div key={r.sec} className="flex items-center gap-3.5 border-b border-slate-100 py-3 last:border-0">
-            <div className={`w-6 text-center text-[15px] font-bold tabular-nums ${i < 3 ? "text-teal-700" : "text-slate-400"}`}>{i + 1}</div>
+            <div className={`w-6 text-center text-[15px] font-bold tabular-nums ${i < 3 ? "text-blue-700" : "text-slate-400"}`}>{i + 1}</div>
             <Avatar name={r.nome || r.sec} />
             <div className="min-w-0 flex-1">
               <div className="text-sm font-semibold">{r.sec}</div>
               <div className="mb-1.5 text-xs text-slate-500">{r.nome}</div>
-              <div className="h-1.5 overflow-hidden rounded bg-slate-100"><div className="h-full rounded bg-teal-600" style={{ width: `${(r.total / max) * 100}%` }} /></div>
+              <div className="h-1.5 overflow-hidden rounded bg-slate-100"><div className="h-full rounded bg-blue-600" style={{ width: `${(r.total / max) * 100}%` }} /></div>
             </div>
             <div className="w-16 text-right">
               <div className="text-lg font-bold tabular-nums">{r.total}</div>
@@ -604,9 +603,9 @@ function Cadastro({ secretarios, query, flash, reload }: {
           <h2 className="text-base font-bold">Secretários cadastrados</h2>
           <p className="text-xs text-slate-500">{secretarios.length} cadastrados</p>
         </div>
-        <button onClick={() => { setEdit(null); setOpen(true); }} className="inline-flex items-center gap-1.5 rounded-lg bg-teal-700 px-3.5 py-2 text-sm font-semibold text-white hover:bg-teal-800"><Plus className="h-4 w-4" />Cadastrar secretário</button>
+        <button onClick={() => { setEdit(null); setOpen(true); }} className="inline-flex items-center gap-1.5 rounded-lg bg-blue-700 px-3.5 py-2 text-sm font-semibold text-white hover:bg-blue-800"><Plus className="h-4 w-4" />Cadastrar secretário</button>
       </div>
-      <div className="mb-4 flex items-start gap-2 rounded-lg bg-teal-50 px-3.5 py-2.5 text-xs text-teal-800">
+      <div className="mb-4 flex items-start gap-2 rounded-lg bg-blue-50 px-3.5 py-2.5 text-xs text-blue-800">
         <Phone className="mt-0.5 h-4 w-4 shrink-0" />
         É o <b>telefone cadastrado</b> que o sistema reconhece no WhatsApp. Se um secretário trocar de chip, atualize o número aqui.
       </div>
@@ -636,8 +635,8 @@ function Cadastro({ secretarios, query, flash, reload }: {
                 </td>
                 <td>
                   <div className="flex justify-end gap-1.5">
-                    <button onClick={() => { setEdit(s); setOpen(true); }} className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:border-teal-600 hover:text-teal-700" title="Editar"><Pencil className="h-4 w-4" /></button>
-                    <button onClick={() => toggle(s)} className={`rounded-lg border p-2 ${s.ativo ? "border-emerald-200 text-emerald-700" : "border-slate-200 text-slate-500"} hover:border-teal-600`} title="Ativar/Desativar"><Power className="h-4 w-4" /></button>
+                    <button onClick={() => { setEdit(s); setOpen(true); }} className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:border-blue-600 hover:text-blue-700" title="Editar"><Pencil className="h-4 w-4" /></button>
+                    <button onClick={() => toggle(s)} className={`rounded-lg border p-2 ${s.ativo ? "border-emerald-200 text-emerald-700" : "border-slate-200 text-slate-500"} hover:border-blue-600`} title="Ativar/Desativar"><Power className="h-4 w-4" /></button>
                   </div>
                 </td>
               </tr>
@@ -690,7 +689,7 @@ function SecretarioModal({ secretario, onClose, flash, reload }: {
         </div>
         <div className="flex justify-end gap-2 border-t border-slate-200 p-4">
           <button onClick={onClose} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold hover:bg-slate-50">Cancelar</button>
-          <button onClick={save} disabled={busy} className="inline-flex items-center gap-1.5 rounded-lg bg-teal-700 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:opacity-60">{busy && <LoaderCircle className="h-4 w-4 animate-spin" />}Salvar cadastro</button>
+          <button onClick={save} disabled={busy} className="inline-flex items-center gap-1.5 rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-60">{busy && <LoaderCircle className="h-4 w-4 animate-spin" />}Salvar cadastro</button>
         </div>
       </div>
     </div>
@@ -700,7 +699,7 @@ function Field({ label, value, onChange, placeholder }: { label: string; value: 
   return (
     <label className="flex flex-col gap-1">
       <span className="text-xs font-semibold text-slate-600">{label}</span>
-      <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20" />
+      <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20" />
     </label>
   );
 }
@@ -732,7 +731,7 @@ function ContextoView({ contexto, muni, uf, flash, reload }: {
           <h2 className="text-base font-bold">Contexto da cidade — {muni}</h2>
           <p className="text-xs text-slate-500">Anamnese da gestão · usada pela IA em cada release</p>
         </div>
-        <button onClick={save} disabled={busy} className="inline-flex items-center gap-1.5 rounded-lg bg-teal-700 px-3.5 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:opacity-60">{busy ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}Salvar contexto</button>
+        <button onClick={save} disabled={busy} className="inline-flex items-center gap-1.5 rounded-lg bg-blue-700 px-3.5 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-60">{busy ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}Salvar contexto</button>
       </div>
       <div className="mb-4 flex items-start gap-2 rounded-lg bg-amber-50 px-3.5 py-2.5 text-xs text-amber-800">
         <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
@@ -769,30 +768,30 @@ function ContextoView({ contexto, muni, uf, flash, reload }: {
         {modelos.map((m, i) => (
           <div key={i} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
             <div className="mb-2 flex items-center justify-between">
-              <span className="text-[11px] font-bold uppercase tracking-wide text-teal-700">Modelo {i + 1}</span>
+              <span className="text-[11px] font-bold uppercase tracking-wide text-blue-700">Modelo {i + 1}</span>
               <button onClick={() => setC((p) => ({ ...p, modelos: (p.modelos ?? []).filter((_, j) => j !== i) }))} className="rounded border border-slate-200 p-1.5 text-slate-500 hover:text-red-600"><Trash2 className="h-3.5 w-3.5" /></button>
             </div>
-            <textarea value={m} onChange={(e) => setC((p) => ({ ...p, modelos: (p.modelos ?? []).map((x, j) => (j === i ? e.target.value : x)) }))} rows={4} placeholder="Cole aqui um release já publicado…" className="w-full resize-y rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-teal-600" />
+            <textarea value={m} onChange={(e) => setC((p) => ({ ...p, modelos: (p.modelos ?? []).map((x, j) => (j === i ? e.target.value : x)) }))} rows={4} placeholder="Cole aqui um release já publicado…" className="w-full resize-y rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-600" />
           </div>
         ))}
       </div>
       <button onClick={() => setC((p) => ({ ...p, modelos: [...(p.modelos ?? []), ""] }))} className="mt-2.5 inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold hover:bg-slate-50"><Plus className="h-4 w-4" />Adicionar modelo</button>
 
-      <div className="mt-6 overflow-hidden rounded-xl border border-teal-600 bg-teal-50">
-        <div className="flex items-center gap-2 border-b border-teal-600 px-4 py-2.5 text-xs font-bold text-teal-800"><Eye className="h-4 w-4" />Prévia — como a IA vai entender sua cidade</div>
+      <div className="mt-6 overflow-hidden rounded-xl border border-blue-600 bg-blue-50">
+        <div className="flex items-center gap-2 border-b border-blue-600 px-4 py-2.5 text-xs font-bold text-blue-800"><Eye className="h-4 w-4" />Prévia — como a IA vai entender sua cidade</div>
         <pre className="max-h-80 overflow-y-auto whitespace-pre-wrap break-words px-4 py-3 font-mono text-[13px] leading-relaxed text-slate-700">{composeContext(c, muni, uf)}</pre>
       </div>
     </div>
   );
 }
 function Section({ children }: { children: React.ReactNode }) {
-  return <div className="mb-2.5 mt-5 border-b border-slate-200 pb-1.5 text-[11px] font-bold uppercase tracking-wide text-teal-700">{children}</div>;
+  return <div className="mb-2.5 mt-5 border-b border-slate-200 pb-1.5 text-[11px] font-bold uppercase tracking-wide text-blue-700">{children}</div>;
 }
 function CField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
     <label className="flex flex-col gap-1">
       <span className="text-xs font-semibold text-slate-600">{label}</span>
-      <input value={value} onChange={(e) => onChange(e.target.value)} className="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20" />
+      <input value={value} onChange={(e) => onChange(e.target.value)} className="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20" />
     </label>
   );
 }
@@ -800,7 +799,7 @@ function CArea({ label, value, onChange, rows }: { label: string; value: string;
   return (
     <label className="flex flex-col gap-1">
       <span className="text-xs font-semibold text-slate-600">{label}</span>
-      <textarea value={value} onChange={(e) => onChange(e.target.value)} rows={rows} className="resize-y rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20" />
+      <textarea value={value} onChange={(e) => onChange(e.target.value)} rows={rows} className="resize-y rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20" />
     </label>
   );
 }
