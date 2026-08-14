@@ -94,6 +94,49 @@ Resolve as variáveis do Make, chama a API com o prompt real e imprime o
 documento. Rode sempre os dois casos: destinatário na lista e fora dela. Os
 dois defeitos acima teriam aparecido na primeira execução.
 
+> **O v34 nunca foi importado.** O cenário passou direto do v33 para o v35, que
+> já traz as correções do v34 dentro. O `build_v34.py` fica só como registro —
+> ele lê um arquivo que não existe mais e vai falhar se for executado.
+
+## v35 — quem divide o documento
+
+Um ofício chegou picotado em quatro mensagens no WhatsApp. A causa era a REGRA
+DE TAMANHO do prompt, que mandava a IA contar caracteres de cabeça e inserir
+`---CORTE---` a cada 3.500. Modelo de linguagem não conta caractere, e errava
+para mais.
+
+O app já fazia isso direito e não estava sendo usado: `dividirParaWhatsApp`
+trabalha com o limite real de 4.096, devolve o documento **inteiro** quando ele
+cabe, e só corta em quebra de parágrafo. O `save_document` devolve essas partes
+prontas e roda **antes** do envio, então elas já estão à mão no cenário.
+
+| Antes | Depois |
+| --- | --- |
+| IA insere `---CORTE---` a cada ~3.500 | IA escreve o documento inteiro, sem marca |
+| `split(17.data.content[1].text; "---CORTE---")` | `ifempty(202.data.partes; split(...))` |
+| envio corta em 4.000 | envio corta em 4.096 |
+
+No mesmo documento de 6.198 caracteres: a IA fazia 4 mensagens, o app faz 2, com
+o corte caindo em fim de parágrafo.
+
+O `split` continua ali como plano B, para os dois casos em que `partes` não vem:
+API fora do ar e chamada repetida — a idempotência responde `duplicate`, sem
+partes. E o `save_document` passou a limpar marcas de corte do texto recebido,
+porque agora elas apareceriam cruas para o vereador em vez de serem consumidas
+pelo `split`.
+
+O envio subiu de 4.000 para 4.096 porque as partes do app vão até 4.096
+(marcador `(1/2)` incluído); cortar a 4.000 comeria o fim da parte mais cheia,
+em silêncio.
+
+### Testar a divisão
+
+```bash
+npx tsx make/testar_divisao.mts caminho/do/documento.txt
+```
+
+Mostra em quantas mensagens o documento cai e onde cada corte acontece.
+
 ## Ordem de implantação (importa)
 
 1. **Migration `0015` no Supabase, primeiro.** Ela cria o tipo `oficio` e a

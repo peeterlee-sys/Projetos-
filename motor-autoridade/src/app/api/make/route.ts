@@ -7,6 +7,7 @@ import { fetchRadar } from "@/lib/radar/fetch";
 import { phoneVariants } from "@/lib/phone";
 import { tituloFromConteudo } from "@/lib/atividades/titulo";
 import { decodeBase64Text } from "@/lib/atividades/decode";
+import { limparMarcadores } from "@/lib/atividades/limpar";
 import { dividirParaWhatsApp } from "@/lib/atividades/dividir";
 import { autoridadesTexto, parseAutoridades } from "@/lib/autoridades";
 
@@ -628,9 +629,13 @@ async function saveDocument(supabase: Supabase, payload: Record<string, unknown>
     .refine((v) => v.conteudo || v.conteudo_b64, { message: "informe conteudo ou conteudo_b64" });
   const p = schema.parse(payload);
 
-  const conteudo = (
+  // Limpa antes de qualquer coisa: as `partes` daqui viraram a fonte das
+  // mensagens do WhatsApp, e marca de corte que sobrasse no texto apareceria
+  // crua para o vereador. O prompt já não pede mais essas marcas, mas texto
+  // gerado antes da mudança — ou uma recaída do modelo — não pode vazar.
+  const conteudo = limparMarcadores(
     p.conteudo_b64 ? decodeBase64Text(p.conteudo_b64) : (p.conteudo ?? "")
-  ).trim();
+  );
   if (!conteudo) return { saved: false, reason: "conteudo_vazio", partes: [] };
 
   // As partes acompanham TODA resposta, inclusive as de erro: é delas que o
