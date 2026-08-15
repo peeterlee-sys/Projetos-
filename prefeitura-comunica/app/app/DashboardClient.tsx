@@ -733,11 +733,6 @@ function ContextoView({ contexto, muni, uf, flash, reload }: {
         </div>
         <button onClick={save} disabled={busy} className="inline-flex items-center gap-1.5 rounded-lg bg-blue-700 px-3.5 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-60">{busy ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}Salvar contexto</button>
       </div>
-      <div className="mb-4 flex items-start gap-2 rounded-lg bg-amber-50 px-3.5 py-2.5 text-xs text-amber-800">
-        <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
-        Esta anamnese <b>substitui a antiga planilha</b>. É daqui que a IA aprende quem é a gestão, o tom e os programas.
-      </div>
-
       <Section>Identificação da gestão</Section>
       <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
         <CField label="Prefeito(a)" value={c.prefeito ?? ""} onChange={(v) => set("prefeito", v)} />
