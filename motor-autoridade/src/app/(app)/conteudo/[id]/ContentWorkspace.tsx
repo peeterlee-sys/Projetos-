@@ -55,9 +55,11 @@ export function ContentWorkspace({
   const router = useRouter();
   // Formato ativo: o escolhido na tela 09, senão o primeiro já gerado, senão vídeo.
   const firstGenerated = FORMATS.find((f) => generated[f]);
-  const active: FormatType = (FORMATS as readonly string[]).includes(initialFormat ?? "")
-    ? (initialFormat as FormatType)
-    : firstGenerated ?? "video";
+  const [active, setActive] = useState<FormatType>(
+    (FORMATS as readonly string[]).includes(initialFormat ?? "")
+      ? (initialFormat as FormatType)
+      : firstGenerated ?? "video",
+  );
 
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -115,6 +117,28 @@ export function ContentWorkspace({
         ) : null}
       </header>
 
+      {/* Abas de formato: troque e gere cada versão (vídeo, carrossel, post…). */}
+      <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
+        {FORMATS.map((f) => (
+          <button
+            key={f}
+            type="button"
+            onClick={() => {
+              setActive(f);
+              setError(null);
+            }}
+            className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition ${
+              active === f
+                ? "bg-brand-700 text-sand-50"
+                : "bg-white text-ink-700 shadow-sm ring-1 ring-black/5"
+            }`}
+          >
+            {FORMAT_LABEL[f]}
+            {generated[f] ? " ✓" : ""}
+          </button>
+        ))}
+      </div>
+
       {generating ? (
         <div className="animate-pulse space-y-3">
           <div className="h-28 rounded-[24px] bg-sand-200" />
@@ -148,30 +172,19 @@ export function ContentWorkspace({
         ) : null}
 
         {payload ? (
-          <div className="flex items-center justify-center gap-4 text-sm">
+          <div className="text-center text-sm">
             <button
               type="button"
               onClick={generateFormat}
               disabled={pending}
               className="font-medium text-ink-500 underline-offset-4 hover:underline disabled:opacity-50"
             >
-              {pending ? "Gerando…" : "✎ Refazer"}
+              {pending ? "Gerando…" : "✎ Refazer esta versão"}
             </button>
-            {opportunityId ? (
-              <>
-                <span className="text-ink-300">·</span>
-                <Link
-                  href={`/oportunidade/${opportunityId}`}
-                  className="font-medium text-ink-500 underline-offset-4 hover:underline"
-                >
-                  Trocar formato
-                </Link>
-              </>
-            ) : null}
           </div>
         ) : !generating ? (
           <Button full onClick={generateFormat} disabled={pending}>
-            Gerar conteúdo
+            Gerar {FORMAT_LABEL[active].toLowerCase()}
           </Button>
         ) : null}
 
