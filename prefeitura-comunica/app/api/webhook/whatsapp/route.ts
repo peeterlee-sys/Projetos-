@@ -13,9 +13,11 @@ import { transcribe, generate } from "@/lib/ai";
  * body: {
  *   telefone: string,
  *   tipo: "audio" | "texto" | "imagem",
- *   texto?: string,       // texto digitado OU legenda descrevendo o assunto
- *   audioUrl?: string,    // URL do áudio (quando tipo = audio)
- *   imagemUrl?: string,   // URL da foto (quando tipo = imagem)
+ *   texto?/texto_b64?: string,  // texto/legenda (cru ou base64)
+ *   audioUrl?: string,          // URL do áudio (quando tipo = audio)
+ *   imagem_b64?: string,        // foto em base64 (Make baixa do WhatsApp com o token)
+ *   mediaType?: string,         // ex.: image/jpeg
+ *   imagemUrl?: string,         // URL pública da foto (fallback)
  * }
  *
  * resposta: { ok, reply, releaseId?, cadastrado? }
@@ -107,6 +109,21 @@ export async function POST(req: Request) {
   const aguardandoFoto = !!(recente && ultimo.aguardando);
 
   try {
+    // Imagem: o Make baixa a mídia do WhatsApp (precisa do token) e manda em
+    // base64. Guardamos como data URI pra aparecer direto no dashboard.
+    let img: { base64: string; mediaType: string } | null = null;
+    if (tipo === "imagem") {
+      if (b.imagem_b64) {
+        const mt = /^image\/(jpeg|png|gif|webp)$/.test(String(b.mediaType || ""))
+          ? String(b.mediaType)
+          : "image/jpeg";
+        img = { base64: String(b.imagem_b64), mediaType: mt };
+      } else if (b.imagemUrl) {
+        img = await baixarImagem(String(b.imagemUrl));
+      }
+    }
+    const fotoUrl = img ? `data:${img.mediaType};base64,${img.base64}` : null;
+
     // 3a) IMAGEM sem assunto → pede contexto (igual ao fluxo antigo de mídia).
     if (tipo === "imagem" && !textoRecebido()) {
       const foraJanela = !!ultimo && !recente;
@@ -117,7 +134,7 @@ export async function POST(req: Request) {
           id: newId(),
           releaseId: ultimo.id,
           prefeituraId: sec.prefeituraId,
-          url: b.imagemUrl ?? null,
+          url: fotoUrl,
           legenda: null,
         });
         return NextResponse.json({
@@ -148,7 +165,7 @@ export async function POST(req: Request) {
         id: newId(),
         releaseId,
         prefeituraId: sec.prefeituraId,
-        url: b.imagemUrl ?? null,
+        url: fotoUrl,
         legenda: null,
       });
       return NextResponse.json({ ok: true, releaseId, reply: askMsg });
@@ -170,18 +187,12 @@ export async function POST(req: Request) {
     }
     if (!mensagem) return badRequest("mensagem vazia");
 
-    // Foto anexa (imagem nova com assunto, ou foto que estava aguardando).
-    let imagem: { base64: string; mediaType: string } | null = null;
-    if (tipo === "imagem" && b.imagemUrl) {
-      imagem = await baixarImagem(String(b.imagemUrl));
-    }
-
     // 4) Gera o release com a IA usando o contexto da prefeitura.
     const gerado = await generate({
       ctx: ctx ?? null,
       secretario: sec,
       mensagem,
-      imagem,
+      imagem: img,
     });
 
     // 5) Salva. Se havia uma foto aguardando assunto, completa aquele release.
@@ -219,12 +230,12 @@ export async function POST(req: Request) {
       });
     }
 
-    if (tipo === "imagem" && b.imagemUrl) {
+    if (tipo === "imagem" && fotoUrl) {
       await db.insert(fotos).values({
         id: newId(),
         releaseId,
         prefeituraId: sec.prefeituraId,
-        url: String(b.imagemUrl),
+        url: fotoUrl,
         legenda: null,
       });
     }
