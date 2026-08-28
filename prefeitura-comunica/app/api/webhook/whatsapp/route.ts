@@ -49,6 +49,19 @@ export async function POST(req: Request) {
   const telefone = normTel(b.telefone ?? "");
   if (!telefone) return badRequest("telefone obrigatório");
 
+  // O texto pode vir cru (`texto`) ou em base64 (`texto_b64`). O Make manda em
+  // base64 pra não quebrar o JSON quando a transcrição tem aspas/quebras de linha.
+  const textoRecebido = (): string => {
+    if (b.texto_b64) {
+      try {
+        return Buffer.from(String(b.texto_b64), "base64").toString("utf8").trim();
+      } catch {
+        return "";
+      }
+    }
+    return String(b.texto ?? "").trim();
+  };
+
   const tipo: "audio" | "texto" | "imagem" =
     b.tipo === "audio" || b.tipo === "imagem" ? b.tipo : "texto";
 
@@ -90,7 +103,7 @@ export async function POST(req: Request) {
 
   try {
     // 3a) IMAGEM sem assunto → pede contexto (igual ao fluxo antigo de mídia).
-    if (tipo === "imagem" && !(b.texto && String(b.texto).trim())) {
+    if (tipo === "imagem" && !textoRecebido()) {
       const foraJanela = !!ultimo && !recente;
 
       // Já existe um release recente com texto? Anexa a foto nele.
@@ -144,10 +157,10 @@ export async function POST(req: Request) {
       mensagem = await transcribe(String(b.audioUrl));
       origem = "audio";
     } else if (tipo === "imagem") {
-      mensagem = String(b.texto).trim();
+      mensagem = textoRecebido();
       origem = "foto";
     } else {
-      mensagem = String(b.texto ?? "").trim();
+      mensagem = textoRecebido();
       origem = "texto";
     }
     if (!mensagem) return badRequest("mensagem vazia");
