@@ -1,8 +1,8 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { secretarios, releases, contextos, fotos } from "@/lib/db/schema";
-import { normTel, newId, badRequest } from "@/lib/http";
+import { normTel, telVariants, newId, badRequest } from "@/lib/http";
 import { transcribe, generate } from "@/lib/ai";
 
 /**
@@ -69,7 +69,12 @@ export async function POST(req: Request) {
   const [sec] = await db
     .select()
     .from(secretarios)
-    .where(and(eq(secretarios.telefone, telefone), eq(secretarios.ativo, true)))
+    .where(
+      and(
+        inArray(secretarios.telefone, telVariants(b.telefone)),
+        eq(secretarios.ativo, true),
+      ),
+    )
     .limit(1);
 
   if (!sec) {
