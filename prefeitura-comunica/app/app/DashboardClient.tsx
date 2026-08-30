@@ -6,7 +6,7 @@ import PushToggle from "./PushToggle";
 import {
   Inbox, Users, FileText, BarChart3, LogOut, Check, Send, Eye,
   RotateCcw, Trash2, Plus, Phone, Image as ImageIcon, TriangleAlert, Search,
-  X, Mic, Pencil, Power, LoaderCircle, Copy,
+  X, Mic, Pencil, Power, LoaderCircle, Copy, ChevronLeft,
 } from "lucide-react";
 
 /* ---------------- Tipos ---------------- */
@@ -244,7 +244,26 @@ export default function DashboardClient() {
           <Kpis view={view} releases={releases} secretarios={secretarios} ranking={ranking} />
         )}
 
-        <div className="flex-1 p-6 max-lg:p-4">
+        <div className="flex-1 p-6 max-lg:p-4 max-lg:pb-24">
+          {view === "fila" && (
+            <div className="mb-3 flex gap-2 overflow-x-auto lg:hidden">
+              {FILTERS.map((f) => {
+                const n = releases.filter((r) => r.status === f.key).length;
+                const active = filter === f.key;
+                return (
+                  <button
+                    key={f.key}
+                    onClick={() => { setFilter(f.key); setSelId(null); }}
+                    className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold ${active ? "border-blue-600 bg-blue-50 text-blue-800" : "border-slate-200 text-slate-600"}`}
+                  >
+                    <span className={`h-1.5 w-1.5 rounded-full ${STATUS[f.key].dot}`} />
+                    {f.label}
+                    <span className="tabular-nums opacity-70">{n}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
           {view === "fila" && (
             <Fila
               releases={releases} filter={filter} query={query}
@@ -262,8 +281,32 @@ export default function DashboardClient() {
         </div>
       </main>
 
+      {/* Navegação mobile (barra inferior) */}
+      <nav className="fixed inset-x-0 bottom-0 z-40 flex border-t border-slate-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
+        {([
+          { key: "fila", label: "Fila", icon: <Inbox className="h-5 w-5" /> },
+          { key: "cadastro", label: "Secretários", icon: <Users className="h-5 w-5" /> },
+          { key: "contexto", label: "Contexto", icon: <FileText className="h-5 w-5" /> },
+          { key: "ranking", label: "Ranking", icon: <BarChart3 className="h-5 w-5" /> },
+        ] as const).map((t) => (
+          <button
+            key={t.key}
+            onClick={() => { setView(t.key); setSelId(null); }}
+            className={`flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-medium ${view === t.key ? "text-blue-700" : "text-slate-500"}`}
+          >
+            {t.icon}{t.label}
+          </button>
+        ))}
+        <button
+          onClick={logout}
+          className="flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-medium text-slate-500"
+        >
+          <LogOut className="h-5 w-5" />Sair
+        </button>
+      </nav>
+
       {toast && (
-        <div className="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full bg-slate-900 px-4 py-2.5 text-sm font-medium text-white shadow-lg">
+        <div className="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full bg-slate-900 px-4 py-2.5 text-sm font-medium text-white shadow-lg max-lg:bottom-24">
           <Check className="h-4 w-4" /> {toast}
         </div>
       )}
@@ -345,7 +388,7 @@ function Fila({ releases, filter, query, selId, setSelId, flash, reload, openFot
 
   return (
     <div className="grid grid-cols-[minmax(300px,380px)_1fr] gap-5 max-lg:grid-cols-1">
-      <div className="flex flex-col gap-2.5">
+      <div className={`flex flex-col gap-2.5 ${sel ? "max-lg:hidden" : ""}`}>
         {list.length === 0 && <div className="rounded-xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-400">Nenhum release nesta fila.</div>}
         {list.map((r) => (
           <button
@@ -378,8 +421,18 @@ function Fila({ releases, filter, query, selId, setSelId, flash, reload, openFot
         ))}
       </div>
 
-      <div className="max-lg:hidden">
-        {sel ? <Detalhe key={sel.id} r={sel} flash={flash} reload={reload} openFoto={openFoto} /> : (
+      <div className={sel ? "" : "max-lg:hidden"}>
+        {sel ? (
+          <>
+            <button
+              onClick={() => setSelId(null)}
+              className="mb-3 inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-semibold lg:hidden"
+            >
+              <ChevronLeft className="h-4 w-4" /> Voltar para a fila
+            </button>
+            <Detalhe key={sel.id} r={sel} flash={flash} reload={reload} openFoto={openFoto} />
+          </>
+        ) : (
           <div className="flex h-full min-h-[300px] items-center justify-center rounded-xl border border-slate-200 bg-white text-center text-sm text-slate-400">
             Selecione um release na fila<br />para revisar e publicar.
           </div>
