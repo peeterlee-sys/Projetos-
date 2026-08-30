@@ -131,6 +131,17 @@ export default function DashboardClient() {
     router.push("/login");
     router.refresh();
   }
+  async function dedupe() {
+    if (!confirm("Remover releases duplicados? Mantém o mais antigo de cada e apaga as cópias.")) return;
+    try {
+      const r = await fetch("/api/releases/dedupe", { method: "POST" });
+      const j = await r.json();
+      flash(j.removed ? `${j.removed} duplicado(s) removido(s) 🧹` : "Nenhum duplicado encontrado");
+      await load();
+    } catch {
+      flash("Não consegui limpar agora.");
+    }
+  }
 
   const releases = data?.releases ?? [];
   const secretarios = data?.secretarios ?? [];
@@ -247,6 +258,16 @@ export default function DashboardClient() {
         )}
 
         <div className="flex-1 p-6 max-lg:p-4 max-lg:pb-24">
+          {view === "fila" && (
+            <div className="mb-3 flex justify-end">
+              <button
+                onClick={dedupe}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+              >
+                <Trash2 className="h-3.5 w-3.5" /> Limpar duplicados
+              </button>
+            </div>
+          )}
           {view === "fila" && (
             <div className="mb-3 flex gap-2 overflow-x-auto lg:hidden">
               {FILTERS.map((f) => {

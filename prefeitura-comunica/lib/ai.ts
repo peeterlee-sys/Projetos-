@@ -53,13 +53,21 @@ export async function transcribe(audioUrl: string): Promise<string> {
 }
 
 const ReleaseSchema = z.object({
-  headline: z.string().describe("Título/manchete curto e forte do release"),
+  headline: z
+    .string()
+    .describe(
+      "Título jornalístico ativo e direto, SEM ponto final. Começa pela secretaria ou pela prefeitura.",
+    ),
   release: z
     .string()
-    .describe("Corpo do release para imprensa, em parágrafos, pronto para publicar"),
+    .describe(
+      "Release para imprensa em 3 parágrafos (lide com atribuição; detalhes operacionais; citação do secretário). Texto corrido, sem markdown.",
+    ),
   instagram: z
     .string()
-    .describe("Legenda para post no Instagram, com tom de rede social e hashtags"),
+    .describe(
+      "Legenda para Instagram: leve, com emojis pertinentes e hashtags oficiais + do tema no final.",
+    ),
 });
 
 export type ReleaseGerado = z.infer<typeof ReleaseSchema>;
@@ -106,17 +114,29 @@ export async function generate(opts: {
 }): Promise<ReleaseGerado> {
   const { ctx, secretario, mensagem, imagem } = opts;
 
-  const system = `Você é redator(a) de comunicação de uma prefeitura brasileira.
-Sua função é transformar o relato de um secretário (áudio transcrito, texto ou foto) em material de imprensa pronto para publicação.
+  const system = `Você é assessor(a) de imprensa institucional de uma prefeitura brasileira. Transforma o relato de um secretário (áudio transcrito, texto ou foto) em material de imprensa pronto para publicar.
 
-Regras:
-- Escreva em português do Brasil, com clareza e correção jornalística.
-- Não invente números, datas, nomes ou fatos que não estejam no relato.
-- Use terceira pessoa, tom institucional e positivo (respeitando o tom pedido pela gestão).
-- O release deve ter manchete forte, lide (o que/quem/quando/onde/por quê) e desenvolvimento em parágrafos.
-- A legenda de Instagram deve ser mais leve, direta e terminar com as hashtags oficiais quando houver.
+PADRÃO EDITORIAL — siga rigorosamente:
 
-CONTEXTO DA PREFEITURA E DA GESTÃO:
+TÍTULO (headline): ativo, direto, SEM ponto final. Começa pelo nome da secretaria ou pela "Prefeitura de <município>". Exemplos de estilo:
+- "Secretaria de Obras conclui pavimentação da Rua das Flores no Centro"
+- "Prefeitura amplia horário de atendimento da UBS da Meia Praia"
+
+RELEASE (3 parágrafos):
+1) LIDE: contextualiza + descreve a ação + atribui à secretaria responsável. Fórmula: "A Prefeitura de <município>, por meio da Secretaria de <área>, <verbo> <ação> com o objetivo de <finalidade>." (ou começando pelo contexto/situação).
+2) DETALHES OPERACIONAIS: como funciona, quem é atendido, quando, onde, critérios, números — apenas o que estiver no relato ou no contexto.
+3) CITAÇÃO: uma frase entre aspas atribuída ao(à) secretário(a) pelo nome e cargo completos. Se o relato não trouxer uma citação, crie uma coerente e sinalize ao final do parágrafo com "[CITAÇÃO SUGERIDA — validar com o(a) secretário(a)]".
+
+TOM: terceira pessoa, institucional, positivo e sóbrio. Sem exclamações, sem superlativos vazios, sem jargão. Respeite o tom pedido pela gestão (abaixo).
+
+REGRAS DURAS:
+- Português do Brasil, correção jornalística impecável.
+- NÃO invente números, datas, nomes, locais ou fatos que não estejam no relato ou no contexto. Na dúvida, escreva de forma mais geral em vez de inventar.
+- Texto corrido, SEM markdown (nada de #, *, listas) no título e no release.
+
+INSTAGRAM: mais leve e direto, com 1–3 emojis pertinentes ao tema. Termine com hashtags: as oficiais da gestão (quando houver no contexto) + do município + do tema. Sem inventar dados.
+
+CONTEXTO DA PREFEITURA E DA GESTÃO (fonte de nomes, cargos, bairros, programas e tom):
 ${composeContext(ctx, secretario)}`;
 
   const content: Anthropic.ContentBlockParam[] = [];
