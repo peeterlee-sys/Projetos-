@@ -104,9 +104,24 @@ export const fotos = sqliteTable("fotos", {
   criadoEm: integer("criado_em", { mode: "timestamp" }).notNull().default(now),
 });
 
+/**
+ * Inscrições de notificação push (Web Push) da equipe de comunicação.
+ * Cada aparelho que "instala" o app e ativa notificações vira uma linha.
+ */
+export const pushSubscriptions = sqliteTable("push_subscriptions", {
+  id: text("id").primaryKey(),
+  prefeituraId: text("prefeitura_id").notNull().references(() => prefeituras.id),
+  userId: text("user_id").references(() => users.id),
+  endpoint: text("endpoint").notNull().unique(),
+  p256dh: text("p256dh").notNull(),
+  auth: text("auth").notNull(),
+  criadoEm: integer("criado_em", { mode: "timestamp" }).notNull().default(now),
+});
+
 export type Prefeitura = typeof prefeituras.$inferSelect;
 export type User = typeof users.$inferSelect;
 export type Secretario = typeof secretarios.$inferSelect;
 export type Contexto = typeof contextos.$inferSelect;
 export type Release = typeof releases.$inferSelect;
 export type Foto = typeof fotos.$inferSelect;
+export type PushSubscription = typeof pushSubscriptions.$inferSelect;

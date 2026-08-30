@@ -42,6 +42,11 @@ const DDL = [
     id text PRIMARY KEY, release_id text NOT NULL REFERENCES releases(id),
     prefeitura_id text NOT NULL REFERENCES prefeituras(id), url text, legenda text,
     criado_em integer NOT NULL DEFAULT (unixepoch()))`,
+  `CREATE TABLE IF NOT EXISTS push_subscriptions (
+    id text PRIMARY KEY, prefeitura_id text NOT NULL REFERENCES prefeituras(id),
+    user_id text REFERENCES users(id), endpoint text NOT NULL UNIQUE,
+    p256dh text NOT NULL, auth text NOT NULL,
+    criado_em integer NOT NULL DEFAULT (unixepoch()))`,
 ];
 
 async function run(sql, args = []) {

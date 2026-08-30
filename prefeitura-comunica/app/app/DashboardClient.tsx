@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import PushToggle from "./PushToggle";
 import {
   Inbox, Users, FileText, BarChart3, LogOut, Check, Send, Eye,
   RotateCcw, Trash2, Plus, Phone, Image as ImageIcon, TriangleAlert, Search,
@@ -199,7 +200,8 @@ export default function DashboardClient() {
           Ranking por secretaria
         </NavItem>
 
-        <div className="mt-auto pt-4">
+        <div className="mt-auto space-y-2 pt-4">
+          <PushToggle />
           <button onClick={logout} className="flex w-full items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-500 hover:text-slate-800">
             <LogOut className="h-4 w-4" /> Sair
           </button>

@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { secretarios, releases, contextos, fotos } from "@/lib/db/schema";
 import { normTel, telVariants, newId, badRequest } from "@/lib/http";
 import { transcribe, generate } from "@/lib/ai";
+import { notifyNovoRelease } from "@/lib/push";
 
 /**
  * Webhook único do WhatsApp — "o painel faz o trabalho".
@@ -238,6 +239,17 @@ export async function POST(req: Request) {
         url: fotoUrl,
         legenda: null,
       });
+    }
+
+    // Avisa a equipe de comunicação no celular (push), sem travar a resposta.
+    try {
+      await notifyNovoRelease(sec.prefeituraId, {
+        secretarioNome: sec.nome,
+        secretaria: sec.secretaria,
+        headline: gerado.headline,
+      });
+    } catch (e) {
+      console.error("[push] notifyNovoRelease", e);
     }
 
     return NextResponse.json({
