@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import PushToggle from "./PushToggle";
+import Splash from "./Splash";
 import {
   Inbox, Users, FileText, BarChart3, LogOut, Check, Send, Eye,
   RotateCcw, Trash2, Plus, Phone, Image as ImageIcon, TriangleAlert, Search,
@@ -159,6 +160,7 @@ export default function DashboardClient() {
 
   return (
     <div className="grid min-h-screen grid-cols-[260px_1fr] max-lg:grid-cols-1">
+      <Splash nome={data?.prefeitura?.nome} />
       {/* Sidebar */}
       <aside className="flex flex-col gap-1 border-r border-slate-200 bg-white p-4 max-lg:hidden">
         <div className="mb-4 flex items-center gap-3 px-1">
