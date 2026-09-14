@@ -1,7 +1,7 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { secretarios, releases, contextos, fotos } from "@/lib/db/schema";
+import { secretarios, releases, contextos, fotos, prefeituras } from "@/lib/db/schema";
 import { normTel, telVariants, newId, badRequest } from "@/lib/http";
 import { transcribe, generate } from "@/lib/ai";
 import { notifyNovoRelease } from "@/lib/push";
@@ -91,14 +91,20 @@ export async function POST(req: Request) {
 
   const primeiro = sec.nome.split(" ")[0];
 
-  // 2) Carrega o contexto da prefeitura (anamnese).
+  // 2) Carrega o contexto (anamnese) e o nome da prefeitura.
   const [ctx] = await db
     .select()
     .from(contextos)
     .where(eq(contextos.prefeituraId, sec.prefeituraId))
     .limit(1);
+  const [pref] = await db
+    .select()
+    .from(prefeituras)
+    .where(eq(prefeituras.id, sec.prefeituraId))
+    .limit(1);
+  const prefNome = pref?.nome || (pref?.municipio ? `Prefeitura de ${pref.municipio}` : "sua prefeitura");
 
-  // Último release do secretário (para janela de 2h / foto pendente).
+  // Último release do secretário (para janela de 2h / foto pendente / 1º contato).
   const [ultimo] = await db
     .select()
     .from(releases)
@@ -108,6 +114,13 @@ export async function POST(req: Request) {
   const recente =
     ultimo && ultimo.criadoEm && Date.now() - ultimo.criadoEm.getTime() <= JANELA_MS;
   const aguardandoFoto = !!(recente && ultimo.aguardando);
+  const primeiroContato = !ultimo; // nunca mandou nada antes
+
+  // Mensagem só de saudação/agradecimento (sem conteúdo) → responde e não gera release.
+  const ehSaudacao = (t: string) =>
+    /^(oi+|ol[áa]|e[ai]|menu|ajuda|help|bom dia|boa tarde|boa noite|ok|okay|blz|beleza|obrigad[oa]|valeu|vlw|tudo bem\??|tudo bom\??|test[ae]?|ping)[\s!.,?]*$/i.test(
+      t.trim(),
+    );
 
   try {
     // Imagem: o Make baixa a mídia do WhatsApp (precisa do token) e manda em
@@ -170,6 +183,14 @@ export async function POST(req: Request) {
         legenda: null,
       });
       return NextResponse.json({ ok: true, releaseId, reply: askMsg });
+    }
+
+    // 3a-bis) Mensagem de texto só com saudação → responde e não gera release.
+    if (tipo === "texto" && ehSaudacao(textoRecebido())) {
+      const reply = primeiroContato
+        ? `👋 Olá, ${primeiro}! Aqui é o canal de comunicação da ${prefNome}. Me manda um *áudio* (ou texto) contando a ação ou novidade da sua secretaria — quanto mais detalhes (o quê, onde, quando, quem), melhor. Eu preparo a matéria e a equipe de comunicação revisa e publica. 🎙️`
+        : `Oi, ${primeiro}! 👋 É só me mandar um *áudio* ou *texto* com a novidade da sua secretaria que eu preparo o release. Pode mandar foto junto também. 🎙️`;
+      return NextResponse.json({ ok: true, reply });
     }
 
     // 3b) Monta a mensagem-base (transcreve áudio se preciso).
@@ -252,11 +273,11 @@ export async function POST(req: Request) {
       console.error("[push] notifyNovoRelease", e);
     }
 
-    return NextResponse.json({
-      ok: true,
-      releaseId,
-      reply: `✅ Prontinho, ${primeiro}! Preparei o release "${gerado.headline}" e ele já está no painel da equipe de comunicação para revisão e publicação. 📝`,
-    });
+    const reply = primeiroContato
+      ? `👋 Seja bem-vindo(a) ao canal de comunicação da ${prefNome}, ${primeiro}! Já preparei seu primeiro release: "${gerado.headline}". A equipe de comunicação vai revisar e publicar. 📝`
+      : `✅ Prontinho, ${primeiro}! Preparei o release "${gerado.headline}" e ele já está no painel da ${prefNome} para revisão e publicação. 📝`;
+
+    return NextResponse.json({ ok: true, releaseId, reply });
   } catch (err) {
     console.error("[webhook/whatsapp]", err);
     return NextResponse.json(
