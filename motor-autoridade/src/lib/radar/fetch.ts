@@ -44,9 +44,17 @@ function themeQuery(themes: string[], fallback: string): string {
 
 // O RSS do Google News aponta os links para news.google.com (redirect), então
 // o domínio do link quase nunca é o do veículo. O nome do veículo, porém, vem
-// no <source> ("Folha de S.Paulo"). Extraímos a "marca" do domínio cadastrado
-// (folha.uol.com.br → "folha") para casar contra esse nome.
-function brandToken(domain: string): string {
+// no <source> ("Folha de S.Paulo"). Casamos a fonte cadastrada (que muitas
+// vezes só tem o NOME, sem URL — ex.: fontes bloqueadas) contra esse nome,
+// extraindo "marcas": do domínio (folha.uol.com.br → "folha") e do rótulo
+// ("Folha de São Paulo" → "folha").
+const BRAND_STOPWORDS = new Set([
+  "de", "da", "do", "das", "dos", "the", "e", "a", "o", "as", "os", "em", "no", "na",
+  "jornal", "revista", "portal", "site", "blog", "news", "noticias", "com", "br",
+  "sao", "s", "grupo",
+]);
+
+function brandTokenFromDomain(domain: string): string {
   const skip = new Set(["www", "www1", "www2", "www3", "m", "mobile", "noticias", "portal", "amp"]);
   const parts = domain.split(".").filter(Boolean);
   let i = 0;
@@ -54,11 +62,27 @@ function brandToken(domain: string): string {
   return parts[i] ?? "";
 }
 
-function tokensFrom(domains: Iterable<string>): string[] {
+/**
+ * Marcas para casar contra o nome do veículo no RSS. Usa a URL (quando houver)
+ * e o rótulo. Do rótulo, pega a 1ª palavra significativa (a marca costuma vir
+ * primeiro: "Folha de São Paulo" → "folha") e também palavras longas (>=4).
+ */
+function tokensFromSources(sources: { url: string | null; label: string | null }[]): string[] {
   const out = new Set<string>();
-  for (const d of domains) {
-    const t = brandToken(d);
-    if (t.length >= 3) out.add(normalize(t));
+  for (const s of sources) {
+    const dom = domainOf(s.url);
+    if (dom) {
+      const t = normalize(brandTokenFromDomain(dom));
+      if (t.length >= 3) out.add(t);
+    }
+    const words = normalize(s.label ?? "").split(" ").filter(Boolean);
+    // 1ª palavra significativa (marca).
+    const first = words.find((w) => w.length >= 3 && !BRAND_STOPWORDS.has(w));
+    if (first) out.add(first);
+    // Palavras longas adicionais (nomes compostos: "poder360", "metropoles").
+    for (const w of words) {
+      if (w.length >= 5 && !BRAND_STOPWORDS.has(w)) out.add(w);
+    }
   }
   return [...out];
 }
@@ -77,7 +101,7 @@ export async function fetchRadar(
     // bloqueadas (para excluir por completo — ex.: jornais que ele não gosta).
     supabase
       .from("influence_sources")
-      .select("url, priority, is_blocked")
+      .select("url, label, priority, is_blocked")
       .eq("user_id", userId)
       .limit(100),
   ]);
@@ -90,29 +114,28 @@ export async function fetchRadar(
 
   const allSources = (sources ?? []) as {
     url: string | null;
+    label: string | null;
     priority: string;
     is_blocked: boolean | null;
   }[];
 
-  // Domínios das fontes prioritárias do cliente (para dar preferência).
+  const preferred = allSources.filter((s) => !s.is_blocked);
+  const blocked = allSources.filter((s) => s.is_blocked);
+
+  // Domínios das fontes prioritárias do cliente (para `site:` na busca).
   const priorityDomains = new Set(
-    allSources
-      .filter((s) => !s.is_blocked)
-      .map((s) => domainOf(s.url))
-      .filter((d): d is string => Boolean(d))
+    preferred.map((s) => domainOf(s.url)).filter((d): d is string => Boolean(d))
   );
 
-  // Domínios BLOQUEADOS: nunca entram no radar (ex.: Folha de São Paulo).
+  // Domínios BLOQUEADOS com URL (para `-site:` na busca).
   const blockedDomains = new Set(
-    allSources
-      .filter((s) => s.is_blocked)
-      .map((s) => domainOf(s.url))
-      .filter((d): d is string => Boolean(d))
+    blocked.map((s) => domainOf(s.url)).filter((d): d is string => Boolean(d))
   );
 
-  // Marcas (nomes de veículo) para casar contra o <source> do RSS.
-  const priorityTokens = tokensFrom(priorityDomains);
-  const blockedTokens = tokensFrom(blockedDomains);
+  // Marcas (nomes de veículo) para casar contra o <source> do RSS. Cobre também
+  // fontes sem URL (as bloqueadas em texto livre entram só com o rótulo).
+  const priorityTokens = tokensFromSources(preferred);
+  const blockedTokens = tokensFromSources(blocked);
 
   // Exclusões `-site:` aplicadas na própria busca (até 5 domínios).
   const exclusions = [...blockedDomains]
