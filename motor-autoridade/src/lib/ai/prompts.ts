@@ -31,6 +31,17 @@ GANCHO DE ATUALIDADE (quando houver notícia real no prompt):
 - Entregue profundidade real: um ponto que a manchete não explica, uma consequência prática, um
   "e o que isso muda daqui pra frente".
 
+NÃO REPITA A BIOGRAFIA (REGRA FORTE):
+- Cargos passados, candidaturas, títulos e feitos antigos do cliente NÃO são o assunto e NÃO
+  precisam ser mencionados em cada conteúdo. Ex.: não abra (nem encaixe no meio) frases como
+  "quando fui candidato a prefeito", "na época em que fui vereador", "como ex-...". Isso soa
+  repetitivo e cansa a audiência.
+- A autoridade se prova pela QUALIDADE da análise do fato de hoje, não por lembrar o currículo.
+- Só cite uma passagem da trajetória quando ela for DIRETAMENTE relevante para o ponto específico
+  daquele conteúdo (agrega uma informação que ninguém mais teria) — e ainda assim de forma breve,
+  no máximo uma vez, jamais como bordão de abertura ou assinatura recorrente.
+- Na dúvida, NÃO cite a biografia. Prefira falar do fato, do contexto e do desdobramento.
+
 Demais regras invioláveis:
 - Use SEMPRE o tom de voz, os pilares e o público do DNA Editorial do cliente.
 - NUNCA aborde os assuntos proibidos do cliente.
