@@ -8,6 +8,7 @@ import {
   Inbox, Users, FileText, BarChart3, LogOut, Check, Send, Eye,
   RotateCcw, Trash2, Plus, Phone, Image as ImageIcon, TriangleAlert, Search,
   X, Mic, Pencil, Power, LoaderCircle, Copy, ChevronLeft,
+  UserPlus, Smartphone, Mail, BellRing, KeyRound, ChevronRight,
 } from "lucide-react";
 
 /* ---------------- Tipos ---------------- */
@@ -105,7 +106,7 @@ export default function DashboardClient() {
   const router = useRouter();
   const [data, setData] = useState<Data | null>(null);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<"fila" | "cadastro" | "contexto" | "ranking">("fila");
+  const [view, setView] = useState<"fila" | "cadastro" | "equipe" | "contexto" | "ranking">("fila");
   const [filter, setFilter] = useState<Status>("pendente");
   const [selId, setSelId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -204,6 +205,9 @@ export default function DashboardClient() {
         <NavItem icon={<Users className="h-4 w-4" />} active={view === "cadastro"} onClick={() => { setView("cadastro"); setSelId(null); }}>
           Secretários <span className="ml-auto rounded-full bg-slate-100 px-2 text-xs font-semibold text-slate-500">{secretarios.length}</span>
         </NavItem>
+        <NavItem icon={<BellRing className="h-4 w-4" />} active={view === "equipe"} onClick={() => { setView("equipe"); setSelId(null); }}>
+          Equipe de comunicação
+        </NavItem>
         <NavItem icon={<FileText className="h-4 w-4" />} active={view === "contexto"} onClick={() => setView("contexto")}>
           Contexto da cidade
         </NavItem>
@@ -230,6 +234,7 @@ export default function DashboardClient() {
             <p className="text-sm text-slate-500">
               {view === "fila" && "Releases enviados pelos secretários, prontos para revisar e publicar."}
               {view === "cadastro" && "Secretários reconhecidos pelo sistema no WhatsApp."}
+              {view === "equipe" && "Quem recebe o aviso de release novo no celular."}
               {view === "contexto" && "A anamnese do município — o que a IA usa para escrever no tom certo."}
               {view === "ranking" && "Quem mais divulga — base para o relatório mensal."}
             </p>
@@ -253,7 +258,7 @@ export default function DashboardClient() {
         </div>
 
         {/* KPIs */}
-        {view !== "contexto" && (
+        {view !== "contexto" && view !== "equipe" && (
           <Kpis view={view} releases={releases} secretarios={secretarios} ranking={ranking} />
         )}
 
@@ -295,7 +300,10 @@ export default function DashboardClient() {
             />
           )}
           {view === "cadastro" && (
-            <Cadastro secretarios={secretarios} query={query} flash={flash} reload={load} />
+            <Cadastro secretarios={secretarios} query={query} flash={flash} reload={load} goEquipe={() => setView("equipe")} />
+          )}
+          {view === "equipe" && (
+            <Equipe flash={flash} goSecretarios={() => { setView("cadastro"); setSelId(null); }} />
           )}
           {view === "contexto" && data?.contexto !== undefined && (
             <ContextoView contexto={data.contexto} muni={muni} uf={uf} flash={flash} reload={load} />
@@ -665,8 +673,8 @@ function Ranking({ ranking, muni }: { ranking: { sec: string; nome: string; tota
 }
 
 /* ------- Cadastro ------- */
-function Cadastro({ secretarios, query, flash, reload }: {
-  secretarios: Secretario[]; query: string; flash: (m: string) => void; reload: () => Promise<void>;
+function Cadastro({ secretarios, query, flash, reload, goEquipe }: {
+  secretarios: Secretario[]; query: string; flash: (m: string) => void; reload: () => Promise<void>; goEquipe: () => void;
 }) {
   const [edit, setEdit] = useState<Secretario | null>(null);
   const [open, setOpen] = useState(false);
@@ -686,7 +694,10 @@ function Cadastro({ secretarios, query, flash, reload }: {
           <h2 className="text-base font-bold">Secretários cadastrados</h2>
           <p className="text-xs text-slate-500">{secretarios.length} cadastrados</p>
         </div>
-        <button onClick={() => { setEdit(null); setOpen(true); }} className="inline-flex items-center gap-1.5 rounded-lg bg-blue-700 px-3.5 py-2 text-sm font-semibold text-white hover:bg-blue-800"><Plus className="h-4 w-4" />Cadastrar secretário</button>
+        <div className="flex items-center gap-2">
+          <button onClick={goEquipe} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3.5 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50" title="Equipe de comunicação"><BellRing className="h-4 w-4" />Equipe<ChevronRight className="h-4 w-4" /></button>
+          <button onClick={() => { setEdit(null); setOpen(true); }} className="inline-flex items-center gap-1.5 rounded-lg bg-blue-700 px-3.5 py-2 text-sm font-semibold text-white hover:bg-blue-800"><Plus className="h-4 w-4" />Cadastrar secretário</button>
+        </div>
       </div>
       <div className="mb-4 flex items-start gap-2 rounded-lg bg-blue-50 px-3.5 py-2.5 text-xs text-blue-800">
         <Phone className="mt-0.5 h-4 w-4 shrink-0" />
@@ -784,6 +795,169 @@ function Field({ label, value, onChange, placeholder }: { label: string; value: 
       <span className="text-xs font-semibold text-slate-600">{label}</span>
       <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20" />
     </label>
+  );
+}
+
+/* ------- Equipe de comunicação ------- */
+type Membro = { id: string; nome: string; email: string; ativo: boolean; aparelhos: number; eu: boolean };
+
+function Equipe({ flash, goSecretarios }: { flash: (m: string) => void; goSecretarios: () => void }) {
+  const [membros, setMembros] = useState<Membro[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [open, setOpen] = useState(false);
+
+  const load = useCallback(async () => {
+    const r = await fetch("/api/equipe", { cache: "no-store" });
+    if (r.ok) {
+      const j = await r.json();
+      setMembros(j.membros ?? []);
+      setTotal(j.aparelhosTotal ?? 0);
+    }
+    setLoading(false);
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  async function toggle(m: Membro) {
+    const r = await fetch(`/api/equipe/${m.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ativo: !m.ativo }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { flash(j.error ?? "Não consegui alterar"); return; }
+    flash(m.ativo ? "Acesso desativado" : "Acesso ativado");
+    load();
+  }
+  async function remover(m: Membro) {
+    if (!confirm(`Remover ${m.nome} da equipe? A pessoa perde o acesso ao painel.`)) return;
+    const r = await fetch(`/api/equipe/${m.id}`, { method: "DELETE" });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { flash(j.error ?? "Não consegui remover"); return; }
+    flash("Membro removido");
+    load();
+  }
+  async function resetSenha(m: Membro) {
+    const senha = prompt(`Nova senha para ${m.nome} (mínimo 6 caracteres):`);
+    if (senha === null) return;
+    const r = await fetch(`/api/equipe/${m.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ senha }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { flash(j.error ?? "Não consegui redefinir"); return; }
+    flash("Senha redefinida");
+  }
+
+  return (
+    <div className="max-w-4xl rounded-xl border border-slate-200 bg-white p-5">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <div>
+          <h2 className="text-base font-bold">Equipe de comunicação</h2>
+          <p className="text-xs text-slate-500">{membros.length} {membros.length === 1 ? "membro" : "membros"} · {total} {total === 1 ? "aparelho" : "aparelhos"} com notificação ativa</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={goSecretarios} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3.5 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"><ChevronLeft className="h-4 w-4" />Secretários</button>
+          <button onClick={() => setOpen(true)} className="inline-flex items-center gap-1.5 rounded-lg bg-blue-700 px-3.5 py-2 text-sm font-semibold text-white hover:bg-blue-800"><UserPlus className="h-4 w-4" />Cadastrar membro</button>
+        </div>
+      </div>
+
+      <div className="mb-4 flex items-start gap-2 rounded-lg bg-blue-50 px-3.5 py-2.5 text-xs text-blue-800">
+        <BellRing className="mt-0.5 h-4 w-4 shrink-0" />
+        <span>Cadastre quem revisa e publica os releases. Depois cada pessoa <b>entra no painel pelo celular, instala o app e toca em &ldquo;Ativar notificações&rdquo;</b> — a partir daí recebe o aviso de release novo. A coluna <b>Notificações</b> mostra quem já ativou.</span>
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-10 text-slate-400"><LoaderCircle className="h-5 w-5 animate-spin" /></div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[640px] text-sm">
+            <thead>
+              <tr className="border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-400">
+                <th className="pb-2 font-semibold">Membro</th>
+                <th className="pb-2 font-semibold">Notificações</th>
+                <th className="pb-2 font-semibold">Status</th>
+                <th className="pb-2"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {membros.map((m) => (
+                <tr key={m.id} className={`border-b border-slate-100 ${m.ativo ? "" : "opacity-60"}`}>
+                  <td className="py-2.5">
+                    <div className="flex items-center gap-2.5">
+                      <Avatar name={m.nome} />
+                      <div>
+                        <div className="font-semibold">{m.nome}{m.eu && <span className="ml-1.5 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500">você</span>}</div>
+                        <div className="flex items-center gap-1 text-xs text-slate-500"><Mail className="h-3 w-3" />{m.email}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    {m.aparelhos > 0
+                      ? <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800"><Smartphone className="h-3 w-3" />{m.aparelhos} {m.aparelhos === 1 ? "aparelho" : "aparelhos"}</span>
+                      : <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500"><Smartphone className="h-3 w-3" />não ativou</span>}
+                  </td>
+                  <td>
+                    {m.ativo
+                      ? <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />Ativo</span>
+                      : <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-200 px-2 py-0.5 text-xs font-semibold text-slate-600"><span className="h-1.5 w-1.5 rounded-full bg-slate-500" />Inativo</span>}
+                  </td>
+                  <td>
+                    <div className="flex justify-end gap-1.5">
+                      <button onClick={() => resetSenha(m)} className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:border-blue-600 hover:text-blue-700" title="Redefinir senha"><KeyRound className="h-4 w-4" /></button>
+                      {!m.eu && <button onClick={() => toggle(m)} className={`rounded-lg border p-2 ${m.ativo ? "border-emerald-200 text-emerald-700" : "border-slate-200 text-slate-500"} hover:border-blue-600`} title="Ativar/Desativar acesso"><Power className="h-4 w-4" /></button>}
+                      {!m.eu && <button onClick={() => remover(m)} className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:border-red-500 hover:text-red-600" title="Remover"><Trash2 className="h-4 w-4" /></button>}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {membros.length === 0 && <tr><td colSpan={4} className="py-8 text-center text-slate-400">Nenhum membro cadastrado ainda.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {open && <MembroModal onClose={() => setOpen(false)} flash={flash} reload={load} />}
+    </div>
+  );
+}
+
+function MembroModal({ onClose, flash, reload }: {
+  onClose: () => void; flash: (m: string) => void; reload: () => Promise<void>;
+}) {
+  const [nome, setNome] = useState("");
+  const [email, setEmail] = useState("");
+  const [senha, setSenha] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function save() {
+    setBusy(true);
+    const res = await fetch("/api/equipe", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nome, email, senha }) });
+    setBusy(false);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { flash(data.error ?? "Erro ao cadastrar"); return; }
+    flash("Membro cadastrado — já pode entrar no painel");
+    onClose();
+    reload();
+  }
+
+  return (
+    <div onClick={onClose} className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-5">
+      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md overflow-hidden rounded-2xl bg-white">
+        <div className="flex items-center justify-between border-b border-slate-200 p-4">
+          <h3 className="font-bold">Cadastrar membro da equipe</h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-700"><X className="h-5 w-5" /></button>
+        </div>
+        <div className="flex flex-col gap-3 p-5">
+          <Field label="Nome completo" value={nome} onChange={setNome} placeholder="Ex.: Ana Ribeiro" />
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-semibold text-slate-600">E-mail (login)</span>
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="ana@prefeitura.sc.gov.br" className="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20" />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-semibold text-slate-600">Senha provisória</span>
+            <input type="text" value={senha} onChange={(e) => setSenha(e.target.value)} placeholder="mínimo 6 caracteres" className="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20" />
+          </label>
+          <p className="text-xs text-slate-400">A pessoa entra com esse e-mail e senha, instala o app no celular e ativa as notificações. Depois ela pode trocar a senha com você.</p>
+        </div>
+        <div className="flex justify-end gap-2 border-t border-slate-200 p-4">
+          <button onClick={onClose} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold hover:bg-slate-50">Cancelar</button>
+          <button onClick={save} disabled={busy} className="inline-flex items-center gap-1.5 rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-60">{busy && <LoaderCircle className="h-4 w-4 animate-spin" />}Cadastrar</button>
+        </div>
+      </div>
+    </div>
   );
 }
 
