@@ -8,7 +8,7 @@ import {
   Inbox, Users, FileText, BarChart3, LogOut, Check, Send, Eye,
   RotateCcw, Trash2, Plus, Phone, Image as ImageIcon, TriangleAlert, Search,
   X, Mic, Pencil, Power, LoaderCircle, Copy, ChevronLeft,
-  UserPlus, Smartphone, Mail, BellRing, KeyRound, ChevronRight,
+  UserPlus, Smartphone, Mail, BellRing, KeyRound, ChevronRight, Link2,
 } from "lucide-react";
 
 /* ---------------- Tipos ---------------- */
@@ -303,7 +303,7 @@ export default function DashboardClient() {
             <Cadastro secretarios={secretarios} query={query} flash={flash} reload={load} goEquipe={() => setView("equipe")} />
           )}
           {view === "equipe" && (
-            <Equipe flash={flash} goSecretarios={() => { setView("cadastro"); setSelId(null); }} />
+            <Equipe flash={flash} goSecretarios={() => { setView("cadastro"); setSelId(null); }} prefNome={data?.prefeitura?.nome ?? null} />
           )}
           {view === "contexto" && data?.contexto !== undefined && (
             <ContextoView contexto={data.contexto} muni={muni} uf={uf} flash={flash} reload={load} />
@@ -801,11 +801,12 @@ function Field({ label, value, onChange, placeholder }: { label: string; value: 
 /* ------- Equipe de comunicação ------- */
 type Membro = { id: string; nome: string; email: string; ativo: boolean; aparelhos: number; eu: boolean };
 
-function Equipe({ flash, goSecretarios }: { flash: (m: string) => void; goSecretarios: () => void }) {
+function Equipe({ flash, goSecretarios, prefNome }: { flash: (m: string) => void; goSecretarios: () => void; prefNome: string | null }) {
   const [membros, setMembros] = useState<Membro[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
+  const [origin, setOrigin] = useState("");
 
   const load = useCallback(async () => {
     const r = await fetch("/api/equipe", { cache: "no-store" });
@@ -817,6 +818,30 @@ function Equipe({ flash, goSecretarios }: { flash: (m: string) => void; goSecret
     setLoading(false);
   }, []);
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { setOrigin(window.location.origin); }, []);
+
+  // Link do app para enviar à equipe (aberto no celular → login → instalar → ativar).
+  const appLink = `${origin}/app`;
+  const convite =
+    `Oi! Você entra para a equipe de comunicação${prefNome ? ` da ${prefNome}` : ""} no Porta Voz. 🎙️\n\n` +
+    `Para receber no celular o aviso de cada release novo, siga estes passos:\n\n` +
+    `1) Abra este link no celular: ${appLink}\n` +
+    `2) Entre com o seu e-mail e senha\n` +
+    `3) Instale o app: no menu do navegador, toque em "Adicionar à tela de início"\n` +
+    `4) Abra o app pela tela de início e toque em "Ativar notificações"\n\n` +
+    `Pronto! A partir daí cada release novo chega direto no seu celular. 📲`;
+
+  function copiarLink() {
+    navigator.clipboard?.writeText(appLink);
+    flash("Link copiado");
+  }
+  function copiarConvite() {
+    navigator.clipboard?.writeText(convite);
+    flash("Convite com instruções copiado");
+  }
+  function enviarWhats() {
+    window.open(`https://wa.me/?text=${encodeURIComponent(convite)}`, "_blank");
+  }
 
   async function toggle(m: Membro) {
     const r = await fetch(`/api/equipe/${m.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ativo: !m.ativo }) });
@@ -858,6 +883,24 @@ function Equipe({ flash, goSecretarios }: { flash: (m: string) => void; goSecret
       <div className="mb-4 flex items-start gap-2 rounded-lg bg-blue-50 px-3.5 py-2.5 text-xs text-blue-800">
         <BellRing className="mt-0.5 h-4 w-4 shrink-0" />
         <span>Cadastre quem revisa e publica os releases. Depois cada pessoa <b>entra no painel pelo celular, instala o app e toca em &ldquo;Ativar notificações&rdquo;</b> — a partir daí recebe o aviso de release novo. A coluna <b>Notificações</b> mostra quem já ativou.</span>
+      </div>
+
+      {/* Convite da equipe: link do app para enviar a quem vai instalar. */}
+      <div className="mb-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+          <Smartphone className="h-4 w-4 text-blue-700" />
+          Link do app para a equipe
+        </div>
+        <p className="mb-3 mt-0.5 text-xs text-slate-500">Mande este link para quem vai receber as notificações. A pessoa abre no celular, faz login, instala o app e ativa as notificações.</p>
+        <div className="flex items-center gap-2 max-sm:flex-col max-sm:items-stretch">
+          <div className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2">
+            <Link2 className="h-4 w-4 shrink-0 text-slate-400" />
+            <span className="truncate text-sm text-slate-700">{origin ? appLink : "…"}</span>
+          </div>
+          <button onClick={copiarLink} className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-white"><Copy className="h-4 w-4" />Copiar link</button>
+          <button onClick={enviarWhats} className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700"><Send className="h-4 w-4" />Enviar no WhatsApp</button>
+        </div>
+        <button onClick={copiarConvite} className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-blue-700 hover:text-blue-900"><Copy className="h-3.5 w-3.5" />Copiar convite com o passo a passo</button>
       </div>
 
       {loading ? (
