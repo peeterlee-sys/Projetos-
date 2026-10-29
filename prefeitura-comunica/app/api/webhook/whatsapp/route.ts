@@ -295,9 +295,19 @@ export async function POST(req: Request) {
       console.error("[push] notifyNovoRelease", e);
     }
 
-    const reply = primeiroContato
-      ? `👋 Seja bem-vindo(a) ao canal de comunicação da ${prefNome}, ${primeiro}! Já preparei seu primeiro release: "${gerado.headline}". A equipe de comunicação vai revisar e publicar. 📝`
-      : `✅ Prontinho, ${primeiro}! Preparei o release "${gerado.headline}" e ele já está no painel da ${prefNome} para revisão e publicação. 📝`;
+    // Se o release ficou sem nenhuma foto, convida o secretário a mandar uma —
+    // ajuda a Comunicação a publicar com imagem. (A foto que ele mandar depois
+    // é anexada automaticamente pela regra de junção acima.)
+    const temFoto = (tipo === "imagem" && !!fotoUrl) || idsJuntar.length > 0;
+    const pedirFoto = temFoto
+      ? ""
+      : `\n\n📷 Tem uma foto dessa ação? Manda aqui que eu já junto ao release.`;
+
+    const reply =
+      (primeiroContato
+        ? `👋 Seja bem-vindo(a) ao canal de comunicação da ${prefNome}, ${primeiro}! Já preparei seu primeiro release: "${gerado.headline}". A equipe de comunicação vai revisar e publicar. 📝`
+        : `✅ Prontinho, ${primeiro}! Preparei o release "${gerado.headline}" e ele já está no painel da ${prefNome} para revisão e publicação. 📝`) +
+      pedirFoto;
 
     return NextResponse.json({ ok: true, releaseId, reply });
   } catch (err) {
