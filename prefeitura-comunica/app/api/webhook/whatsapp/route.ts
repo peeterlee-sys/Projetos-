@@ -158,9 +158,9 @@ export async function POST(req: Request) {
         });
       }
 
-      const askMsg = foraJanela
-        ? `📷 Recebi sua foto, ${primeiro}! Como já faz um tempo desde a sua última mensagem, me confirma sobre qual assunto ela é. 🙂`
-        : `📷 Recebi sua foto, ${primeiro}! Sobre qual assunto é? Me manda um áudio ou texto explicando a ação, que eu preparo o release com a foto junto. 🎙️`;
+      // Mensagem única e amigável: cobre tanto "foto avulsa" quanto o caso em que
+      // a foto chega junto de um áudio que ainda está sendo processado (race).
+      const askMsg = `📷 Recebi sua foto, ${primeiro}! Se ela é da matéria que você acabou de enviar, já deixo junto. Se for de outro assunto, me manda um áudio ou texto explicando que eu preparo o release com a foto. 🎙️`;
 
       const releaseId = newId();
       await db.insert(releases).values({
@@ -260,6 +260,28 @@ export async function POST(req: Request) {
         url: fotoUrl,
         legenda: null,
       });
+    }
+
+    // Junta fotos que ficaram "aguardando assunto" há poucos minutos do mesmo
+    // secretário (ex.: a foto chegou enquanto o áudio ainda estava sendo
+    // transcrito). Anexa essas fotos ao release recém-criado e some com o
+    // item "aguardando" do painel.
+    const JANELA_JUNCAO_MS = 15 * 60 * 1000;
+    const pendentes = await db
+      .select()
+      .from(releases)
+      .where(and(eq(releases.secretarioId, sec.id), eq(releases.aguardando, true)));
+    const idsJuntar = pendentes
+      .filter(
+        (p) =>
+          p.id !== releaseId &&
+          p.criadoEm &&
+          Date.now() - p.criadoEm.getTime() <= JANELA_JUNCAO_MS,
+      )
+      .map((p) => p.id);
+    if (idsJuntar.length) {
+      await db.update(fotos).set({ releaseId }).where(inArray(fotos.releaseId, idsJuntar));
+      await db.delete(releases).where(inArray(releases.id, idsJuntar));
     }
 
     // Avisa a equipe de comunicação no celular (push), sem travar a resposta.
