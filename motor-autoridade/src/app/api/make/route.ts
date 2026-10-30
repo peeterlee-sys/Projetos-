@@ -418,7 +418,7 @@ const VEREADOR_FIELDS =
   "tone_profile, tone_of_voice, slang_expressions, emojis, how_to_refer, catchphrase, " +
   "instagram_url, website_url, reference_publications, local_press, audience_segments, " +
   "positioning_recognition, editorial_dna, contexto_mestre, dna_generated_at, profile_track, " +
-  "subscription_status, trial_ends_at";
+  "subscription_status, trial_ends_at, billing_exempt";
 
 /**
  * Bloco de texto livre com o perfil e as diretrizes do mandato — equivalente
@@ -535,10 +535,14 @@ async function getVereador(supabase: Supabase, payload: Record<string, unknown>,
   const localContext = cityCtx?.context?.trim() || (profile.local_context as string | null) || null;
 
   const subscriptionStatus = (profile.subscription_status as string | null) ?? "trial";
-  const blocked = subscriptionStatus === "past_due" || subscriptionStatus === "canceled";
+  // Conta interna (dono/demonstração) nunca é bloqueada por cobrança.
+  const exempt = profile.billing_exempt === true;
+  const blocked =
+    !exempt && (subscriptionStatus === "past_due" || subscriptionStatus === "canceled");
   const billing = {
     status: subscriptionStatus,
     trial_ends_at: profile.trial_ends_at ?? null,
+    exempt,
     blocked,
     payment_link: blocked ? `${origin}/assinar` : null,
   };

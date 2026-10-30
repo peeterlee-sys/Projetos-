@@ -25,6 +25,7 @@ async function handle(request: NextRequest) {
     .from("client_profiles")
     .update({ subscription_status: "past_due", subscription_updated_at: new Date().toISOString() })
     .eq("subscription_status", "trial")
+    .eq("billing_exempt", false) // contas internas (dono/demonstração) não expiram
     .lt("trial_ends_at", new Date().toISOString())
     .select("user_id");
 

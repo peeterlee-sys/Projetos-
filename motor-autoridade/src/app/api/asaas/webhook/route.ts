@@ -45,6 +45,9 @@ export async function POST(request: NextRequest) {
       { subscription_status: status, subscription_updated_at: new Date().toISOString() },
       { count: "exact" }
     );
+  // Conta interna (dono/demonstração) não é mexida por evento de cobrança:
+  // uma fatura antiga em aberto não pode derrubar o acesso dela.
+  query = query.eq("billing_exempt", false);
   query = payload.payment.subscription
     ? query.eq("asaas_subscription_id", payload.payment.subscription)
     : query.eq("asaas_customer_id", payload.payment.customer ?? "");
