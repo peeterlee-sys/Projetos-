@@ -6,9 +6,24 @@ import { eq } from "drizzle-orm";
 import { db } from "./db";
 import { users, prefeituras, type Prefeitura } from "./db/schema";
 
-const SECRET = process.env.AUTH_SECRET ?? "dev-insecure-secret-troque-em-producao";
+const INSECURE_DEFAULT = "dev-insecure-secret-troque-em-producao";
 const COOKIE = "pv_session";
 const MAX_AGE = 60 * 60 * 24 * 7; // 7 dias
+
+/**
+ * Segredo de assinatura das sessões. Em produção, recusa rodar com o valor
+ * padrão (ou sem valor) — senão as sessões seriam forjáveis. Em dev, cai no
+ * padrão para não atrapalhar o desenvolvimento local.
+ */
+function secret(): string {
+  const s = process.env.AUTH_SECRET;
+  if (process.env.NODE_ENV === "production" && (!s || s === INSECURE_DEFAULT)) {
+    throw new Error(
+      "AUTH_SECRET ausente ou inseguro em produção. Defina AUTH_SECRET (valor longo e aleatório) nas variáveis de ambiente da Vercel.",
+    );
+  }
+  return s || INSECURE_DEFAULT;
+}
 
 export function hashPassword(pw: string): Promise<string> {
   return bcrypt.hash(pw, 10);
@@ -18,7 +33,7 @@ export function verifyPassword(pw: string, hash: string): Promise<boolean> {
 }
 
 function sign(body: string): string {
-  return crypto.createHmac("sha256", SECRET).update(body).digest("base64url");
+  return crypto.createHmac("sha256", secret()).update(body).digest("base64url");
 }
 
 export function createToken(uid: string): string {
