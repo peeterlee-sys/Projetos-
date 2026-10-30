@@ -1,5 +1,5 @@
 -- ============================================================================
--- Motor de Autoridade — 0014_billing_exempt  (ASSESSOR 24H)
+-- Motor de Autoridade — 0015_billing_exempt  (ASSESSOR 24H)
 -- Conta interna: fica fora da régua de cobrança. Serve para a conta do dono e
 -- para contas de demonstração usadas em apresentação — elas nunca entram em
 -- 'past_due' por trial vencido nem por fatura em aberto, então o WhatsApp
