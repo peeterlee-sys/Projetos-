@@ -1,10 +1,18 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { secretarios, releases, contextos, fotos, prefeituras } from "@/lib/db/schema";
 import { normTel, telVariants, newId, badRequest } from "@/lib/http";
 import { transcribe, generate } from "@/lib/ai";
 import { notifyNovoRelease } from "@/lib/push";
+import { ensureSchema } from "@/lib/db/ensure";
+import { saveImage } from "@/lib/storage";
+
+// Transcrição (Whisper) + geração (Claude) podem passar dos 10s padrão.
+// Damos folga pra não estourar timeout → evita reenvios da Meta.
+// (Acima de 10s exige Vercel Pro; no Hobby o valor é limitado automaticamente.)
+export const maxDuration = 120;
+export const runtime = "nodejs";
 
 /**
  * Webhook único do WhatsApp — "o painel faz o trabalho".
@@ -51,6 +59,24 @@ export async function POST(req: Request) {
   const b = await req.json().catch(() => ({}));
   const telefone = normTel(b.telefone ?? "");
   if (!telefone) return badRequest("telefone obrigatório");
+
+  // Garante tabelas/índices (idempotente, roda 1x por instância).
+  await ensureSchema();
+
+  // Idempotência: a Meta reenvia a mesma mensagem quando não recebe o 200 a
+  // tempo. Se o Make mandar o ID da mensagem (wamid), ignoramos os repetidos
+  // para não gerar release duplicado nem reprocessar (custo de IA) à toa.
+  const msgId = String(b.messageId ?? b.wamid ?? b.msgId ?? b.id ?? "").trim();
+  let markedMsgId: string | null = null;
+  if (msgId) {
+    const r = await db.run(
+      sql`INSERT OR IGNORE INTO processed_messages (id) VALUES (${msgId})`,
+    );
+    if (!r.rowsAffected) {
+      return NextResponse.json({ ok: true, duplicate: true, reply: "" });
+    }
+    markedMsgId = msgId;
+  }
 
   // O texto pode vir cru (`texto`) ou em base64 (`texto_b64`). O Make manda em
   // base64 pra não quebrar o JSON quando a transcrição tem aspas/quebras de linha.
@@ -136,7 +162,7 @@ export async function POST(req: Request) {
         img = await baixarImagem(String(b.imagemUrl));
       }
     }
-    const fotoUrl = img ? `data:${img.mediaType};base64,${img.base64}` : null;
+    const fotoUrl = img ? await saveImage(img, sec.prefeituraId) : null;
 
     // 3a) IMAGEM sem assunto → pede contexto (igual ao fluxo antigo de mídia).
     if (tipo === "imagem" && !textoRecebido()) {
@@ -312,6 +338,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, releaseId, reply });
   } catch (err) {
     console.error("[webhook/whatsapp]", err);
+    // Desmarca a mensagem para que um reenvio legítimo possa ser reprocessado
+    // (senão o secretário ficaria sem release após uma falha pontual).
+    if (markedMsgId) {
+      try {
+        await db.run(sql`DELETE FROM processed_messages WHERE id = ${markedMsgId}`);
+      } catch {}
+    }
     return NextResponse.json(
       {
         ok: false,

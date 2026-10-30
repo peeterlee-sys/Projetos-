@@ -1,20 +1,13 @@
 import "server-only";
 import webpush from "web-push";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { pushSubscriptions } from "@/lib/db/schema";
+import { ensureSchema } from "@/lib/db/ensure";
 
-/** Cria a tabela de inscrições se ainda não existir (evita migração manual). */
+/** Garante tabelas/índices (delegado ao ensureSchema centralizado). */
 export async function ensurePushTable(): Promise<void> {
-  await db.run(sql`CREATE TABLE IF NOT EXISTS push_subscriptions (
-    id text PRIMARY KEY,
-    prefeitura_id text NOT NULL,
-    user_id text,
-    endpoint text NOT NULL UNIQUE,
-    p256dh text NOT NULL,
-    auth text NOT NULL,
-    criado_em integer NOT NULL DEFAULT (unixepoch())
-  )`);
+  await ensureSchema();
 }
 
 /**
