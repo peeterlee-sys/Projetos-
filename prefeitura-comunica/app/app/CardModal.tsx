@@ -177,7 +177,7 @@ export default function CardModal({
                   <div style={{ display: "flex", alignItems: "center", gap: 18, marginBottom: 24 }}>
                     {logoData ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={logoData} alt="" style={{ width: 74, height: 74, borderRadius: "50%", objectFit: "cover", background: "#fff", flex: "none", boxShadow: "0 2px 12px rgba(0,0,0,.4)" }} />
+                      <img src={logoData} alt="" style={{ width: 74, height: 74, borderRadius: "50%", objectFit: "contain", padding: 7, boxSizing: "border-box", background: "#fff", flex: "none", boxShadow: "0 2px 12px rgba(0,0,0,.4)" }} />
                     ) : (
                       <div style={{
                         width: 74, height: 74, borderRadius: "50%", background: "#fff", color: COR,
