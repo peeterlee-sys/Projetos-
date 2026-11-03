@@ -11,7 +11,7 @@ import {
   X, Mic, Pencil, Power, LoaderCircle, Copy, ChevronLeft,
   UserPlus, Smartphone, Mail, BellRing, KeyRound, ChevronRight, Link2,
   Download, Radio, Home, Building2, Newspaper, Bell,
-  LayoutGrid, List, Paperclip, MoreVertical,
+  LayoutGrid, List, MoreVertical,
 } from "lucide-react";
 
 /* ---------------- Tipos ---------------- */
@@ -665,7 +665,7 @@ function KanbanBoard({ filt, onOpen, mover }: {
             onDragOver={(e) => { e.preventDefault(); setOver(col.key); }}
             onDragLeave={() => setOver((o) => (o === col.key ? null : o))}
             onDrop={(e) => { e.preventDefault(); const id = e.dataTransfer.getData("text/plain"); setOver(null); if (id) mover(id, col.key); }}
-            className={`flex max-h-[calc(100vh-220px)] w-[300px] shrink-0 flex-col rounded-2xl ${col.bg} p-3 ${over === col.key ? `ring-2 ${col.ring}` : ""}`}
+            className={`flex w-[310px] shrink-0 flex-col self-start rounded-2xl ${col.bg} p-3 ${over === col.key ? `ring-2 ${col.ring}` : ""}`}
           >
             <div className="mb-3 flex items-center gap-2 px-1">
               <span className={col.dot}>{col.icon}</span>
@@ -675,7 +675,7 @@ function KanbanBoard({ filt, onOpen, mover }: {
               </div>
               <span className={`rounded-full px-2 py-0.5 text-xs font-bold tabular-nums ${col.chip}`}>{items.length}</span>
             </div>
-            <div className="flex flex-col gap-3 overflow-y-auto">
+            <div className="flex min-h-[80px] flex-col gap-3">
               {items.length === 0 && <div className="rounded-xl border border-dashed border-slate-300/70 py-8 text-center text-xs text-slate-400">Vazio</div>}
               {items.map((r) => <KanbanCard key={r.id} r={r} onOpen={onOpen} mover={mover} />)}
             </div>
@@ -695,31 +695,32 @@ function KanbanCard({ r, onOpen, mover }: { r: Release; onOpen: (id: string) => 
       draggable={!aguard}
       onDragStart={(e) => { e.dataTransfer.setData("text/plain", r.id); e.dataTransfer.effectAllowed = "move"; }}
       onClick={() => onOpen(r.id)}
-      className="relative cursor-pointer overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md"
+      className="group relative shrink-0 cursor-pointer rounded-xl border border-slate-200 bg-white shadow-sm transition hover:border-slate-300 hover:shadow-md"
     >
       {foto?.url && (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={foto.url} alt="" className="h-28 w-full object-cover" />
+        <img src={foto.url} alt="" className="h-32 w-full rounded-t-xl object-cover" />
       )}
-      <div className="p-3">
-        <div className={`line-clamp-2 text-sm font-semibold ${aguard ? "italic text-slate-500" : "text-slate-800"}`}>
-          {aguard ? "Foto recebida — aguardando assunto" : (r.headline ?? "—")}
+      {!aguard && (
+        <button
+          onClick={(e) => { e.stopPropagation(); setMenu((m) => !m); }}
+          className={`absolute right-2 top-2 rounded-md p-1 text-slate-500 shadow-sm transition hover:bg-slate-100 ${foto?.url ? "bg-white/90 backdrop-blur" : "bg-white"}`}
+          title="Mover para…"
+        ><MoreVertical className="h-4 w-4" /></button>
+      )}
+      <div className="p-3.5">
+        <div className={`mb-2.5 line-clamp-2 min-h-[2.5rem] text-[15px] font-semibold leading-snug ${aguard ? "italic text-amber-700" : "text-slate-800"}`}>
+          {aguard ? "Aguardando assunto do secretário" : (r.headline ?? "Sem título")}
         </div>
-        <div className="mt-2 flex items-center gap-2">
-          <span className="inline-flex min-w-0 items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600"><Building2 className="h-3 w-3 shrink-0" /><span className="truncate">{r.secretaria ?? "—"}</span></span>
-          <span className="ml-auto shrink-0 text-[11px] text-slate-400">{timeAgo(r.criadoEm)}</span>
-        </div>
-        <div className="mt-2 flex items-center gap-2 text-slate-400">
-          {aguard && <span className="inline-flex items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700"><TriangleAlert className="h-3 w-3" />aguardando</span>}
-          {r.origem === "audio" && <Mic className="h-3.5 w-3.5" />}
-          {r.fotos.length > 0 && <span className="inline-flex items-center gap-0.5 text-[11px]"><Paperclip className="h-3.5 w-3.5" />{r.fotos.length}</span>}
-          {!aguard && (
-            <button onClick={(e) => { e.stopPropagation(); setMenu((m) => !m); }} className="ml-auto rounded p-1 hover:bg-slate-100" title="Mover para…"><MoreVertical className="h-4 w-4" /></button>
-          )}
+        <div className="flex items-center justify-between gap-2">
+          <span className="inline-flex min-w-0 items-center gap-1.5 rounded-md bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-600">
+            <Building2 className="h-3 w-3 shrink-0" /><span className="truncate">{r.secretaria ?? "—"}</span>
+          </span>
+          <span className="shrink-0 text-[11px] text-slate-400">{timeAgo(r.criadoEm)}</span>
         </div>
       </div>
       {menu && (
-        <div onClick={(e) => e.stopPropagation()} className="absolute bottom-10 right-2 z-10 w-44 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 text-sm shadow-lg">
+        <div onClick={(e) => e.stopPropagation()} className="absolute right-2 top-10 z-10 w-44 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 text-sm shadow-lg">
           <div className="px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Mover para</div>
           {KCOLS.filter((c) => c.key !== colOf(r)).map((c) => (
             <button key={c.key} onClick={(e) => { e.stopPropagation(); setMenu(false); mover(r.id, c.key); }} className="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-slate-50">
