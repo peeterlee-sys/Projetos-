@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { X, Download, LoaderCircle, ImageOff } from "lucide-react";
+import { X, Download, LoaderCircle, ImageOff, RotateCcw, Move } from "lucide-react";
 import { corDaSecretaria, iniciaisCidade } from "./cardArte";
 
 type Foto = { id: string; url: string | null; legenda: string | null };
@@ -10,10 +10,9 @@ type Release = {
   headline: string | null; fotos: Foto[];
 };
 
-// Cor base da prefeitura (logo + faixa). No futuro, virá do Contexto da cidade.
-const COR_PREFEITURA = "#1e6fd9";
+const COR_PADRAO = "#1e6fd9";
 
-/** Converte a URL da foto em dataURL (evita "tainted canvas" na exportação). */
+/** Converte a URL (foto/logo) em dataURL — evita "tainted canvas" na exportação. */
 async function paraDataURL(url: string): Promise<string | null> {
   if (url.startsWith("data:")) return url;
   try {
@@ -30,36 +29,74 @@ async function paraDataURL(url: string): Promise<string | null> {
   }
 }
 
+const clamp = (n: number) => Math.max(0, Math.min(100, n));
+
 export default function CardModal({
-  release, prefeituraNome, municipio, onClose, flash,
+  release, prefeituraNome, municipio, cor, logoUrl, onClose, flash,
 }: {
   release: Release;
   prefeituraNome: string | null;
   municipio: string | null;
+  cor?: string | null;
+  logoUrl?: string | null;
   onClose: () => void;
   flash: (m: string) => void;
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
+  const comFoto = release.fotos?.filter((f) => f.url) ?? [];
+  const [fotoIdx, setFotoIdx] = useState(0);
   const [fotoData, setFotoData] = useState<string | null>(null);
-  const [carregandoFoto, setCarregandoFoto] = useState(true);
+  const [logoData, setLogoData] = useState<string | null>(null);
+  const [carregandoFoto, setCarregandoFoto] = useState(comFoto.length > 0);
   const [busy, setBusy] = useState(false);
 
-  const fotoUrl = release.fotos?.find((f) => f.url)?.url ?? null;
+  // Enquadramento
+  const [posX, setPosX] = useState(50);
+  const [posY, setPosY] = useState(50);
+  const [zoom, setZoom] = useState(1);
+  const drag = useRef<{ x: number; y: number } | null>(null);
+  const frameRef = useRef<HTMLDivElement>(null);
+
+  const COR = cor || COR_PADRAO;
   const corSec = corDaSecretaria(release.secretaria || "");
   const ini = iniciaisCidade(municipio, prefeituraNome);
   const headline = release.headline || "";
   const nomePref = prefeituraNome || (municipio ? `Prefeitura de ${municipio}` : "Prefeitura");
+  const fotoUrl = comFoto[fotoIdx]?.url ?? null;
 
   useEffect(() => {
     let vivo = true;
-    setCarregandoFoto(true);
+    setCarregandoFoto(!!fotoUrl);
     setFotoData(null);
+    setPosX(50); setPosY(50); setZoom(1);
     if (!fotoUrl) { setCarregandoFoto(false); return; }
-    paraDataURL(fotoUrl).then((d) => {
-      if (vivo) { setFotoData(d); setCarregandoFoto(false); }
-    });
+    paraDataURL(fotoUrl).then((d) => { if (vivo) { setFotoData(d); setCarregandoFoto(false); } });
     return () => { vivo = false; };
   }, [fotoUrl]);
+
+  useEffect(() => {
+    let vivo = true;
+    if (!logoUrl) { setLogoData(null); return; }
+    paraDataURL(logoUrl).then((d) => { if (vivo) setLogoData(d); });
+    return () => { vivo = false; };
+  }, [logoUrl]);
+
+  // Arrastar para enquadrar
+  function onDown(e: React.PointerEvent) {
+    if (!fotoData) return;
+    drag.current = { x: e.clientX, y: e.clientY };
+    (e.target as Element).setPointerCapture?.(e.pointerId);
+  }
+  function onMove(e: React.PointerEvent) {
+    if (!drag.current || !frameRef.current) return;
+    const r = frameRef.current.getBoundingClientRect();
+    const dx = ((e.clientX - drag.current.x) / r.width) * 100;
+    const dy = ((e.clientY - drag.current.y) / r.height) * 100;
+    setPosX((p) => clamp(p - dx));
+    setPosY((p) => clamp(p - dy));
+    drag.current = { x: e.clientX, y: e.clientY };
+  }
+  function onUp() { drag.current = null; }
 
   const baixar = useCallback(async () => {
     if (!cardRef.current) return;
@@ -83,26 +120,26 @@ export default function CardModal({
     }
   }, [release.secretaria, flash]);
 
-  // Preview reduzido do card (o card real é 1080×1350).
   const S = 0.306; // escala do preview
-
-  const fundo: React.CSSProperties = fotoData
-    ? { backgroundImage: `url(${fotoData})`, backgroundSize: "cover", backgroundPosition: "center" }
-    : { background: `linear-gradient(135deg, ${COR_PREFEITURA} 0%, #1550a8 55%, #1f2733 120%)` };
 
   return (
     <div onClick={onClose} className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-5">
-      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md overflow-hidden rounded-2xl bg-white">
+      <div onClick={(e) => e.stopPropagation()} className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white">
         <div className="flex items-center justify-between border-b border-slate-200 p-4">
           <h3 className="font-bold">Card para redes sociais</h3>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-700"><X className="h-5 w-5" /></button>
         </div>
 
         <div className="flex flex-col items-center gap-3 p-5">
-          {/* Moldura do preview (recorta o card em escala) */}
+          {/* Moldura do preview */}
           <div
-            className="relative overflow-hidden rounded-xl border border-slate-200 bg-slate-100"
-            style={{ width: 1080 * S, height: 1350 * S }}
+            ref={frameRef}
+            onPointerDown={onDown}
+            onPointerMove={onMove}
+            onPointerUp={onUp}
+            onPointerLeave={onUp}
+            className="relative select-none overflow-hidden rounded-xl border border-slate-200 bg-slate-100"
+            style={{ width: 1080 * S, height: 1350 * S, cursor: fotoData ? "grab" : "default", touchAction: "none" }}
           >
             {carregandoFoto && (
               <div className="absolute inset-0 z-10 flex items-center justify-center text-slate-400">
@@ -116,24 +153,41 @@ export default function CardModal({
                 style={{
                   width: 1080, height: 1350, position: "relative", overflow: "hidden",
                   fontFamily: '-apple-system, "Segoe UI", Roboto, "DejaVu Sans", sans-serif',
-                  ...fundo,
+                  background: fotoData ? "#0b1018" : `linear-gradient(135deg, ${COR} 0%, #1550a8 55%, #1f2733 120%)`,
                 }}
               >
-                {/* escurecido pra legibilidade do texto sobre qualquer foto */}
+                {fotoData && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={fotoData}
+                    alt=""
+                    draggable={false}
+                    style={{
+                      position: "absolute", inset: 0, width: "100%", height: "100%",
+                      objectFit: "cover", objectPosition: `${posX}% ${posY}%`,
+                      transform: `scale(${zoom})`, transformOrigin: "center",
+                    }}
+                  />
+                )}
                 <div style={{
                   position: "absolute", left: 0, right: 0, bottom: 0, height: "64%",
                   background: "linear-gradient(to top, rgba(8,12,20,.97) 26%, rgba(8,12,20,.78) 54%, rgba(8,12,20,0) 100%)",
                 }} />
                 <div style={{ position: "absolute", left: 64, right: 64, bottom: 72, color: "#fff" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 18, marginBottom: 24 }}>
-                    <div style={{
-                      width: 74, height: 74, borderRadius: "50%", background: "#fff", color: COR_PREFEITURA,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      fontWeight: 800, fontSize: 28, flex: "none", boxShadow: "0 2px 12px rgba(0,0,0,.4)",
-                    }}>{ini}</div>
+                    {logoData ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={logoData} alt="" style={{ width: 74, height: 74, borderRadius: "50%", objectFit: "cover", background: "#fff", flex: "none", boxShadow: "0 2px 12px rgba(0,0,0,.4)" }} />
+                    ) : (
+                      <div style={{
+                        width: 74, height: 74, borderRadius: "50%", background: "#fff", color: COR,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        fontWeight: 800, fontSize: 28, flex: "none", boxShadow: "0 2px 12px rgba(0,0,0,.4)",
+                      }}>{ini}</div>
+                    )}
                     <div style={{ fontSize: 27, fontWeight: 700, lineHeight: 1.15, letterSpacing: ".2px" }}>{nomePref}</div>
                   </div>
-                  <div style={{ width: 92, height: 7, borderRadius: 4, background: COR_PREFEITURA, margin: "4px 0 22px" }} />
+                  <div style={{ width: 92, height: 7, borderRadius: 4, background: COR, margin: "4px 0 22px" }} />
                   <div style={{ fontSize: 58, fontWeight: 800, lineHeight: 1.1, letterSpacing: "-.5px", textShadow: "0 2px 20px rgba(0,0,0,.5)" }}>
                     {headline}
                   </div>
@@ -149,9 +203,47 @@ export default function CardModal({
             </div>
           </div>
 
-          {!fotoUrl && (
+          {/* Seleção de foto (quando há mais de uma) */}
+          {comFoto.length > 1 && (
+            <div className="flex flex-wrap justify-center gap-2">
+              {comFoto.map((f, i) => (
+                <button
+                  key={f.id}
+                  onClick={() => setFotoIdx(i)}
+                  className={`h-12 w-12 overflow-hidden rounded-lg border-2 ${i === fotoIdx ? "border-blue-600" : "border-slate-200"}`}
+                  title={`Foto ${i + 1}`}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={f.url ?? ""} alt="" className="h-full w-full object-cover" />
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Controles de enquadramento */}
+          {fotoData ? (
+            <div className="w-full space-y-2.5 rounded-lg bg-slate-50 p-3">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-slate-500">
+                <Move className="h-3.5 w-3.5" /> Arraste a foto no quadro para enquadrar
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-10 text-xs text-slate-500">Zoom</span>
+                <input
+                  type="range" min={1} max={2.2} step={0.02} value={zoom}
+                  onChange={(e) => setZoom(Number(e.target.value))}
+                  className="flex-1 accent-blue-600"
+                />
+                <button
+                  onClick={() => { setPosX(50); setPosY(50); setZoom(1); }}
+                  className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-white"
+                >
+                  <RotateCcw className="h-3 w-3" /> Redefinir
+                </button>
+              </div>
+            </div>
+          ) : (
             <p className="flex items-center gap-1.5 text-xs text-slate-400">
-              <ImageOff className="h-3.5 w-3.5" /> Sem foto neste release — card gerado só com a cor da prefeitura.
+              <ImageOff className="h-3.5 w-3.5" /> Sem foto neste release — card só com a cor da prefeitura.
             </p>
           )}
 
@@ -163,7 +255,7 @@ export default function CardModal({
             {busy ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
             Baixar PNG (1080×1350)
           </button>
-          <p className="text-center text-[11px] text-slate-400">Formato de feed/retrato do Instagram. A cor da tag muda conforme a secretaria.</p>
+          <p className="text-center text-[11px] text-slate-400">Formato de feed/retrato do Instagram. A tag muda de cor conforme a secretaria.</p>
         </div>
       </div>
     </div>

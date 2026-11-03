@@ -32,6 +32,7 @@ type Contexto = {
   lema?: string | null; programa?: string | null; tom?: string | null;
   hashtags?: string | null; bairros?: string | null; programas?: string | null;
   contexto?: string | null; modelos?: string[] | null;
+  cor?: string | null; logoUrl?: string | null;
 } | null;
 type Prefeitura = { nome: string; municipio: string; uf: string } | null;
 type Data = {
@@ -349,6 +350,8 @@ export default function DashboardClient() {
           release={cardRel}
           prefeituraNome={data?.prefeitura?.nome ?? null}
           municipio={muni}
+          cor={data?.contexto?.cor ?? null}
+          logoUrl={data?.contexto?.logoUrl ?? null}
           onClose={() => setCardRel(null)}
           flash={flash}
         />
@@ -1025,11 +1028,22 @@ function ContextoView({ contexto, muni, uf, flash, reload }: {
   const [c, setC] = useState<NonNullable<Contexto>>({
     prefeito: "", vice: "", mandato: "", lema: "", programa: "", tom: "",
     hashtags: "", bairros: "", programas: "", contexto: "", modelos: [],
+    cor: "", logoUrl: "",
     ...(contexto ?? {}),
   });
   const [busy, setBusy] = useState(false);
   const set = (k: keyof NonNullable<Contexto>, v: string) => setC((p) => ({ ...p, [k]: v }));
   const modelos = c.modelos ?? [];
+
+  function onLogo(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 600 * 1024) { flash("Logo muito grande (máx. 600 KB). Use uma imagem menor."); e.target.value = ""; return; }
+    const fr = new FileReader();
+    fr.onload = () => setC((p) => ({ ...p, logoUrl: String(fr.result) }));
+    fr.readAsDataURL(file);
+    e.target.value = "";
+  }
 
   async function save() {
     setBusy(true);
@@ -1053,6 +1067,33 @@ function ContextoView({ contexto, muni, uf, flash, reload }: {
         <CField label="Vice-prefeito(a)" value={c.vice ?? ""} onChange={(v) => set("vice", v)} />
         <CField label="Mandato" value={c.mandato ?? ""} onChange={(v) => set("mandato", v)} />
         <CField label="Lema / slogan da gestão" value={c.lema ?? ""} onChange={(v) => set("lema", v)} />
+      </div>
+
+      <Section>Identidade visual (usada nos cards de redes sociais)</Section>
+      <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
+        <label className="flex flex-col gap-1">
+          <span className="text-xs font-semibold text-slate-600">Cor da prefeitura</span>
+          <div className="flex items-center gap-2">
+            <input type="color" value={c.cor || "#1e6fd9"} onChange={(e) => set("cor", e.target.value)} className="h-10 w-14 cursor-pointer rounded border border-slate-300 bg-white p-1" />
+            <input value={c.cor ?? ""} onChange={(e) => set("cor", e.target.value)} placeholder="#1e6fd9" className="w-28 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-600" />
+          </div>
+          <span className="text-[11px] text-slate-400">Cor do logo e da faixa no card.</span>
+        </label>
+        <div className="flex flex-col gap-1">
+          <span className="text-xs font-semibold text-slate-600">Logo da prefeitura</span>
+          <div className="flex items-center gap-3">
+            {c.logoUrl
+              // eslint-disable-next-line @next/next/no-img-element
+              ? <img src={c.logoUrl} alt="logo" className="h-12 w-12 rounded-lg border border-slate-200 bg-white object-cover" />
+              : <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-dashed border-slate-300 text-slate-400"><ImageIcon className="h-5 w-5" /></div>}
+            <label className="cursor-pointer rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold hover:bg-slate-50">
+              {c.logoUrl ? "Trocar" : "Enviar logo"}
+              <input type="file" accept="image/*" className="hidden" onChange={onLogo} />
+            </label>
+            {c.logoUrl && <button onClick={() => set("logoUrl", "")} className="text-xs font-semibold text-red-600 hover:underline">Remover</button>}
+          </div>
+          <span className="text-[11px] text-slate-400">PNG com fundo transparente fica melhor. Máx. 600 KB.</span>
+        </div>
       </div>
 
       <Section>Identidade de comunicação</Section>
