@@ -2,16 +2,18 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { releases } from "@/lib/db/schema";
 import { getSessionUser } from "@/lib/auth";
+import { ensureSchema } from "@/lib/db/ensure";
 import { ok, unauthorized, forbidden, notFound } from "@/lib/http";
 
 type Params = { params: Promise<{ id: string }> };
 
-const EDITABLE = ["headline", "release", "instagram", "transcricao"] as const;
+const EDITABLE = ["headline", "release", "instagram", "radio", "transcricao"] as const;
 
 export async function PATCH(req: Request, { params }: Params) {
   const user = await getSessionUser();
   if (!user) return unauthorized();
   const { id } = await params;
+  await ensureSchema();
 
   const [r] = await db.select().from(releases).where(eq(releases.id, id)).limit(1);
   if (!r) return notFound();

@@ -10,6 +10,7 @@ import {
   RotateCcw, Trash2, Plus, Phone, Image as ImageIcon, TriangleAlert, Search,
   X, Mic, Pencil, Power, LoaderCircle, Copy, ChevronLeft,
   UserPlus, Smartphone, Mail, BellRing, KeyRound, ChevronRight, Link2,
+  Download, Radio,
 } from "lucide-react";
 
 /* ---------------- Tipos ---------------- */
@@ -18,7 +19,7 @@ type Status = "pendente" | "revisao" | "aprovado" | "publicado" | "aguardando";
 type Release = {
   id: string; secretarioNome: string | null; secretaria: string | null;
   origem: string | null; transcricao: string | null;
-  headline: string | null; release: string | null; instagram: string | null;
+  headline: string | null; release: string | null; instagram: string | null; radio: string | null;
   status: Status; flag: boolean | null; aguardando: boolean | null;
   askMsg: string | null; caso: string | null;
   publicadoEm: string | null; criadoEm: string | null; fotos: Foto[];
@@ -495,8 +496,12 @@ function Detalhe({ r, flash, reload, openFoto, openCard }: {
   const [headline, setHeadline] = useState(r.headline ?? "");
   const [release, setRelease] = useState(r.release ?? "");
   const [instagram, setInstagram] = useState(r.instagram ?? "");
+  const [radio, setRadio] = useState(r.radio ?? "");
   const [busy, setBusy] = useState(false);
-  const dirty = headline !== (r.headline ?? "") || release !== (r.release ?? "") || instagram !== (r.instagram ?? "");
+  const [genRadio, setGenRadio] = useState(false);
+  const dirty =
+    headline !== (r.headline ?? "") || release !== (r.release ?? "") ||
+    instagram !== (r.instagram ?? "") || radio !== (r.radio ?? "");
 
   async function patch(body: Record<string, unknown>, msg: string) {
     setBusy(true);
@@ -505,6 +510,23 @@ function Detalhe({ r, flash, reload, openFoto, openCard }: {
     if (res.ok) { flash(msg); await reload(); } else { flash("Erro ao salvar"); }
   }
   const copy = (t: string, label: string) => { navigator.clipboard?.writeText(t); flash(`${label} copiado`); };
+  const baixarTxt = (texto: string, nome: string) => {
+    const blob = new Blob([texto], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = nome; a.click();
+    URL.revokeObjectURL(url);
+  };
+  const nPalavras = (t: string) => t.trim().split(/\s+/).filter(Boolean).length;
+  async function gerarRadioAgora() {
+    setGenRadio(true);
+    try {
+      const res = await fetch(`/api/releases/${r.id}/radio`, { method: "POST" });
+      const j = await res.json().catch(() => ({}));
+      if (res.ok && j.radio) { setRadio(j.radio); flash("Texto de rádio gerado 📻"); await reload(); }
+      else flash(j.error ?? "Não consegui gerar o texto de rádio.");
+    } catch { flash("Não consegui gerar o texto de rádio."); }
+    finally { setGenRadio(false); }
+  }
 
   if (r.aguardando) {
     return (
@@ -576,11 +598,41 @@ function Detalhe({ r, flash, reload, openFoto, openCard }: {
         <Campo label="3. Post para Instagram" onCopy={() => copy(instagram, "Post")}>
           <textarea value={instagram} onChange={(e) => setInstagram(e.target.value)} rows={5} className="w-full resize-y rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm leading-relaxed outline-none focus:border-blue-600 focus:bg-white" />
         </Campo>
+
+        {/* 4. Texto para rádio */}
+        <div>
+          <div className="mb-1.5 flex items-center">
+            <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-400">
+              <Radio className="h-3.5 w-3.5" /><span className="text-blue-700">4.</span> Texto para rádio
+            </span>
+            {radio && (
+              <div className="ml-auto flex gap-1.5">
+                <button onClick={() => baixarTxt(radio, `radio-${(r.secretaria || "release").toLowerCase().replace(/\s+/g, "-")}.txt`)} className="inline-flex items-center gap-1 rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-semibold text-slate-500 hover:text-blue-700"><Download className="h-3 w-3" />Baixar</button>
+                <button onClick={() => copy(radio, "Texto de rádio")} className="inline-flex items-center gap-1 rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-semibold text-slate-500 hover:text-blue-700"><Copy className="h-3 w-3" />Copiar</button>
+              </div>
+            )}
+          </div>
+          {radio ? (
+            <>
+              <textarea value={radio} onChange={(e) => setRadio(e.target.value)} rows={5} className="w-full resize-y rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm leading-relaxed outline-none focus:border-blue-600 focus:bg-white" />
+              <div className="mt-1 text-[11px] text-slate-400">
+                {nPalavras(radio)} palavras · ideal 90–130 (40–60s de locução)
+              </div>
+            </>
+          ) : (
+            <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-4 text-center">
+              <p className="mb-2 text-xs text-slate-500">Este release ainda não tem boletim de rádio.</p>
+              <button onClick={gerarRadioAgora} disabled={genRadio} className="inline-flex items-center gap-1.5 rounded-lg bg-blue-700 px-3.5 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-60">
+                {genRadio ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Radio className="h-4 w-4" />}Gerar texto de rádio
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-2 border-t border-slate-200 p-4">
         <button onClick={() => openCard(r)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50" title="Gerar card para redes sociais"><ImageIcon className="h-4 w-4" />Gerar card</button>
-        {dirty && <button onClick={() => patch({ headline, release, instagram }, "Alterações salvas")} disabled={busy} className="inline-flex items-center gap-1.5 rounded-lg border border-blue-600 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-800">{busy ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}Salvar edição</button>}
+        {dirty && <button onClick={() => patch({ headline, release, instagram, radio }, "Alterações salvas")} disabled={busy} className="inline-flex items-center gap-1.5 rounded-lg border border-blue-600 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-800">{busy ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}Salvar edição</button>}
         <div className="ml-auto flex flex-wrap gap-2">
           {r.status === "pendente" && <Acao primary onClick={() => patch({ status: "revisao" }, "Em revisão")} icon={<Eye className="h-4 w-4" />}>Iniciar revisão</Acao>}
           {r.status === "revisao" && <Acao primary onClick={() => patch({ status: "aprovado" }, "Aprovado")} icon={<Check className="h-4 w-4" />}>Aprovar</Acao>}

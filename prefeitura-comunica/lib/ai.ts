@@ -52,6 +52,16 @@ export async function transcribe(audioUrl: string): Promise<string> {
   return out.text.trim();
 }
 
+// Regras do boletim para rádio — reaproveitadas no prompt principal e no backfill.
+const REGRAS_RADIO = `BOLETIM PARA RÁDIO — escreva para ser OUVIDO, não lido como notícia de portal.
+- Linguagem jornalística, objetiva, simples e natural; frases curtas, com ritmo adequado à locução.
+- Comece pela informação mais importante, despertando imediatamente o interesse do ouvinte.
+- Deixe claro o que aconteceu, onde, quando e qual a relevância para a população.
+- Texto corrido de 90 a 130 palavras (locução de 40 a 60 segundos). SEM título, subtítulo, listas, emojis, hashtags ou linguagem publicitária.
+- Evite frases excessivamente institucionais e elogios à administração.
+- Escreva números, datas e siglas de forma que facilitem a locução (ex.: "14h" → "duas da tarde"; "R$ 2 mi" → "dois milhões de reais"; "03/11" → "três de novembro"; siglas conhecidas como UBS podem ser mantidas, as obscuras por extenso).
+- NÃO invente declarações, dados, resultados ou informações ausentes. NÃO transforme previsões em acontecimentos confirmados.`;
+
 const ReleaseSchema = z.object({
   headline: z
     .string()
@@ -67,6 +77,11 @@ const ReleaseSchema = z.object({
     .string()
     .describe(
       "Legenda para Instagram: leve, com emojis pertinentes e hashtags oficiais + do tema no final.",
+    ),
+  radio: z
+    .string()
+    .describe(
+      "Boletim para rádio: texto corrido de 90 a 130 palavras, pronto para locução, seguindo rigorosamente as regras de rádio do prompt (escrever para ser ouvido, frases curtas, sem título/emoji/hashtag, sem elogio institucional, números e siglas fáceis de locutar, sem inventar nada).",
     ),
 });
 
@@ -136,6 +151,8 @@ REGRAS DURAS:
 
 INSTAGRAM: mais leve e direto, com 1–3 emojis pertinentes ao tema. Termine com hashtags: as oficiais da gestão (quando houver no contexto) + do município + do tema. Sem inventar dados.
 
+${REGRAS_RADIO}
+
 CONTEXTO DA PREFEITURA E DA GESTÃO (fonte de nomes, cargos, bairros, programas e tom):
 ${composeContext(ctx, secretario)}`;
 
@@ -166,4 +183,42 @@ ${composeContext(ctx, secretario)}`;
   const parsed = response.parsed_output;
   if (!parsed) throw new Error("IA não retornou o release no formato esperado");
   return parsed;
+}
+
+/**
+ * Gera APENAS o boletim para rádio a partir de um relato já existente
+ * (usado para completar releases antigos — backfill). Reaproveita o contexto
+ * da prefeitura e as mesmas regras de rádio do fluxo principal.
+ */
+export async function gerarRadio(opts: {
+  ctx: Contexto | null;
+  autor: string;
+  mensagem: string;
+}): Promise<string> {
+  const secLike = { nome: opts.autor } as Secretario;
+  const system = `Você é assessor(a) de imprensa institucional de uma prefeitura brasileira. Produza APENAS um boletim para rádio a partir do relato abaixo.
+
+${REGRAS_RADIO}
+
+CONTEXTO DA PREFEITURA E DA GESTÃO (fonte de nomes, cargos, bairros, programas e tom):
+${composeContext(opts.ctx, secLike)}`;
+
+  const response = await anthropic().messages.create({
+    model: CLAUDE_MODEL,
+    max_tokens: 800,
+    system,
+    messages: [
+      {
+        role: "user",
+        content: `Relato:\n"""${opts.mensagem}"""\n\nEscreva somente o boletim para rádio, em texto corrido, pronto para locução.`,
+      },
+    ],
+  });
+
+  const texto = response.content
+    .map((b) => (b.type === "text" ? b.text : ""))
+    .join("")
+    .trim();
+  if (!texto) throw new Error("IA não retornou o boletim de rádio");
+  return texto;
 }

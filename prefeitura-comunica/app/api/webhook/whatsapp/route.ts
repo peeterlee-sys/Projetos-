@@ -255,6 +255,7 @@ export async function POST(req: Request) {
           headline: gerado.headline,
           release: gerado.release,
           instagram: gerado.instagram,
+          radio: gerado.radio,
           status: "pendente",
           aguardando: false,
           askMsg: null,
@@ -274,6 +275,7 @@ export async function POST(req: Request) {
         headline: gerado.headline,
         release: gerado.release,
         instagram: gerado.instagram,
+        radio: gerado.radio,
         status: "pendente",
       });
     }

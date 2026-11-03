@@ -82,6 +82,7 @@ export const releases = sqliteTable("releases", {
   headline: text("headline"),
   release: text("release_body"),
   instagram: text("instagram"),
+  radio: text("radio"), // boletim para locução em rádio
   status: text("status", {
     enum: ["pendente", "revisao", "aprovado", "publicado", "aguardando"],
   }).notNull().default("pendente"),
