@@ -67,6 +67,7 @@ async function run(): Promise<void> {
   for (const col of [
     sql`ALTER TABLE contextos ADD COLUMN cor text`,
     sql`ALTER TABLE contextos ADD COLUMN logo_url text`,
+    sql`ALTER TABLE releases ADD COLUMN radio text`,
   ]) {
     try {
       await db.run(col);
