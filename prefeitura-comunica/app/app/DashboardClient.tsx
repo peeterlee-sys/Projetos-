@@ -10,12 +10,13 @@ import {
   RotateCcw, Trash2, Plus, Phone, Image as ImageIcon, TriangleAlert, Search,
   X, Mic, Pencil, Power, LoaderCircle, Copy, ChevronLeft,
   UserPlus, Smartphone, Mail, BellRing, KeyRound, ChevronRight, Link2,
-  Download, Radio,
+  Download, Radio, Home, Building2, Newspaper, Bell,
 } from "lucide-react";
 
 /* ---------------- Tipos ---------------- */
 type Foto = { id: string; url: string | null; legenda: string | null };
 type Status = "pendente" | "revisao" | "aprovado" | "publicado" | "aguardando";
+type Vista = "visao" | "fila" | "distribuicao" | "clipagem" | "cadastro" | "equipe" | "contexto" | "ranking";
 type Release = {
   id: string; secretarioNome: string | null; secretaria: string | null;
   origem: string | null; transcricao: string | null;
@@ -109,7 +110,7 @@ export default function DashboardClient() {
   const router = useRouter();
   const [data, setData] = useState<Data | null>(null);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<"fila" | "cadastro" | "equipe" | "contexto" | "ranking">("fila");
+  const [view, setView] = useState<Vista>("visao");
   const [filter, setFilter] = useState<Status>("pendente");
   const [selId, setSelId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -148,10 +149,26 @@ export default function DashboardClient() {
     }
   }
 
+  function go(v: typeof view, f?: Status) { setView(v); if (f) setFilter(f); setSelId(null); }
+  function openRelease(r: Release) { setView("fila"); setFilter(r.status); setSelId(r.id); }
+
   const releases = data?.releases ?? [];
   const secretarios = data?.secretarios ?? [];
   const muni = data?.prefeitura?.municipio ?? "";
   const uf = data?.prefeitura?.uf ?? "SC";
+  const prefNome = data?.prefeitura?.nome ?? "Prefeitura";
+  const pendentesCount = releases.filter((r) => r.status === "pendente" || r.status === "aguardando").length;
+  const META: Record<string, [string, string]> = {
+    visao: ["Central de Comunicação", "Organize a produção, distribua para a imprensa e acompanhe os resultados da sua prefeitura."],
+    fila: ["Produção", "Gerencie os conteúdos recebidos das secretarias, revise e aprove."],
+    distribuicao: ["Distribuição", "Envie seus conteúdos para a imprensa e acompanhe os envios."],
+    clipagem: ["Clipagem", "Acompanhe as publicações na imprensa sobre as ações da prefeitura."],
+    cadastro: ["Secretarias", "Secretários reconhecidos pelo sistema no WhatsApp."],
+    ranking: ["Relatórios", "Resultados da comunicação — base para o relatório mensal."],
+    contexto: ["Contexto da cidade", "A anamnese do município — o que a IA usa para escrever no tom certo."],
+    equipe: ["Equipe de comunicação", "Quem recebe o aviso de release novo no celular."],
+  };
+  const [titulo, subtitulo] = META[view] ?? META.visao;
 
   const ranking = useMemo(() => {
     const map = new Map<string, { sec: string; nome: string; total: number; publicado: number }>();
@@ -175,98 +192,88 @@ export default function DashboardClient() {
   }
 
   return (
-    <div className="grid min-h-screen grid-cols-[260px_1fr] max-lg:grid-cols-1">
+    <div className="grid min-h-screen grid-cols-[256px_1fr] bg-slate-50 max-lg:grid-cols-1">
       <Splash nome={data?.prefeitura?.nome} />
-      {/* Sidebar */}
-      <aside className="flex flex-col gap-1 border-r border-slate-200 bg-white p-4 max-lg:hidden">
-        <div className="mb-4 flex items-center gap-3 px-1">
+      {/* Sidebar (escura) */}
+      <aside className="flex flex-col gap-1 bg-[#0e1b33] p-3.5 max-lg:hidden">
+        <div className="mb-4 flex items-center gap-2.5 px-2 pt-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.svg" alt="Porta Voz" className="h-10 w-10 rounded-xl" />
-          <div className="min-w-0">
-            <div className="truncate font-bold leading-tight">Porta Voz</div>
-            <div className="truncate text-xs text-slate-500">{data?.prefeitura?.nome ?? "Comunicação"}</div>
-          </div>
+          <img src="/logo.svg" alt="Porta Voz" className="h-9 w-9 rounded-xl" />
+          <span className="text-lg font-bold text-white">Porta Voz</span>
         </div>
 
-        <SideLabel>Fila de trabalho</SideLabel>
-        {FILTERS.map((f) => {
-          const n = releases.filter((r) => r.status === f.key).length;
-          const active = view === "fila" && filter === f.key;
-          return (
-            <button
-              key={f.key}
-              onClick={() => { setView("fila"); setFilter(f.key); setSelId(null); }}
-              className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm ${active ? "bg-blue-50 font-semibold text-blue-800" : "text-slate-600 hover:bg-slate-50"}`}
-            >
-              <span className={`h-2 w-2 rounded-full ${STATUS[f.key].dot}`} />
-              <span className="flex-1">{f.label}</span>
-              <span className="rounded-full bg-slate-100 px-2 text-xs font-semibold tabular-nums text-slate-500">{n}</span>
-            </button>
-          );
-        })}
+        <DarkNav icon={<Home className="h-[18px] w-[18px]" />} label="Visão Geral" active={view === "visao"} onClick={() => go("visao")} />
+        <DarkNav icon={<Pencil className="h-[18px] w-[18px]" />} label="Produção" badge={pendentesCount || undefined} active={view === "fila"} onClick={() => go("fila", "pendente")} />
+        <DarkNav icon={<Send className="h-[18px] w-[18px]" />} label="Distribuição" soon active={view === "distribuicao"} onClick={() => go("distribuicao")} />
+        <DarkNav icon={<Newspaper className="h-[18px] w-[18px]" />} label="Clipagem" soon active={view === "clipagem"} onClick={() => go("clipagem")} />
+        <DarkNav icon={<Users className="h-[18px] w-[18px]" />} label="Secretarias" badge={secretarios.length || undefined} active={view === "cadastro"} onClick={() => go("cadastro")} />
+        <DarkNav icon={<BarChart3 className="h-[18px] w-[18px]" />} label="Relatórios" active={view === "ranking"} onClick={() => go("ranking")} />
+        <div className="my-2 border-t border-white/10" />
+        <DarkNav icon={<FileText className="h-[18px] w-[18px]" />} label="Contexto da cidade" active={view === "contexto"} onClick={() => go("contexto")} />
+        <DarkNav icon={<BellRing className="h-[18px] w-[18px]" />} label="Equipe" active={view === "equipe"} onClick={() => go("equipe")} />
 
-        <SideLabel>Cadastro</SideLabel>
-        <NavItem icon={<Users className="h-4 w-4" />} active={view === "cadastro"} onClick={() => { setView("cadastro"); setSelId(null); }}>
-          Secretários <span className="ml-auto rounded-full bg-slate-100 px-2 text-xs font-semibold text-slate-500">{secretarios.length}</span>
-        </NavItem>
-        <NavItem icon={<BellRing className="h-4 w-4" />} active={view === "equipe"} onClick={() => { setView("equipe"); setSelId(null); }}>
-          Equipe de comunicação
-        </NavItem>
-        <NavItem icon={<FileText className="h-4 w-4" />} active={view === "contexto"} onClick={() => setView("contexto")}>
-          Contexto da cidade
-        </NavItem>
-
-        <SideLabel>Relatórios</SideLabel>
-        <NavItem icon={<BarChart3 className="h-4 w-4" />} active={view === "ranking"} onClick={() => setView("ranking")}>
-          Ranking por secretaria
-        </NavItem>
-
-        <div className="mt-auto space-y-2 pt-4">
+        <div className="mt-auto space-y-2.5 pt-4">
           <PushToggle />
-          <button onClick={logout} className="flex w-full items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-500 hover:text-slate-800">
+          <div className="flex items-center gap-2.5 rounded-xl bg-white/5 px-3 py-2.5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/10 text-slate-200"><Building2 className="h-5 w-5" /></div>
+            <div className="min-w-0">
+              <div className="truncate text-sm font-semibold text-white">{prefNome}</div>
+              <div className="text-[11px] text-slate-400">Prefeitura</div>
+            </div>
+          </div>
+          <button onClick={logout} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-400 hover:text-white">
             <LogOut className="h-4 w-4" /> Sair
           </button>
         </div>
       </aside>
 
       {/* Main */}
-      <main className="flex flex-col">
+      <main className="flex min-w-0 flex-col max-lg:pb-24">
         {/* Topbar */}
-        <div className="flex items-end justify-between gap-4 px-6 pt-5 max-lg:px-4">
-          <div>
-            <h1 className="text-xl font-bold tracking-tight">{muni || data?.prefeitura?.nome}</h1>
-            <p className="text-sm text-slate-500">
-              {view === "fila" && "Releases enviados pelos secretários, prontos para revisar e publicar."}
-              {view === "cadastro" && "Secretários reconhecidos pelo sistema no WhatsApp."}
-              {view === "equipe" && "Quem recebe o aviso de release novo no celular."}
-              {view === "contexto" && "A anamnese do município — o que a IA usa para escrever no tom certo."}
-              {view === "ranking" && "Quem mais divulga — base para o relatório mensal."}
-            </p>
+        <header className="flex items-center justify-between gap-4 border-b border-slate-200 bg-white px-6 py-4 max-lg:px-4">
+          <div className="min-w-0">
+            <h1 className="truncate text-2xl font-bold tracking-tight text-slate-900 max-sm:text-xl">{titulo}</h1>
+            <p className="truncate text-sm text-slate-500">{subtitulo}</p>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-48 shrink-0 lg:hidden">
-              <PushToggle />
-            </div>
+          <div className="flex items-center gap-2.5">
             {(view === "fila" || view === "cadastro") && (
-              <div className="relative max-sm:hidden">
+              <div className="relative max-md:hidden">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Buscar…"
-                  className="w-56 rounded-full border border-slate-300 py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20"
+                  className="w-52 rounded-full border border-slate-300 py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20"
                 />
               </div>
             )}
+            <button onClick={() => go("fila", "pendente")} className="relative rounded-full border border-slate-200 bg-white p-2 text-slate-500 hover:bg-slate-50" title="Pendências">
+              <Bell className="h-5 w-5" />
+              {pendentesCount > 0 && <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500" />}
+            </button>
+            <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white py-1 pl-1 pr-3 max-sm:hidden">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white">S</div>
+              <div className="leading-tight">
+                <div className="text-sm font-semibold text-slate-800">Secom</div>
+                <div className="text-[11px] text-slate-500">Secretaria de Comunicação</div>
+              </div>
+            </div>
           </div>
-        </div>
+        </header>
 
-        {/* KPIs */}
-        {view !== "contexto" && view !== "equipe" && (
+        {/* Push no mobile */}
+        <div className="px-4 pt-3 lg:hidden"><PushToggle /></div>
+
+        {/* KPIs — telas internas (a Visão Geral tem os próprios) */}
+        {(view === "fila" || view === "cadastro" || view === "ranking") && (
           <Kpis view={view} releases={releases} secretarios={secretarios} ranking={ranking} />
         )}
 
-        <div className="flex-1 p-6 max-lg:p-4 max-lg:pb-24">
+        <div className="flex-1 p-6 max-lg:p-4">
+          {view === "visao" && (
+            <VisaoGeral releases={releases} ranking={ranking} go={go} openRelease={openRelease} />
+          )}
+          {(view === "distribuicao" || view === "clipagem") && <EmBreve tipo={view} />}
           {view === "fila" && (
             <div className="mb-3 flex justify-end">
               <button
@@ -319,10 +326,10 @@ export default function DashboardClient() {
       {/* Navegação mobile (barra inferior) */}
       <nav className="fixed inset-x-0 bottom-0 z-40 flex border-t border-slate-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
         {([
-          { key: "fila", label: "Fila", icon: <Inbox className="h-5 w-5" /> },
-          { key: "cadastro", label: "Secretários", icon: <Users className="h-5 w-5" /> },
-          { key: "contexto", label: "Contexto", icon: <FileText className="h-5 w-5" /> },
-          { key: "ranking", label: "Ranking", icon: <BarChart3 className="h-5 w-5" /> },
+          { key: "visao", label: "Início", icon: <Home className="h-5 w-5" /> },
+          { key: "fila", label: "Produção", icon: <Inbox className="h-5 w-5" /> },
+          { key: "cadastro", label: "Secretarias", icon: <Users className="h-5 w-5" /> },
+          { key: "ranking", label: "Relatórios", icon: <BarChart3 className="h-5 w-5" /> },
         ] as const).map((t) => (
           <button
             key={t.key}
@@ -361,17 +368,197 @@ export default function DashboardClient() {
   );
 }
 
-/* ---------------- Subcomponentes ---------------- */
-function SideLabel({ children }: { children: React.ReactNode }) {
-  return <div className="px-2 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-wider text-slate-400">{children}</div>;
-}
-function NavItem({ icon, active, onClick, children }: { icon: React.ReactNode; active: boolean; onClick: () => void; children: React.ReactNode }) {
+/* ---------------- Redesign: nav + Visão Geral ---------------- */
+type RankItem = { sec: string; nome: string; total: number; publicado: number };
+
+function DarkNav({ icon, label, active, badge, soon, onClick }: {
+  icon: React.ReactNode; label: string; active?: boolean; badge?: number; soon?: boolean; onClick: () => void;
+}) {
   return (
-    <button onClick={onClick} className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm ${active ? "bg-blue-50 font-semibold text-blue-800" : "text-slate-600 hover:bg-slate-50"}`}>
-      {icon}<span className="flex flex-1 items-center">{children}</span>
+    <button onClick={onClick} className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${active ? "bg-blue-600 text-white" : "text-slate-300 hover:bg-white/5"}`}>
+      {icon}
+      <span className="flex-1 text-left">{label}</span>
+      {badge != null && badge > 0 && <span className={`rounded-full px-2 text-[11px] font-semibold tabular-nums ${active ? "bg-white/20 text-white" : "bg-white/10 text-slate-300"}`}>{badge}</span>}
+      {soon && <span className="rounded bg-white/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-slate-400">em breve</span>}
     </button>
   );
 }
+
+function FotoMini({ foto }: { foto?: Foto }) {
+  // eslint-disable-next-line @next/next/no-img-element
+  if (foto?.url) return <img src={foto.url} alt="" className="h-9 w-12 shrink-0 rounded-md object-cover" />;
+  return <div className="flex h-9 w-12 shrink-0 items-center justify-center rounded-md bg-slate-100 text-slate-400"><ImageIcon className="h-4 w-4" /></div>;
+}
+
+function DonutSec({ ranking, total }: { ranking: RankItem[]; total: number }) {
+  const CORES = ["#1e3a8a", "#2563eb", "#3b82f6", "#93c5fd", "#cbd5e1"];
+  const top = ranking.slice(0, 4);
+  const outras = ranking.slice(4).reduce((s, r) => s + r.total, 0);
+  const segs = [
+    ...top.map((r, i) => ({ label: r.sec, value: r.total, cor: CORES[i] })),
+    ...(outras ? [{ label: "Outras", value: outras, cor: CORES[4] }] : []),
+  ];
+  const R = 54, C = 2 * Math.PI * R;
+  let acc = 0;
+  return (
+    <div className="flex items-center gap-6 max-sm:flex-col">
+      <div className="relative h-36 w-36 shrink-0">
+        <svg viewBox="0 0 140 140" className="h-36 w-36 -rotate-90">
+          <circle cx="70" cy="70" r={R} fill="none" stroke="#eef2f7" strokeWidth="18" />
+          {total > 0 && segs.map((s, i) => {
+            const frac = s.value / total;
+            const el = <circle key={i} cx="70" cy="70" r={R} fill="none" stroke={s.cor} strokeWidth="18" strokeLinecap="butt" strokeDasharray={`${frac * C} ${C}`} strokeDashoffset={-acc * C} />;
+            acc += frac;
+            return el;
+          })}
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <div className="text-2xl font-extrabold tabular-nums text-slate-900">{total}</div>
+          <div className="text-[11px] text-slate-400">notícias</div>
+        </div>
+      </div>
+      <div className="flex-1 space-y-2 max-sm:w-full">
+        {segs.length === 0 && <div className="text-sm text-slate-400">Sem dados ainda.</div>}
+        {segs.map((s, i) => (
+          <div key={i} className="flex items-center gap-2.5 text-sm">
+            <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: s.cor }} />
+            <span className="flex-1 truncate text-slate-600">{s.label}</span>
+            <span className="font-semibold tabular-nums text-slate-800">{s.value}</span>
+            <span className="w-11 text-right text-xs text-slate-400">{total ? Math.round((s.value / total) * 100) : 0}%</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TarefaRow({ n, label, onClick }: { n: number; label: string; onClick: () => void }) {
+  return (
+    <button onClick={onClick} className="flex w-full items-center gap-3 rounded-lg border border-slate-200 px-3 py-2.5 text-left hover:border-blue-300 hover:bg-blue-50/40">
+      <span className="flex h-7 min-w-[28px] items-center justify-center rounded-lg bg-blue-600 px-1.5 text-xs font-bold text-white">{n}</span>
+      <span className="flex-1 text-sm text-slate-700">{label}</span>
+      <ChevronRight className="h-4 w-4 text-slate-400" />
+    </button>
+  );
+}
+
+function Stepper() {
+  const steps = [
+    { label: "Solicitação", sub: "Secretaria", done: true, icon: <Check className="h-4 w-4" /> },
+    { label: "Produção", sub: "IA", done: true, icon: <Check className="h-4 w-4" /> },
+    { label: "Aprovação", sub: "Secom", done: true, icon: <Check className="h-4 w-4" /> },
+    { label: "Distribuição", sub: "Imprensa", done: false, icon: <Send className="h-4 w-4" /> },
+    { label: "Clipagem", sub: "Resultado", done: false, icon: <BarChart3 className="h-4 w-4" /> },
+  ];
+  return (
+    <div className="flex items-start justify-between">
+      {steps.map((s, i) => (
+        <div key={i} className="flex flex-1 flex-col items-center text-center">
+          <div className="flex w-full items-center">
+            <div className={`h-0.5 flex-1 ${i === 0 ? "opacity-0" : s.done ? "bg-emerald-400" : "bg-slate-200"}`} />
+            <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${s.done ? "bg-emerald-500 text-white" : "bg-slate-100 text-slate-400"}`}>{s.icon}</div>
+            <div className={`h-0.5 flex-1 ${i === steps.length - 1 ? "opacity-0" : steps[i + 1].done ? "bg-emerald-400" : "bg-slate-200"}`} />
+          </div>
+          <div className="mt-2 text-xs font-semibold text-slate-700">{s.label}</div>
+          <div className="text-[10px] text-slate-400">({s.sub})</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function VisaoGeral({ releases, ranking, go, openRelease }: {
+  releases: Release[]; ranking: RankItem[];
+  go: (v: Vista, f?: Status) => void; openRelease: (r: Release) => void;
+}) {
+  const c = (s: Status) => releases.filter((r) => r.status === s).length;
+  const total = releases.filter((r) => r.status !== "aguardando").length;
+  const ultimas = [...releases]
+    .filter((r) => r.status !== "aguardando")
+    .sort((a, b) => new Date(b.criadoEm ?? 0).getTime() - new Date(a.criadoEm ?? 0).getTime())
+    .slice(0, 4);
+  const kpis = [
+    { label: "Notícias produzidas", value: total, hint: "Total no período", icon: <FileText className="h-5 w-5" /> },
+    { label: "Aguardando análise", value: c("pendente") + c("aguardando"), hint: "Recém-chegados", icon: <Inbox className="h-5 w-5" /> },
+    { label: "Aprovados", value: c("aprovado"), hint: "Prontos para publicar", icon: <Check className="h-5 w-5" /> },
+    { label: "Publicados", value: c("publicado"), hint: "Já veiculados", icon: <Send className="h-5 w-5" /> },
+  ];
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-4 gap-4 max-lg:grid-cols-2">
+        {kpis.map((k) => (
+          <div key={k.label} className="rounded-2xl border border-slate-200 bg-white p-5">
+            <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600">{k.icon}</div>
+            <div className="text-3xl font-bold tabular-nums text-slate-900">{k.value}</div>
+            <div className="mt-1 text-sm font-medium text-slate-600">{k.label}</div>
+            <div className="text-xs text-slate-400">{k.hint}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-2 gap-5 max-lg:grid-cols-1">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5">
+          <h2 className="mb-3 flex items-center gap-2 text-base font-bold"><Bell className="h-4 w-4 text-blue-600" />Tarefas pendentes</h2>
+          <div className="space-y-2">
+            <TarefaRow n={c("pendente")} label="releases aguardando análise" onClick={() => go("fila", "pendente")} />
+            <TarefaRow n={c("revisao")} label="conteúdos em revisão" onClick={() => go("fila", "revisao")} />
+            <TarefaRow n={c("aprovado")} label="prontos para publicar" onClick={() => go("fila", "aprovado")} />
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-5">
+          <h2 className="mb-3 text-base font-bold">Produção por secretaria</h2>
+          <DonutSec ranking={ranking} total={total} />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-5 max-lg:grid-cols-1">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-base font-bold">Últimas notícias</h2>
+            <button onClick={() => go("fila", "publicado")} className="inline-flex items-center gap-1 text-sm font-semibold text-blue-700 hover:text-blue-900">Ver todas <ChevronRight className="h-4 w-4" /></button>
+          </div>
+          <div className="space-y-1">
+            {ultimas.length === 0 && <div className="py-6 text-center text-sm text-slate-400">Ainda não há notícias.</div>}
+            {ultimas.map((r) => (
+              <button key={r.id} onClick={() => openRelease(r)} className="flex w-full items-center gap-3 rounded-lg p-2 text-left hover:bg-slate-50">
+                <FotoMini foto={r.fotos[0]} />
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-medium text-slate-800">{r.headline ?? "—"}</div>
+                  <div className="truncate text-[11px] text-slate-400">{r.secretaria}</div>
+                </div>
+                <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${STATUS[r.status].badge}`}>{STATUS[r.status].label}</span>
+                <span className="shrink-0 text-[11px] text-slate-400 max-sm:hidden">{timeAgo(r.criadoEm)}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-5">
+          <h2 className="mb-4 text-base font-bold">Fluxo de produção</h2>
+          <Stepper />
+          <p className="mt-4 text-center text-[11px] text-slate-400">Distribuição e Clipagem chegam nas próximas fases.</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EmBreve({ tipo }: { tipo: "distribuicao" | "clipagem" }) {
+  const info = tipo === "distribuicao"
+    ? { icon: <Send className="h-7 w-7" />, titulo: "Distribuição para a imprensa", texto: "Envie releases aprovados para o seu mailing de veículos e jornalistas e acompanhe cada envio — direto do painel." }
+    : { icon: <Newspaper className="h-7 w-7" />, titulo: "Clipagem (monitoramento)", texto: "Acompanhe automaticamente onde suas notícias foram publicadas na imprensa, com veículo, data e alcance." };
+  return (
+    <div className="mx-auto max-w-xl rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center">
+      <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">{info.icon}</div>
+      <h2 className="text-lg font-bold text-slate-900">{info.titulo}</h2>
+      <p className="mx-auto mt-2 max-w-sm text-sm text-slate-500">{info.texto}</p>
+      <span className="mt-4 inline-block rounded-full bg-amber-100 px-3 py-1 text-xs font-bold uppercase tracking-wide text-amber-700">Em breve</span>
+    </div>
+  );
+}
+
+/* ---------------- Subcomponentes ---------------- */
 
 function Kpi({ value, label, hint, bar }: { value: number | string; label: string; hint: string; bar: string }) {
   return (
