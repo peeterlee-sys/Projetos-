@@ -1084,7 +1084,7 @@ function ContextoView({ contexto, muni, uf, flash, reload }: {
           <div className="flex items-center gap-3">
             {c.logoUrl
               // eslint-disable-next-line @next/next/no-img-element
-              ? <img src={c.logoUrl} alt="logo" className="h-12 w-12 rounded-lg border border-slate-200 bg-white object-cover" />
+              ? <img src={c.logoUrl} alt="logo" className="h-12 w-12 rounded-lg border border-slate-200 bg-white object-contain p-1" />
               : <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-dashed border-slate-300 text-slate-400"><ImageIcon className="h-5 w-5" /></div>}
             <label className="cursor-pointer rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold hover:bg-slate-50">
               {c.logoUrl ? "Trocar" : "Enviar logo"}
