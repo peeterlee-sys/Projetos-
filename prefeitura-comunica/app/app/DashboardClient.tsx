@@ -11,6 +11,7 @@ import {
   X, Mic, Pencil, Power, LoaderCircle, Copy, ChevronLeft,
   UserPlus, Smartphone, Mail, BellRing, KeyRound, ChevronRight, Link2,
   Download, Radio, Home, Building2, Newspaper, Bell,
+  LayoutGrid, List, Paperclip, MoreVertical,
 } from "lucide-react";
 
 /* ---------------- Tipos ---------------- */
@@ -53,13 +54,6 @@ const STATUS: Record<Status, { label: string; badge: string; dot: string }> = {
   aprovado: { label: "Aprovado", badge: "bg-emerald-100 text-emerald-800", dot: "bg-emerald-500" },
   publicado: { label: "Publicado", badge: "bg-slate-200 text-slate-700", dot: "bg-slate-500" },
 };
-const FILTERS: { key: Status; label: string }[] = [
-  { key: "pendente", label: "Pendentes" },
-  { key: "aguardando", label: "Aguardando assunto" },
-  { key: "revisao", label: "Em revisão" },
-  { key: "aprovado", label: "Aprovados" },
-  { key: "publicado", label: "Publicados" },
-];
 
 function initials(name: string) {
   return name.split(" ").filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
@@ -111,7 +105,6 @@ export default function DashboardClient() {
   const [data, setData] = useState<Data | null>(null);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<Vista>("visao");
-  const [filter, setFilter] = useState<Status>("pendente");
   const [selId, setSelId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [toast, setToast] = useState<string | null>(null);
@@ -149,8 +142,8 @@ export default function DashboardClient() {
     }
   }
 
-  function go(v: typeof view, f?: Status) { setView(v); if (f) setFilter(f); setSelId(null); }
-  function openRelease(r: Release) { setView("fila"); setFilter(r.status); setSelId(r.id); }
+  function go(v: Vista, _f?: Status) { setView(v); setSelId(null); }
+  function openRelease(r: Release) { setView("fila"); setSelId(r.id); }
 
   const releases = data?.releases ?? [];
   const secretarios = data?.secretarios ?? [];
@@ -265,7 +258,7 @@ export default function DashboardClient() {
         <div className="px-4 pt-3 lg:hidden"><PushToggle /></div>
 
         {/* KPIs — telas internas (a Visão Geral tem os próprios) */}
-        {(view === "fila" || view === "cadastro" || view === "ranking") && (
+        {(view === "cadastro" || view === "ranking") && (
           <Kpis view={view} releases={releases} secretarios={secretarios} ranking={ranking} />
         )}
 
@@ -275,39 +268,10 @@ export default function DashboardClient() {
           )}
           {(view === "distribuicao" || view === "clipagem") && <EmBreve tipo={view} />}
           {view === "fila" && (
-            <div className="mb-3 flex justify-end">
-              <button
-                onClick={dedupe}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"
-              >
-                <Trash2 className="h-3.5 w-3.5" /> Limpar duplicados
-              </button>
-            </div>
-          )}
-          {view === "fila" && (
-            <div className="mb-3 flex gap-2 overflow-x-auto lg:hidden">
-              {FILTERS.map((f) => {
-                const n = releases.filter((r) => r.status === f.key).length;
-                const active = filter === f.key;
-                return (
-                  <button
-                    key={f.key}
-                    onClick={() => { setFilter(f.key); setSelId(null); }}
-                    className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold ${active ? "border-blue-600 bg-blue-50 text-blue-800" : "border-slate-200 text-slate-600"}`}
-                  >
-                    <span className={`h-1.5 w-1.5 rounded-full ${STATUS[f.key].dot}`} />
-                    {f.label}
-                    <span className="tabular-nums opacity-70">{n}</span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-          {view === "fila" && (
-            <Fila
-              releases={releases} filter={filter} query={query}
+            <Producao
+              releases={releases} query={query}
               selId={selId} setSelId={setSelId}
-              flash={flash} reload={load} openFoto={setLightbox} openCard={setCardRel}
+              flash={flash} reload={load} openFoto={setLightbox} openCard={setCardRel} dedupe={dedupe}
             />
           )}
           {view === "cadastro" && (
@@ -604,74 +568,195 @@ function Kpis({ view, releases, secretarios, ranking }: {
   return <div className="grid grid-cols-4 gap-3 px-6 pt-4 max-lg:px-4 max-sm:grid-cols-2">{cards}</div>;
 }
 
-function Tag({ color, children }: { color: string; children: React.ReactNode }) {
-  return <span className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-semibold ${color}`}>{children}</span>;
+/* ------- Produção (Kanban) ------- */
+const KCOLS: { key: Status; nome: string; sub: string; icon: React.ReactNode; bg: string; chip: string; ring: string; dot: string }[] = [
+  { key: "pendente", nome: "Recebidos", sub: "Novas solicitações das secretarias", icon: <Inbox className="h-4 w-4" />, bg: "bg-slate-100/70", chip: "bg-slate-200 text-slate-700", ring: "ring-slate-300", dot: "text-slate-500" },
+  { key: "revisao", nome: "Em análise", sub: "Em revisão pela Secom", icon: <Eye className="h-4 w-4" />, bg: "bg-amber-50", chip: "bg-amber-200 text-amber-800", ring: "ring-amber-300", dot: "text-amber-600" },
+  { key: "aprovado", nome: "Aprovados", sub: "Prontos para distribuir", icon: <Check className="h-4 w-4" />, bg: "bg-emerald-50", chip: "bg-emerald-200 text-emerald-800", ring: "ring-emerald-300", dot: "text-emerald-600" },
+  { key: "publicado", nome: "Publicados", sub: "Conteúdos já divulgados", icon: <Send className="h-4 w-4" />, bg: "bg-violet-50", chip: "bg-violet-200 text-violet-800", ring: "ring-violet-300", dot: "text-violet-600" },
+];
+const colOf = (r: Release): Status => (r.status === "aguardando" ? "pendente" : r.status);
+
+function ToggleBtn({ active, onClick, icon, children }: { active: boolean; onClick: () => void; icon: React.ReactNode; children: React.ReactNode }) {
+  return <button onClick={onClick} className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-semibold ${active ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-100"}`}>{icon}{children}</button>;
 }
 
-function Fila({ releases, filter, query, selId, setSelId, flash, reload, openFoto, openCard }: {
-  releases: Release[]; filter: Status; query: string;
+function Producao({ releases, query, selId, setSelId, flash, reload, openFoto, openCard, dedupe }: {
+  releases: Release[]; query: string;
   selId: string | null; setSelId: (id: string | null) => void;
   flash: (m: string) => void; reload: () => Promise<void>; openFoto: (f: Foto) => void;
-  openCard: (r: Release) => void;
+  openCard: (r: Release) => void; dedupe: () => void;
 }) {
+  const [modo, setModo] = useState<"kanban" | "lista">("kanban");
+  const [secF, setSecF] = useState("");
+  const [per, setPer] = useState("");
+
+  const secretarias = useMemo(() => [...new Set(releases.map((r) => r.secretaria).filter(Boolean))].sort() as string[], [releases]);
   const q = query.toLowerCase();
-  const list = releases
-    .filter((r) => r.status === filter)
-    .filter((r) => !q || `${r.secretarioNome} ${r.secretaria} ${r.headline}`.toLowerCase().includes(q));
+  const now = Date.now();
+  const filt = releases.filter((r) => {
+    if (secF && r.secretaria !== secF) return false;
+    if (per && r.criadoEm) { const d = (now - new Date(r.criadoEm).getTime()) / 86400000; if (d > Number(per)) return false; }
+    if (q && !`${r.secretarioNome ?? ""} ${r.secretaria ?? ""} ${r.headline ?? ""} ${r.transcricao ?? ""}`.toLowerCase().includes(q)) return false;
+    return true;
+  });
+
+  async function mover(id: string, destino: Status) {
+    const r = releases.find((x) => x.id === id);
+    if (!r || colOf(r) === destino) return;
+    if (r.status === "aguardando") { flash("Esse item ainda aguarda o assunto do secretário."); return; }
+    if (destino === "aprovado" && !confirm(`Aprovar "${r.headline}"?\nIsso marca o conteúdo como aprovado pela Secom.`)) return;
+    if (destino === "publicado" && !confirm(`Marcar "${r.headline}" como publicado?\n(Só registra o status — não publica automaticamente.)`)) return;
+    const res = await fetch(`/api/releases/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: destino }) });
+    if (res.ok) { flash("Conteúdo movido ✓"); await reload(); } else flash("Não consegui mover.");
+  }
+
   const sel = releases.find((r) => r.id === selId) ?? null;
 
   return (
-    <div className="grid grid-cols-[minmax(300px,380px)_1fr] gap-5 max-lg:grid-cols-1">
-      <div className={`flex flex-col gap-2.5 ${sel ? "max-lg:hidden" : ""}`}>
-        {list.length === 0 && <div className="rounded-xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-400">Nenhum release nesta fila.</div>}
-        {list.map((r) => (
-          <button
-            key={r.id}
-            onClick={() => setSelId(r.id)}
-            className={`flex flex-col gap-2 rounded-xl border bg-white p-3.5 text-left transition ${selId === r.id ? "border-blue-600 ring-1 ring-blue-600" : "border-slate-200 hover:border-slate-300"}`}
-          >
-            <div className="flex items-center gap-2.5">
-              <Avatar name={r.secretarioNome ?? "?"} />
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-semibold">{r.secretarioNome}</div>
-                <div className="truncate text-xs text-slate-500">{r.secretaria}</div>
-              </div>
-              <div className="text-[11px] text-slate-400">{timeAgo(r.criadoEm)}</div>
-            </div>
-            <div className={`line-clamp-2 text-[13px] ${r.aguardando ? "italic text-slate-500" : ""}`}>
-              {r.aguardando ? "Foto recebida — aguardando o assunto do secretário" : r.headline}
-            </div>
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ${STATUS[r.status].badge}`}>
-                <span className={`h-1.5 w-1.5 rounded-full ${STATUS[r.status].dot}`} />{STATUS[r.status].label}
-              </span>
-              {r.aguardando && <Tag color="bg-amber-100 text-amber-800"><TriangleAlert className="h-3 w-3" />Aguardando</Tag>}
-              {r.origem === "audio" && <Tag color="bg-slate-100 text-slate-600"><Mic className="h-3 w-3" />Áudio</Tag>}
-              {r.fotos.length > 0 && <Tag color="bg-sky-100 text-sky-700"><ImageIcon className="h-3 w-3" />{r.fotos.length} {r.fotos.length > 1 ? "fotos" : "foto"}</Tag>}
-              {r.flag && <Tag color="bg-amber-100 text-amber-800"><TriangleAlert className="h-3 w-3" />Revisar dados</Tag>}
-              {r.status === "publicado" && r.publicadoEm && <Tag color="bg-emerald-100 text-emerald-800"><Check className="h-3 w-3" />{fmtDate(r.publicadoEm)}</Tag>}
-            </div>
-          </button>
-        ))}
+    <div>
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5">
+          <ToggleBtn active={modo === "kanban"} onClick={() => setModo("kanban")} icon={<LayoutGrid className="h-4 w-4" />}>Quadro</ToggleBtn>
+          <ToggleBtn active={modo === "lista"} onClick={() => setModo("lista")} icon={<List className="h-4 w-4" />}>Lista</ToggleBtn>
+        </div>
+        <select value={secF} onChange={(e) => setSecF(e.target.value)} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-blue-600">
+          <option value="">Todas as secretarias</option>
+          {secretarias.map((s) => <option key={s} value={s}>{s}</option>)}
+        </select>
+        <select value={per} onChange={(e) => setPer(e.target.value)} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-blue-600">
+          <option value="">Qualquer período</option>
+          <option value="7">Últimos 7 dias</option>
+          <option value="30">Últimos 30 dias</option>
+        </select>
+        <div className="ml-auto flex items-center gap-2">
+          <button onClick={dedupe} className="hidden rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-500 hover:bg-slate-50 sm:inline-flex sm:items-center"><Trash2 className="mr-1 h-3.5 w-3.5" />Limpar duplicados</button>
+          <button onClick={() => flash("As solicitações chegam pelos secretários via WhatsApp 🎙️")} className="inline-flex items-center gap-1.5 rounded-lg bg-blue-700 px-3.5 py-2 text-sm font-semibold text-white hover:bg-blue-800"><Plus className="h-4 w-4" />Nova solicitação</button>
+        </div>
       </div>
 
-      <div className={sel ? "" : "max-lg:hidden"}>
-        {sel ? (
-          <>
-            <button
-              onClick={() => setSelId(null)}
-              className="mb-3 inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-semibold lg:hidden"
-            >
-              <ChevronLeft className="h-4 w-4" /> Voltar para a fila
-            </button>
+      {modo === "kanban"
+        ? <KanbanBoard filt={filt} onOpen={setSelId} mover={mover} />
+        : <ListaProd filt={filt} onOpen={setSelId} />}
+
+      {sel && (
+        <div onClick={() => setSelId(null)} className="fixed inset-0 z-50 flex justify-end bg-black/40">
+          <div onClick={(e) => e.stopPropagation()} className="h-full w-full max-w-2xl overflow-y-auto bg-slate-50 p-5 shadow-2xl max-lg:pb-24">
+            <button onClick={() => setSelId(null)} className="mb-3 inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold hover:bg-slate-50"><ChevronLeft className="h-4 w-4" />Fechar</button>
             <Detalhe key={sel.id} r={sel} flash={flash} reload={reload} openFoto={openFoto} openCard={openCard} />
-          </>
-        ) : (
-          <div className="flex h-full min-h-[300px] items-center justify-center rounded-xl border border-slate-200 bg-white text-center text-sm text-slate-400">
-            Selecione um release na fila<br />para revisar e publicar.
           </div>
-        )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function KanbanBoard({ filt, onOpen, mover }: {
+  filt: Release[]; onOpen: (id: string) => void; mover: (id: string, destino: Status) => void;
+}) {
+  const [over, setOver] = useState<Status | null>(null);
+  return (
+    <div className="flex gap-4 overflow-x-auto pb-4">
+      {KCOLS.map((col) => {
+        const items = filt.filter((r) => colOf(r) === col.key);
+        return (
+          <div
+            key={col.key}
+            onDragOver={(e) => { e.preventDefault(); setOver(col.key); }}
+            onDragLeave={() => setOver((o) => (o === col.key ? null : o))}
+            onDrop={(e) => { e.preventDefault(); const id = e.dataTransfer.getData("text/plain"); setOver(null); if (id) mover(id, col.key); }}
+            className={`flex max-h-[calc(100vh-220px)] w-[300px] shrink-0 flex-col rounded-2xl ${col.bg} p-3 ${over === col.key ? `ring-2 ${col.ring}` : ""}`}
+          >
+            <div className="mb-3 flex items-center gap-2 px-1">
+              <span className={col.dot}>{col.icon}</span>
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-bold text-slate-800">{col.nome}</div>
+                <div className="truncate text-[11px] text-slate-500">{col.sub}</div>
+              </div>
+              <span className={`rounded-full px-2 py-0.5 text-xs font-bold tabular-nums ${col.chip}`}>{items.length}</span>
+            </div>
+            <div className="flex flex-col gap-3 overflow-y-auto">
+              {items.length === 0 && <div className="rounded-xl border border-dashed border-slate-300/70 py-8 text-center text-xs text-slate-400">Vazio</div>}
+              {items.map((r) => <KanbanCard key={r.id} r={r} onOpen={onOpen} mover={mover} />)}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function KanbanCard({ r, onOpen, mover }: { r: Release; onOpen: (id: string) => void; mover: (id: string, destino: Status) => void }) {
+  const [menu, setMenu] = useState(false);
+  const aguard = r.status === "aguardando";
+  const foto = r.fotos.find((f) => f.url);
+  return (
+    <div
+      draggable={!aguard}
+      onDragStart={(e) => { e.dataTransfer.setData("text/plain", r.id); e.dataTransfer.effectAllowed = "move"; }}
+      onClick={() => onOpen(r.id)}
+      className="relative cursor-pointer overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md"
+    >
+      {foto?.url && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={foto.url} alt="" className="h-28 w-full object-cover" />
+      )}
+      <div className="p-3">
+        <div className={`line-clamp-2 text-sm font-semibold ${aguard ? "italic text-slate-500" : "text-slate-800"}`}>
+          {aguard ? "Foto recebida — aguardando assunto" : (r.headline ?? "—")}
+        </div>
+        <div className="mt-2 flex items-center gap-2">
+          <span className="inline-flex min-w-0 items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600"><Building2 className="h-3 w-3 shrink-0" /><span className="truncate">{r.secretaria ?? "—"}</span></span>
+          <span className="ml-auto shrink-0 text-[11px] text-slate-400">{timeAgo(r.criadoEm)}</span>
+        </div>
+        <div className="mt-2 flex items-center gap-2 text-slate-400">
+          {aguard && <span className="inline-flex items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700"><TriangleAlert className="h-3 w-3" />aguardando</span>}
+          {r.origem === "audio" && <Mic className="h-3.5 w-3.5" />}
+          {r.fotos.length > 0 && <span className="inline-flex items-center gap-0.5 text-[11px]"><Paperclip className="h-3.5 w-3.5" />{r.fotos.length}</span>}
+          {!aguard && (
+            <button onClick={(e) => { e.stopPropagation(); setMenu((m) => !m); }} className="ml-auto rounded p-1 hover:bg-slate-100" title="Mover para…"><MoreVertical className="h-4 w-4" /></button>
+          )}
+        </div>
       </div>
+      {menu && (
+        <div onClick={(e) => e.stopPropagation()} className="absolute bottom-10 right-2 z-10 w-44 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 text-sm shadow-lg">
+          <div className="px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Mover para</div>
+          {KCOLS.filter((c) => c.key !== colOf(r)).map((c) => (
+            <button key={c.key} onClick={(e) => { e.stopPropagation(); setMenu(false); mover(r.id, c.key); }} className="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-slate-50">
+              <span className={c.dot}>{c.icon}</span>{c.nome}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ListaProd({ filt, onOpen }: { filt: Release[]; onOpen: (id: string) => void }) {
+  const list = [...filt].sort((a, b) => new Date(b.criadoEm ?? 0).getTime() - new Date(a.criadoEm ?? 0).getTime());
+  return (
+    <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+      <table className="w-full min-w-[640px] text-sm">
+        <thead>
+          <tr className="border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-400">
+            <th className="px-4 py-2.5 font-semibold">Notícia</th>
+            <th className="py-2.5 font-semibold">Secretaria</th>
+            <th className="py-2.5 font-semibold">Status</th>
+            <th className="py-2.5 pr-4 font-semibold">Recebido</th>
+          </tr>
+        </thead>
+        <tbody>
+          {list.map((r) => (
+            <tr key={r.id} onClick={() => onOpen(r.id)} className="cursor-pointer border-b border-slate-100 hover:bg-slate-50">
+              <td className="px-4 py-2.5"><div className="flex items-center gap-2.5"><FotoMini foto={r.fotos[0]} /><span className="line-clamp-1 font-medium text-slate-800">{r.status === "aguardando" ? "Foto — aguardando assunto" : (r.headline ?? "—")}</span></div></td>
+              <td className="text-slate-600">{r.secretaria ?? "—"}</td>
+              <td><span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ${STATUS[r.status].badge}`}><span className={`h-1.5 w-1.5 rounded-full ${STATUS[r.status].dot}`} />{STATUS[r.status].label}</span></td>
+              <td className="pr-4 text-[13px] text-slate-500">{timeAgo(r.criadoEm)}</td>
+            </tr>
+          ))}
+          {list.length === 0 && <tr><td colSpan={4} className="py-10 text-center text-slate-400">Nenhum conteúdo encontrado.</td></tr>}
+        </tbody>
+      </table>
     </div>
   );
 }
