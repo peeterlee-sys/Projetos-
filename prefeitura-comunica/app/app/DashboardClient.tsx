@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import PushToggle from "./PushToggle";
 import Splash from "./Splash";
+import CardModal from "./CardModal";
 import {
   Inbox, Users, FileText, BarChart3, LogOut, Check, Send, Eye,
   RotateCcw, Trash2, Plus, Phone, Image as ImageIcon, TriangleAlert, Search,
@@ -112,6 +113,7 @@ export default function DashboardClient() {
   const [query, setQuery] = useState("");
   const [toast, setToast] = useState<string | null>(null);
   const [lightbox, setLightbox] = useState<Foto | null>(null);
+  const [cardRel, setCardRel] = useState<Release | null>(null);
 
   const load = useCallback(async () => {
     const res = await fetch("/api/app/data", { cache: "no-store" });
@@ -296,7 +298,7 @@ export default function DashboardClient() {
             <Fila
               releases={releases} filter={filter} query={query}
               selId={selId} setSelId={setSelId}
-              flash={flash} reload={load} openFoto={setLightbox}
+              flash={flash} reload={load} openFoto={setLightbox} openCard={setCardRel}
             />
           )}
           {view === "cadastro" && (
@@ -342,6 +344,15 @@ export default function DashboardClient() {
         </div>
       )}
       {lightbox && <Lightbox foto={lightbox} onClose={() => setLightbox(null)} />}
+      {cardRel && (
+        <CardModal
+          release={cardRel}
+          prefeituraNome={data?.prefeitura?.nome ?? null}
+          municipio={muni}
+          onClose={() => setCardRel(null)}
+          flash={flash}
+        />
+      )}
     </div>
   );
 }
@@ -406,10 +417,11 @@ function Tag({ color, children }: { color: string; children: React.ReactNode }) 
   return <span className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-semibold ${color}`}>{children}</span>;
 }
 
-function Fila({ releases, filter, query, selId, setSelId, flash, reload, openFoto }: {
+function Fila({ releases, filter, query, selId, setSelId, flash, reload, openFoto, openCard }: {
   releases: Release[]; filter: Status; query: string;
   selId: string | null; setSelId: (id: string | null) => void;
   flash: (m: string) => void; reload: () => Promise<void>; openFoto: (f: Foto) => void;
+  openCard: (r: Release) => void;
 }) {
   const q = query.toLowerCase();
   const list = releases
@@ -461,7 +473,7 @@ function Fila({ releases, filter, query, selId, setSelId, flash, reload, openFot
             >
               <ChevronLeft className="h-4 w-4" /> Voltar para a fila
             </button>
-            <Detalhe key={sel.id} r={sel} flash={flash} reload={reload} openFoto={openFoto} />
+            <Detalhe key={sel.id} r={sel} flash={flash} reload={reload} openFoto={openFoto} openCard={openCard} />
           </>
         ) : (
           <div className="flex h-full min-h-[300px] items-center justify-center rounded-xl border border-slate-200 bg-white text-center text-sm text-slate-400">
@@ -473,8 +485,9 @@ function Fila({ releases, filter, query, selId, setSelId, flash, reload, openFot
   );
 }
 
-function Detalhe({ r, flash, reload, openFoto }: {
+function Detalhe({ r, flash, reload, openFoto, openCard }: {
   r: Release; flash: (m: string) => void; reload: () => Promise<void>; openFoto: (f: Foto) => void;
+  openCard: (r: Release) => void;
 }) {
   const [headline, setHeadline] = useState(r.headline ?? "");
   const [release, setRelease] = useState(r.release ?? "");
@@ -563,6 +576,7 @@ function Detalhe({ r, flash, reload, openFoto }: {
       </div>
 
       <div className="flex flex-wrap items-center gap-2 border-t border-slate-200 p-4">
+        <button onClick={() => openCard(r)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50" title="Gerar card para redes sociais"><ImageIcon className="h-4 w-4" />Gerar card</button>
         {dirty && <button onClick={() => patch({ headline, release, instagram }, "Alterações salvas")} disabled={busy} className="inline-flex items-center gap-1.5 rounded-lg border border-blue-600 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-800">{busy ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}Salvar edição</button>}
         <div className="ml-auto flex flex-wrap gap-2">
           {r.status === "pendente" && <Acao primary onClick={() => patch({ status: "revisao" }, "Em revisão")} icon={<Eye className="h-4 w-4" />}>Iniciar revisão</Acao>}
