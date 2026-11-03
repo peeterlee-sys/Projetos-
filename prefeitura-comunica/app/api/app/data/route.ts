@@ -2,6 +2,7 @@ import { asc, desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { releases, secretarios, contextos, fotos, type Foto } from "@/lib/db/schema";
 import { getSessionUser } from "@/lib/auth";
+import { ensureSchema } from "@/lib/db/ensure";
 import { unauthorized, forbidden } from "@/lib/http";
 import { NextResponse } from "next/server";
 
@@ -10,6 +11,7 @@ export async function GET() {
   if (!user) return unauthorized();
   if (!user.prefeituraId) return forbidden();
   const prefId = user.prefeituraId;
+  await ensureSchema();
 
   const [rel, secs, ctx, fotoRows] = await Promise.all([
     db.select().from(releases).where(eq(releases.prefeituraId, prefId)).orderBy(desc(releases.criadoEm)),

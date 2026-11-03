@@ -61,4 +61,17 @@ async function run(): Promise<void> {
     sql`CREATE INDEX IF NOT EXISTS idx_processed_criado ON processed_messages (criado_em)`,
   ];
   for (const stmt of indexes) await db.run(stmt);
+
+  // Colunas novas no contexto (marca da prefeitura para os cards). SQLite não
+  // tem "ADD COLUMN IF NOT EXISTS" — ignoramos o erro de coluna já existente.
+  for (const col of [
+    sql`ALTER TABLE contextos ADD COLUMN cor text`,
+    sql`ALTER TABLE contextos ADD COLUMN logo_url text`,
+  ]) {
+    try {
+      await db.run(col);
+    } catch {
+      /* coluna já existe */
+    }
+  }
 }

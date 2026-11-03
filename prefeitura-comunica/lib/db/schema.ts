@@ -62,6 +62,8 @@ export const contextos = sqliteTable("contextos", {
   bairros: text("bairros"),
   programas: text("programas"),
   contexto: text("contexto"),
+  cor: text("cor"), // cor da marca da prefeitura (ex.: "#1e6fd9") usada nos cards
+  logoUrl: text("logo_url"), // logo da prefeitura (data URI ou URL) usada nos cards
   modelos: text("modelos", { mode: "json" }).$type<string[]>().default([]),
   atualizadoEm: integer("atualizado_em", { mode: "timestamp" }).notNull().default(now),
 });

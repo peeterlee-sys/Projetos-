@@ -2,18 +2,21 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { contextos } from "@/lib/db/schema";
 import { getSessionUser } from "@/lib/auth";
+import { ensureSchema } from "@/lib/db/ensure";
 import { ok, unauthorized, forbidden, newId } from "@/lib/http";
 import { NextResponse } from "next/server";
 
 const FIELDS = [
   "prefeito", "vice", "mandato", "lema", "programa",
   "tom", "hashtags", "bairros", "programas", "contexto",
+  "cor", "logoUrl",
 ] as const;
 
 export async function GET() {
   const user = await getSessionUser();
   if (!user) return unauthorized();
   if (!user.prefeituraId) return forbidden();
+  await ensureSchema();
   const [ctx] = await db
     .select()
     .from(contextos)
@@ -27,6 +30,7 @@ export async function PUT(req: Request) {
   if (!user) return unauthorized();
   if (!user.prefeituraId) return forbidden();
   const prefId = user.prefeituraId;
+  await ensureSchema();
 
   const b = await req.json().catch(() => ({}));
   const values: Record<string, unknown> = { atualizadoEm: new Date() };
