@@ -611,6 +611,15 @@ function Producao({ releases, query, selId, setSelId, flash, reload, openFoto, o
     if (res.ok) { flash("Conteúdo movido ✓"); await reload(); } else flash("Não consegui mover.");
   }
 
+  const nAguard = releases.filter((r) => r.status === "aguardando").length;
+  async function limparAguardando() {
+    if (!confirm(`Descartar ${nAguard} foto(s) que estão "aguardando assunto"?\nSão itens incompletos/de teste. Essa ação não pode ser desfeita.`)) return;
+    const res = await fetch("/api/releases/limpar-aguardando", { method: "POST" });
+    const j = await res.json().catch(() => ({}));
+    if (res.ok) { flash(`${j.removed ?? 0} item(ns) descartado(s) 🧹`); await reload(); }
+    else flash("Não consegui limpar agora.");
+  }
+
   const sel = releases.find((r) => r.id === selId) ?? null;
 
   return (
@@ -630,6 +639,9 @@ function Producao({ releases, query, selId, setSelId, flash, reload, openFoto, o
           <option value="30">Últimos 30 dias</option>
         </select>
         <div className="ml-auto flex items-center gap-2">
+          {nAguard > 0 && (
+            <button onClick={limparAguardando} className="inline-flex items-center rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-100"><Trash2 className="mr-1 h-3.5 w-3.5" />Limpar aguardando ({nAguard})</button>
+          )}
           <button onClick={dedupe} className="hidden rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-500 hover:bg-slate-50 sm:inline-flex sm:items-center"><Trash2 className="mr-1 h-3.5 w-3.5" />Limpar duplicados</button>
           <button onClick={() => flash("As solicitações chegam pelos secretários via WhatsApp 🎙️")} className="inline-flex items-center gap-1.5 rounded-lg bg-blue-700 px-3.5 py-2 text-sm font-semibold text-white hover:bg-blue-800"><Plus className="h-4 w-4" />Nova solicitação</button>
         </div>
