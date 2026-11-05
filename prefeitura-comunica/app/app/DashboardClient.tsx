@@ -652,10 +652,9 @@ function Producao({ releases, query, selId, setSelId, flash, reload, openFoto, o
         : <ListaProd filt={filt} onOpen={setSelId} />}
 
       {sel && (
-        <div onClick={() => setSelId(null)} className="fixed inset-0 z-50 flex justify-end bg-black/40">
-          <div onClick={(e) => e.stopPropagation()} className="h-full w-full max-w-2xl overflow-y-auto bg-slate-50 p-5 shadow-2xl max-lg:pb-24">
-            <button onClick={() => setSelId(null)} className="mb-3 inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold hover:bg-slate-50"><ChevronLeft className="h-4 w-4" />Fechar</button>
-            <Detalhe key={sel.id} r={sel} flash={flash} reload={reload} openFoto={openFoto} openCard={openCard} />
+        <div onClick={() => setSelId(null)} className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 max-lg:p-0">
+          <div onClick={(e) => e.stopPropagation()} className="flex h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl max-lg:h-full max-lg:rounded-none">
+            <Detalhe key={sel.id} r={sel} flash={flash} reload={reload} openFoto={openFoto} openCard={openCard} onClose={() => setSelId(null)} />
           </div>
         </div>
       )}
@@ -774,10 +773,11 @@ function ListaProd({ filt, onOpen }: { filt: Release[]; onOpen: (id: string) => 
   );
 }
 
-function Detalhe({ r, flash, reload, openFoto, openCard }: {
+function Detalhe({ r, flash, reload, openFoto, openCard, onClose }: {
   r: Release; flash: (m: string) => void; reload: () => Promise<void>; openFoto: (f: Foto) => void;
-  openCard: (r: Release) => void;
+  openCard: (r: Release) => void; onClose: () => void;
 }) {
+  const [tab, setTab] = useState<"release" | "instagram" | "radio" | "fotos">("release");
   const [headline, setHeadline] = useState(r.headline ?? "");
   const [release, setRelease] = useState(r.release ?? "");
   const [instagram, setInstagram] = useState(r.instagram ?? "");
@@ -813,141 +813,168 @@ function Detalhe({ r, flash, reload, openFoto, openCard }: {
     finally { setGenRadio(false); }
   }
 
+  const copyBaixar = (texto: string, label: string, base: string) => (
+    <div className="mb-2 flex items-center gap-1.5">
+      <button onClick={() => copy(texto, label)} className="inline-flex items-center gap-1 rounded border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-semibold text-slate-500 hover:text-blue-700"><Copy className="h-3 w-3" />Copiar</button>
+      <button onClick={() => baixarTxt(texto, `${base}-${(r.secretaria || "release").toLowerCase().replace(/\s+/g, "-")}.txt`)} className="inline-flex items-center gap-1 rounded border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-semibold text-slate-500 hover:text-blue-700"><Download className="h-3 w-3" />Baixar</button>
+    </div>
+  );
+
   if (r.aguardando) {
     return (
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-        <div className="flex items-start gap-3 border-b border-slate-200 p-4">
-          <Avatar name={r.secretarioNome ?? "?"} big />
-          <div className="flex-1">
-            <div className="font-bold">{r.secretarioNome}</div>
-            <div className="text-xs text-slate-500">{r.secretaria} · {timeAgo(r.criadoEm)}</div>
+      <div className="flex h-full flex-col">
+        <div className="flex items-center gap-3 border-b border-slate-200 p-4">
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-lg font-bold text-slate-900">Foto aguardando assunto</div>
+            <div className="truncate text-xs text-slate-500">{r.secretaria ?? r.secretarioNome} · {timeAgo(r.criadoEm)}</div>
           </div>
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800"><span className="h-1.5 w-1.5 rounded-full bg-amber-500" />Aguardando assunto</span>
+          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800"><span className="h-1.5 w-1.5 rounded-full bg-amber-500" />Aguardando assunto</span>
+          <button onClick={onClose} className="shrink-0 rounded-lg p-2 text-slate-400 hover:bg-slate-100"><X className="h-5 w-5" /></button>
         </div>
-        <div className="flex flex-col gap-4 p-5">
-          <Fotos fotos={r.fotos} openFoto={openFoto} />
-          <div>
-            <div className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-400">Resposta automática ao secretário</div>
-            <div className="rounded-2xl rounded-bl-sm border border-blue-200 bg-blue-50 px-4 py-3 text-sm">{r.askMsg}</div>
-            <div className="mt-2.5 flex items-center gap-2 text-xs text-amber-700"><TriangleAlert className="h-3.5 w-3.5" />Aguardando o secretário responder com o assunto…</div>
+        <div className="flex-1 overflow-y-auto p-5">
+          <div className="flex flex-col gap-4">
+            <Fotos fotos={r.fotos} openFoto={openFoto} />
+            <div>
+              <div className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-400">Resposta automática ao secretário</div>
+              <div className="rounded-2xl rounded-bl-sm border border-blue-200 bg-blue-50 px-4 py-3 text-sm">{r.askMsg}</div>
+              <div className="mt-2.5 flex items-center gap-2 text-xs text-amber-700"><TriangleAlert className="h-3.5 w-3.5" />Aguardando o secretário responder com o assunto…</div>
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-2 border-t border-slate-200 p-4">
           <span className="mr-auto text-xs text-slate-500">{r.caso === "fora-janela" ? "Foto fora da janela de tempo" : "Foto sem contexto anterior"}</span>
           <button onClick={() => patch({}, "Pergunta reenviada")} disabled={busy} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold hover:bg-slate-50"><Send className="h-4 w-4" />Reenviar pergunta</button>
-          <button onClick={() => { if (confirm("Descartar esta foto?")) fetch(`/api/releases/${r.id}`, { method: "DELETE" }).then(() => { flash("Foto descartada"); reload(); }); }} className="inline-flex items-center gap-1.5 rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-100"><Trash2 className="h-4 w-4" />Descartar</button>
+          <button onClick={() => { if (confirm("Descartar esta foto?")) fetch(`/api/releases/${r.id}`, { method: "DELETE" }).then(() => { flash("Foto descartada"); onClose(); reload(); }); }} className="inline-flex items-center gap-1.5 rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-100"><Trash2 className="h-4 w-4" />Descartar</button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-      <div className="flex items-start gap-3 border-b border-slate-200 p-4">
-        <Avatar name={r.secretarioNome ?? "?"} big />
-        <div className="flex-1">
-          <div className="font-bold">{r.secretarioNome}</div>
-          <div className="text-xs text-slate-500">
-            {r.secretaria} · {timeAgo(r.criadoEm)}
-            {r.publicadoEm && <> · Publicado em <b>{fmtDate(r.publicadoEm)}</b></>}
+    <div className="flex h-full flex-col">
+      {/* Cabeçalho */}
+      <div className="flex items-center gap-3 border-b border-slate-200 p-4">
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-lg font-bold text-slate-900">{headline || "Sem título"}</div>
+          <div className="truncate text-xs text-slate-500">
+            Solicitação: {r.secretaria ?? "—"}{r.criadoEm && <> · enviada em {fmtDate(r.criadoEm)}</>}
+            {r.publicadoEm && <> · publicado em {fmtDate(r.publicadoEm)}</>}
           </div>
         </div>
-        <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS[r.status].badge}`}>
+        <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS[r.status].badge}`}>
           <span className={`h-1.5 w-1.5 rounded-full ${STATUS[r.status].dot}`} />{STATUS[r.status].label}
         </span>
+        <button onClick={onClose} className="shrink-0 rounded-lg p-2 text-slate-400 hover:bg-slate-100"><X className="h-5 w-5" /></button>
       </div>
 
-      <div className="flex flex-col gap-4 p-5">
-        {r.flag && (
-          <div className="flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2.5 text-xs text-amber-800">
-            <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            O áudio veio com poucos detalhes. A IA sinalizou trechos para confirmar com o secretário antes de publicar.
+      <div className="flex min-h-0 flex-1 overflow-hidden max-lg:flex-col max-lg:overflow-y-auto">
+        {/* Conteúdo com abas */}
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden max-lg:overflow-visible">
+          <div className="flex gap-1 border-b border-slate-200 px-4">
+            <TabBtn active={tab === "release"} onClick={() => setTab("release")}>Release</TabBtn>
+            <TabBtn active={tab === "instagram"} onClick={() => setTab("instagram")}>Instagram</TabBtn>
+            <TabBtn active={tab === "radio"} onClick={() => setTab("radio")}>Rádio</TabBtn>
+            <TabBtn active={tab === "fotos"} onClick={() => setTab("fotos")}>Fotos{r.fotos.length > 0 ? ` (${r.fotos.length})` : ""}</TabBtn>
           </div>
-        )}
-
-        <div>
-          <div className="mb-1.5 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-            <Mic className="h-3.5 w-3.5" />{r.origem === "texto" ? "Mensagem de texto" : "Transcrição do áudio"}
-          </div>
-          <div className="rounded-lg border border-l-4 border-slate-200 border-l-slate-400 bg-slate-50 px-3 py-2.5 text-sm italic text-slate-600">{r.transcricao}</div>
-        </div>
-
-        <Fotos fotos={r.fotos} openFoto={openFoto} linked />
-
-        <Campo label="1. Headline" onCopy={() => copy(headline, "Headline")}>
-          <input value={headline} onChange={(e) => setHeadline(e.target.value)} className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-[15px] font-semibold outline-none focus:border-blue-600 focus:bg-white" />
-        </Campo>
-        <Campo label="2. Release para imprensa" onCopy={() => copy(release, "Release")}>
-          <textarea value={release} onChange={(e) => setRelease(e.target.value)} rows={7} className="w-full resize-y rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm leading-relaxed outline-none focus:border-blue-600 focus:bg-white" />
-        </Campo>
-        <Campo label="3. Post para Instagram" onCopy={() => copy(instagram, "Post")}>
-          <textarea value={instagram} onChange={(e) => setInstagram(e.target.value)} rows={5} className="w-full resize-y rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm leading-relaxed outline-none focus:border-blue-600 focus:bg-white" />
-        </Campo>
-
-        {/* 4. Texto para rádio */}
-        <div>
-          <div className="mb-1.5 flex items-center">
-            <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-400">
-              <Radio className="h-3.5 w-3.5" /><span className="text-blue-700">4.</span> Texto para rádio
-            </span>
-            {radio && (
-              <div className="ml-auto flex gap-1.5">
-                <button onClick={() => baixarTxt(radio, `radio-${(r.secretaria || "release").toLowerCase().replace(/\s+/g, "-")}.txt`)} className="inline-flex items-center gap-1 rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-semibold text-slate-500 hover:text-blue-700"><Download className="h-3 w-3" />Baixar</button>
-                <button onClick={() => copy(radio, "Texto de rádio")} className="inline-flex items-center gap-1 rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-semibold text-slate-500 hover:text-blue-700"><Copy className="h-3 w-3" />Copiar</button>
+          <div className="flex-1 overflow-y-auto p-5 max-lg:overflow-visible">
+            {r.flag && (
+              <div className="mb-4 flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2.5 text-xs text-amber-800">
+                <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />O áudio veio com poucos detalhes. A IA sinalizou trechos para confirmar com o secretário antes de publicar.
               </div>
             )}
-          </div>
-          {radio ? (
-            <>
-              <textarea value={radio} onChange={(e) => setRadio(e.target.value)} rows={5} className="w-full resize-y rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm leading-relaxed outline-none focus:border-blue-600 focus:bg-white" />
-              <div className="mt-1 text-[11px] text-slate-400">
-                {nPalavras(radio)} palavras · ideal 90–130 (40–60s de locução)
+
+            {tab === "release" && (
+              <div className="flex flex-col gap-4">
+                <details className="rounded-lg border border-l-4 border-slate-200 border-l-slate-400 bg-slate-50">
+                  <summary className="cursor-pointer px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400"><Mic className="mr-1 inline h-3.5 w-3.5" />{r.origem === "texto" ? "Mensagem original" : "Transcrição do áudio"}</summary>
+                  <div className="px-3 pb-2.5 text-sm italic text-slate-600">{r.transcricao}</div>
+                </details>
+                <div>
+                  <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Título</label>
+                  <input value={headline} onChange={(e) => setHeadline(e.target.value)} className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-[15px] font-semibold outline-none focus:border-blue-600 focus:bg-white" />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Release para a imprensa</label>
+                  {copyBaixar(release, "Release", "release")}
+                  <textarea value={release} onChange={(e) => setRelease(e.target.value)} rows={12} className="w-full resize-y rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm leading-relaxed outline-none focus:border-blue-600 focus:bg-white" />
+                </div>
               </div>
-            </>
-          ) : (
-            <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-4 text-center">
-              <p className="mb-2 text-xs text-slate-500">Este release ainda não tem boletim de rádio.</p>
-              <button onClick={gerarRadioAgora} disabled={genRadio} className="inline-flex items-center gap-1.5 rounded-lg bg-blue-700 px-3.5 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-60">
-                {genRadio ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Radio className="h-4 w-4" />}Gerar texto de rádio
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
+            )}
 
-      <div className="flex flex-wrap items-center gap-2 border-t border-slate-200 p-4">
-        <button onClick={() => openCard(r)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50" title="Gerar card para redes sociais"><ImageIcon className="h-4 w-4" />Gerar card</button>
-        {dirty && <button onClick={() => patch({ headline, release, instagram, radio }, "Alterações salvas")} disabled={busy} className="inline-flex items-center gap-1.5 rounded-lg border border-blue-600 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-800">{busy ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}Salvar edição</button>}
-        <div className="ml-auto flex flex-wrap gap-2">
-          {r.status === "pendente" && <Acao primary onClick={() => patch({ status: "revisao" }, "Em revisão")} icon={<Eye className="h-4 w-4" />}>Iniciar revisão</Acao>}
-          {r.status === "revisao" && <Acao primary onClick={() => patch({ status: "aprovado" }, "Aprovado")} icon={<Check className="h-4 w-4" />}>Aprovar</Acao>}
-          {r.status === "aprovado" && <>
-            <Acao onClick={() => patch({ status: "revisao" }, "Voltar p/ revisão")} icon={<RotateCcw className="h-4 w-4" />}>Voltar</Acao>
-            <Acao primary onClick={() => patch({ status: "publicado" }, "Publicado")} icon={<Send className="h-4 w-4" />}>Marcar como publicado</Acao>
-          </>}
-          {r.status === "publicado" && <Acao onClick={() => patch({ status: "revisao" }, "Reaberto")} icon={<RotateCcw className="h-4 w-4" />}>Reabrir</Acao>}
+            {tab === "instagram" && (
+              <div>
+                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Post para Instagram</label>
+                {copyBaixar(instagram, "Post", "instagram")}
+                <textarea value={instagram} onChange={(e) => setInstagram(e.target.value)} rows={14} className="w-full resize-y rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm leading-relaxed outline-none focus:border-blue-600 focus:bg-white" />
+              </div>
+            )}
+
+            {tab === "radio" && (radio ? (
+              <div>
+                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Boletim para rádio</label>
+                {copyBaixar(radio, "Texto de rádio", "radio")}
+                <textarea value={radio} onChange={(e) => setRadio(e.target.value)} rows={12} className="w-full resize-y rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm leading-relaxed outline-none focus:border-blue-600 focus:bg-white" />
+                <div className="mt-1 text-[11px] text-slate-400">{nPalavras(radio)} palavras · ideal 90–130 (40–60s de locução)</div>
+              </div>
+            ) : (
+              <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-10 text-center">
+                <p className="mb-2 text-sm text-slate-500">Este release ainda não tem boletim de rádio.</p>
+                <button onClick={gerarRadioAgora} disabled={genRadio} className="inline-flex items-center gap-1.5 rounded-lg bg-blue-700 px-3.5 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-60">{genRadio ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Radio className="h-4 w-4" />}Gerar texto de rádio</button>
+              </div>
+            ))}
+
+            {tab === "fotos" && (
+              r.fotos.length
+                ? <Fotos fotos={r.fotos} openFoto={openFoto} linked />
+                : <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 py-12 text-center text-sm text-slate-400">Nenhuma foto neste release.</div>
+            )}
+          </div>
+        </div>
+
+        {/* Painel de aprovação */}
+        <div className="flex w-72 shrink-0 flex-col gap-2 border-l border-slate-200 bg-slate-50 p-5 max-lg:w-full max-lg:border-l-0 max-lg:border-t">
+          <h3 className="text-sm font-bold text-slate-800">Aprovação da Secom</h3>
+          <span className={`inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS[r.status].badge}`}>
+            <span className={`h-1.5 w-1.5 rounded-full ${STATUS[r.status].dot}`} />{STATUS[r.status].label}
+          </span>
+
+          {dirty && <PanelBtn tone="save" onClick={() => patch({ headline, release, instagram, radio }, "Alterações salvas")} disabled={busy} icon={busy ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}>Salvar alterações</PanelBtn>}
+
+          <div className="mt-2 flex flex-col gap-2">
+            {r.status === "pendente" && <PanelBtn tone="primary" onClick={() => patch({ status: "revisao" }, "Em revisão")} icon={<Eye className="h-4 w-4" />}>Iniciar revisão</PanelBtn>}
+            {r.status === "revisao" && <PanelBtn tone="green" onClick={() => patch({ status: "aprovado" }, "Aprovado")} icon={<Check className="h-4 w-4" />}>Aprovar</PanelBtn>}
+            {r.status === "aprovado" && <>
+              <PanelBtn tone="green" onClick={() => patch({ status: "publicado" }, "Publicado")} icon={<Send className="h-4 w-4" />}>Marcar como publicado</PanelBtn>
+              <PanelBtn onClick={() => patch({ status: "revisao" }, "Voltar p/ revisão")} icon={<RotateCcw className="h-4 w-4" />}>Voltar p/ revisão</PanelBtn>
+            </>}
+            {r.status === "publicado" && <PanelBtn onClick={() => patch({ status: "revisao" }, "Reaberto")} icon={<RotateCcw className="h-4 w-4" />}>Reabrir</PanelBtn>}
+          </div>
+
+          <div className="my-1 border-t border-slate-200" />
+          <PanelBtn onClick={() => openCard(r)} icon={<ImageIcon className="h-4 w-4" />}>Gerar card</PanelBtn>
         </div>
       </div>
     </div>
   );
 }
 
-function Campo({ label, onCopy, children }: { label: string; onCopy: () => void; children: React.ReactNode }) {
+function TabBtn({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
-    <div>
-      <div className="mb-1.5 flex items-center">
-        <span className="text-[11px] font-bold uppercase tracking-wide text-slate-400"><span className="text-blue-700">{label.split(".")[0]}.</span>{label.slice(label.indexOf(".") + 1)}</span>
-        <button onClick={onCopy} className="ml-auto inline-flex items-center gap-1 rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-semibold text-slate-500 hover:text-blue-700"><Copy className="h-3 w-3" />Copiar</button>
-      </div>
+    <button onClick={onClick} className={`relative px-3.5 py-2.5 text-sm font-semibold ${active ? "text-blue-700" : "text-slate-500 hover:text-slate-700"}`}>
       {children}
-    </div>
+      {active && <span className="absolute inset-x-2 bottom-0 h-0.5 rounded bg-blue-600" />}
+    </button>
   );
 }
-function Acao({ primary, onClick, icon, children }: { primary?: boolean; onClick: () => void; icon: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <button onClick={onClick} className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-semibold ${primary ? "bg-blue-700 text-white hover:bg-blue-800" : "border border-slate-300 hover:bg-slate-50"}`}>{icon}{children}</button>
-  );
+
+function PanelBtn({ tone, onClick, icon, disabled, children }: { tone?: "primary" | "green" | "save"; onClick: () => void; icon?: React.ReactNode; disabled?: boolean; children: React.ReactNode }) {
+  const cls = tone === "green" ? "bg-emerald-600 text-white hover:bg-emerald-700"
+    : tone === "primary" ? "bg-blue-700 text-white hover:bg-blue-800"
+    : tone === "save" ? "border border-blue-600 bg-blue-50 text-blue-800 hover:bg-blue-100"
+    : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50";
+  return <button onClick={onClick} disabled={disabled} className={`inline-flex w-full items-center justify-center gap-1.5 rounded-lg px-3.5 py-2.5 text-sm font-semibold disabled:opacity-60 ${cls}`}>{icon}{children}</button>;
 }
+
 
 function Fotos({ fotos, openFoto, linked }: { fotos: Foto[]; openFoto: (f: Foto) => void; linked?: boolean }) {
   if (!fotos.length) return null;
