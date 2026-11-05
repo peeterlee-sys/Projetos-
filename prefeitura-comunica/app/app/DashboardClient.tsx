@@ -257,11 +257,6 @@ export default function DashboardClient() {
         {/* Push no mobile */}
         <div className="px-4 pt-3 lg:hidden"><PushToggle /></div>
 
-        {/* KPIs — telas internas (a Visão Geral tem os próprios) */}
-        {(view === "cadastro" || view === "ranking") && (
-          <Kpis view={view} releases={releases} secretarios={secretarios} ranking={ranking} />
-        )}
-
         <div className="flex-1 p-6 max-lg:p-4">
           {view === "visao" && (
             <VisaoGeral releases={releases} ranking={ranking} go={go} openRelease={openRelease} />
@@ -275,7 +270,7 @@ export default function DashboardClient() {
             />
           )}
           {view === "cadastro" && (
-            <Cadastro secretarios={secretarios} query={query} flash={flash} reload={load} goEquipe={() => setView("equipe")} />
+            <SecretariasView ranking={ranking} secretarios={secretarios} releases={releases} query={query} flash={flash} reload={load} goEquipe={() => setView("equipe")} />
           )}
           {view === "equipe" && (
             <Equipe flash={flash} goSecretarios={() => { setView("cadastro"); setSelId(null); }} prefNome={data?.prefeitura?.nome ?? null} />
@@ -283,7 +278,7 @@ export default function DashboardClient() {
           {view === "contexto" && data?.contexto !== undefined && (
             <ContextoView contexto={data.contexto} muni={muni} uf={uf} flash={flash} reload={load} />
           )}
-          {view === "ranking" && <Ranking ranking={ranking} muni={muni} />}
+          {view === "ranking" && <RelatoriosView releases={releases} ranking={ranking} muni={muni} />}
         </div>
       </main>
 
@@ -522,51 +517,184 @@ function EmBreve({ tipo }: { tipo: "distribuicao" | "clipagem" }) {
   );
 }
 
-/* ---------------- Subcomponentes ---------------- */
-
-function Kpi({ value, label, hint, bar }: { value: number | string; label: string; hint: string; bar: string }) {
+/* ---------------- Secretarias + Relatórios ---------------- */
+function DonutPct({ pct, centro, sub }: { pct: number; centro: string; sub: string }) {
+  const R = 54, C = 2 * Math.PI * R;
+  const dash = (Math.min(100, Math.max(0, pct)) / 100) * C;
   return (
-    <div className="relative overflow-hidden rounded-xl border border-slate-200 bg-white p-4">
-      <span className={`absolute left-0 top-0 h-full w-1 ${bar}`} />
-      <div className="text-2xl font-bold tabular-nums leading-none">{value}</div>
-      <div className="mt-1.5 text-xs text-slate-600">{label}</div>
-      <div className="text-[11px] text-slate-400">{hint}</div>
+    <div className="relative h-36 w-36 shrink-0">
+      <svg viewBox="0 0 140 140" className="h-36 w-36 -rotate-90">
+        <circle cx="70" cy="70" r={R} fill="none" stroke="#eef2f7" strokeWidth="16" />
+        <circle cx="70" cy="70" r={R} fill="none" stroke="#10b981" strokeWidth="16" strokeLinecap="round" strokeDasharray={`${dash} ${C}`} />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <div className="text-2xl font-extrabold tabular-nums text-slate-900">{centro}</div>
+        <div className="px-2 text-center text-[11px] text-slate-400">{sub}</div>
+      </div>
     </div>
   );
 }
-function Kpis({ view, releases, secretarios, ranking }: {
-  view: string; releases: Release[]; secretarios: Secretario[];
-  ranking: { sec: string; nome: string; total: number; publicado: number }[];
-}) {
-  const c = (s: Status) => releases.filter((r) => r.status === s).length;
-  let cards: React.ReactNode;
-  if (view === "ranking") {
-    const lider = ranking[0];
-    cards = (<>
-      <Kpi value={releases.length} label="Releases no mês" hint="Total recebido" bar="bg-blue-600" />
-      <Kpi value={c("publicado")} label="Publicados no mês" hint="Já veiculados" bar="bg-slate-500" />
-      <Kpi value={ranking.length} label="Secretarias ativas" hint="Enviaram ao menos 1" bar="bg-sky-500" />
-      <Kpi value={lider ? lider.total : 0} label="Secretaria líder" hint={lider ? `${lider.sec} · ${lider.nome}` : "—"} bar="bg-emerald-500" />
-    </>);
-  } else if (view === "cadastro") {
-    const ativos = secretarios.filter((s) => s.ativo).length;
-    const areas = new Set(secretarios.filter((s) => s.ativo).map((s) => s.secretaria));
-    cards = (<>
-      <Kpi value={secretarios.length} label="Secretários cadastrados" hint="Reconhecidos pelo sistema" bar="bg-blue-600" />
-      <Kpi value={ativos} label="Ativos" hint="Podem enviar agora" bar="bg-emerald-500" />
-      <Kpi value={secretarios.length - ativos} label="Inativos" hint="Cadastro desativado" bar="bg-slate-500" />
-      <Kpi value={areas.size} label="Secretarias cobertas" hint="Áreas com secretário ativo" bar="bg-sky-500" />
-    </>);
-  } else {
-    cards = (<>
-      <Kpi value={c("pendente") + c("aguardando")} label="Aguardando triagem" hint="Recém-chegados" bar="bg-amber-500" />
-      <Kpi value={c("revisao")} label="Em revisão" hint="Sendo trabalhados" bar="bg-sky-500" />
-      <Kpi value={c("aprovado")} label="Aprovados" hint="Prontos para publicar" bar="bg-emerald-500" />
-      <Kpi value={c("publicado")} label="Publicados no mês" hint="Já veiculados" bar="bg-slate-500" />
-    </>);
-  }
-  return <div className="grid grid-cols-4 gap-3 px-6 pt-4 max-lg:px-4 max-sm:grid-cols-2">{cards}</div>;
+
+function BarsSec({ ranking }: { ranking: RankItem[] }) {
+  const CORES = ["#1e3a8a", "#2563eb", "#3b82f6", "#60a5fa", "#93c5fd", "#cbd5e1"];
+  const top = ranking.slice(0, 6);
+  const max = Math.max(1, ...top.map((r) => r.total));
+  if (top.length === 0) return <div className="text-sm text-slate-400">Sem dados ainda.</div>;
+  return (
+    <div className="space-y-2.5">
+      {top.map((r, i) => (
+        <div key={r.sec} className="flex items-center gap-3 text-sm">
+          <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: CORES[Math.min(i, CORES.length - 1)] }} />
+          <span className="w-32 shrink-0 truncate text-slate-600 max-sm:w-20">{r.sec}</span>
+          <div className="h-2 flex-1 overflow-hidden rounded bg-slate-100"><div className="h-full rounded" style={{ width: `${(r.total / max) * 100}%`, background: CORES[Math.min(i, CORES.length - 1)] }} /></div>
+          <span className="w-7 shrink-0 text-right font-semibold tabular-nums text-slate-700">{r.total}</span>
+        </div>
+      ))}
+    </div>
+  );
 }
+
+function SecretariasView({ ranking, secretarios, releases, query, flash, reload, goEquipe }: {
+  ranking: RankItem[]; secretarios: Secretario[]; releases: Release[]; query: string;
+  flash: (m: string) => void; reload: () => Promise<void>; goEquipe: () => void;
+}) {
+  const atividade = useMemo(() => {
+    const m = new Map<string, { sec: string; ultima: number; total: number }>();
+    for (const r of releases) {
+      if (r.status === "aguardando") continue;
+      const key = r.secretaria ?? "—";
+      const t = r.criadoEm ? new Date(r.criadoEm).getTime() : 0;
+      const cur = m.get(key) ?? { sec: key, ultima: 0, total: 0 };
+      cur.total++; if (t > cur.ultima) cur.ultima = t;
+      m.set(key, cur);
+    }
+    return [...m.values()].sort((a, b) => b.ultima - a.ultima);
+  }, [releases]);
+
+  const areas = new Set<string>([
+    ...secretarios.filter((s) => s.ativo && s.secretaria).map((s) => s.secretaria as string),
+    ...atividade.map((a) => a.sec),
+  ]);
+  const total = Math.max(1, areas.size);
+  const ativas = atividade.length;
+  const pct = Math.round((ativas / total) * 100);
+  const limite = Date.now() - 15 * 86400000;
+
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-[320px_1fr] gap-5 max-lg:grid-cols-1">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5">
+          <h2 className="mb-3 text-base font-bold">Participação no período</h2>
+          <div className="flex items-center justify-center py-2">
+            <DonutPct pct={pct} centro={`${pct}%`} sub={`${ativas} de ${total} secretarias`} />
+          </div>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-5">
+          <h2 className="mb-4 text-base font-bold">Solicitações por secretaria</h2>
+          <BarsSec ranking={ranking} />
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-slate-200 bg-white p-5">
+        <h2 className="mb-3 text-base font-bold">Atividade das secretarias</h2>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[560px] text-sm">
+            <thead><tr className="border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-400">
+              <th className="pb-2 font-semibold">Secretaria</th>
+              <th className="pb-2 font-semibold">Última solicitação</th>
+              <th className="pb-2 font-semibold">Total</th>
+              <th className="pb-2 font-semibold">Status</th>
+            </tr></thead>
+            <tbody>
+              {atividade.map((a) => (
+                <tr key={a.sec} className="border-b border-slate-100">
+                  <td className="py-2.5 font-medium text-slate-800">{a.sec}</td>
+                  <td className="text-slate-600">{a.ultima ? fmtDate(new Date(a.ultima).toISOString()) : "—"}</td>
+                  <td className="tabular-nums text-slate-700">{a.total}</td>
+                  <td>{a.ultima >= limite
+                    ? <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />Ativa</span>
+                    : <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500"><span className="h-1.5 w-1.5 rounded-full bg-slate-400" />Sem envios recentes</span>}</td>
+                </tr>
+              ))}
+              {atividade.length === 0 && <tr><td colSpan={4} className="py-8 text-center text-slate-400">Ainda não há solicitações.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <Cadastro secretarios={secretarios} query={query} flash={flash} reload={reload} goEquipe={goEquipe} />
+    </div>
+  );
+}
+
+function LineChart({ pontos }: { pontos: { label: string; value: number }[] }) {
+  const W = 560, H = 180, P = 28;
+  const max = Math.max(1, ...pontos.map((p) => p.value));
+  const n = pontos.length;
+  const x = (i: number) => P + (n <= 1 ? 0 : (i * (W - 2 * P)) / (n - 1));
+  const y = (v: number) => H - P - (v / max) * (H - 2 * P);
+  const pts = pontos.map((p, i) => `${x(i)},${y(p.value)}`).join(" ");
+  const area = `${P},${H - P} ${pts} ${x(n - 1)},${H - P}`;
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ maxHeight: 220 }}>
+      {[0, 0.5, 1].map((g) => (
+        <line key={g} x1={P} x2={W - P} y1={y(max * g)} y2={y(max * g)} stroke="#f1f5f9" strokeWidth="1" />
+      ))}
+      {n > 0 && <polygon points={area} fill="#2563eb" opacity="0.08" />}
+      {n > 1 && <polyline points={pts} fill="none" stroke="#2563eb" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />}
+      {pontos.map((p, i) => <circle key={i} cx={x(i)} cy={y(p.value)} r="3.5" fill="#2563eb" />)}
+      {pontos.map((p, i) => <text key={i} x={x(i)} y={H - 8} textAnchor="middle" fontSize="11" fill="#94a3b8">{p.label}</text>)}
+    </svg>
+  );
+}
+
+function RelatoriosView({ releases, ranking, muni }: { releases: Release[]; ranking: RankItem[]; muni: string }) {
+  const c = (s: Status) => releases.filter((r) => r.status === s).length;
+  const total = releases.filter((r) => r.status !== "aguardando").length;
+  const kpis = [
+    { label: "Notícias produzidas", value: total, icon: <FileText className="h-5 w-5" /> },
+    { label: "Publicados", value: c("publicado"), icon: <Send className="h-5 w-5" /> },
+    { label: "Secretarias ativas", value: ranking.length, icon: <Users className="h-5 w-5" /> },
+    { label: "Aguardando análise", value: c("pendente"), icon: <Inbox className="h-5 w-5" /> },
+  ];
+  const meses = useMemo(() => {
+    const now = new Date();
+    const NOMES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+    const arr: { label: string; value: number }[] = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const count = releases.filter((r) => {
+        if (r.status === "aguardando" || !r.criadoEm) return false;
+        const rd = new Date(r.criadoEm);
+        return rd.getFullYear() === d.getFullYear() && rd.getMonth() === d.getMonth();
+      }).length;
+      arr.push({ label: NOMES[d.getMonth()], value: count });
+    }
+    return arr;
+  }, [releases]);
+
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-4 gap-4 max-lg:grid-cols-2">
+        {kpis.map((k) => (
+          <div key={k.label} className="rounded-2xl border border-slate-200 bg-white p-5">
+            <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600">{k.icon}</div>
+            <div className="text-3xl font-bold tabular-nums text-slate-900">{k.value}</div>
+            <div className="mt-1 text-sm font-medium text-slate-600">{k.label}</div>
+          </div>
+        ))}
+      </div>
+      <div className="rounded-2xl border border-slate-200 bg-white p-5">
+        <h2 className="mb-1 text-base font-bold">Evolução da produção</h2>
+        <p className="mb-3 text-xs text-slate-500">Notícias produzidas por mês — {muni}</p>
+        <LineChart pontos={meses} />
+      </div>
+      <Ranking ranking={ranking} muni={muni} />
+    </div>
+  );
+}
+
+/* ---------------- Subcomponentes ---------------- */
 
 /* ------- Produção (Kanban) ------- */
 const KCOLS: { key: Status; nome: string; sub: string; icon: React.ReactNode; bg: string; chip: string; ring: string; dot: string }[] = [
