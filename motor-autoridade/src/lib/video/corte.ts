@@ -30,6 +30,27 @@ export const FOLGA_PADRAO = 0.08;
 export const LIMITE_WHATSAPP_MB = 16;
 
 /**
+ * Lê a duração do vídeo na mesma saída de stderr do ffmpeg, da linha
+ * `Duration: 00:01:03.45, start: ...`.
+ *
+ * Existe um ffprobe que daria isso direto, mas ele é outro binário de ~70MB e
+ * o pacote de função da Vercel tem teto de 250MB. Como a passada de detecção
+ * de silêncio já imprime a duração, aproveitamos a mesma saída e não pagamos
+ * o segundo binário.
+ *
+ * Devolve null quando a linha não aparece — arquivo corrompido ou que o ffmpeg
+ * não reconheceu.
+ */
+export function parsearDuracao(saidaFfmpeg: string): number | null {
+  const m = saidaFfmpeg.match(/Duration:\s*(\d+):(\d{2}):(\d{2}(?:\.\d+)?)/);
+  if (!m) return null;
+  const horas = Number.parseInt(m[1], 10);
+  const minutos = Number.parseInt(m[2], 10);
+  const segundos = Number.parseFloat(m[3]);
+  return horas * 3600 + minutos * 60 + segundos;
+}
+
+/**
  * Lê a saída do filtro `silencedetect` do ffmpeg, que escreve no stderr linhas
  * como `[silencedetect @ ...] silence_start: 6.012`.
  *
@@ -144,12 +165,18 @@ export function planejarEncode(
 }
 
 /**
- * Monta o `filter_complex` que corta e emenda tudo numa passada só.
+ * Monta o `filter_complex` que corta, emenda e redimensiona numa passada só.
  *
  * Fazer em uma passada em vez de gerar um arquivo por trecho importa: um vídeo
  * com trinta pausas viraria trinta arquivos temporários e trinta encodes.
+ *
+ * O redimensionamento precisa entrar aqui dentro, e não como `-vf`: o ffmpeg
+ * recusa filtro simples e filtro complexo no mesmo stream ("Simple and complex
+ * filtering cannot be used together for the same stream") e nem chega a abrir
+ * o arquivo de saída. A largura sai como -2 para o ffmpeg manter a proporção
+ * original e ainda assim cair em número par, que o H.264 exige.
  */
-export function montarFilterComplex(trechos: Trecho[]): string {
+export function montarFilterComplex(trechos: Trecho[], altura?: number): string {
   if (trechos.length === 0) throw new Error("Nenhum trecho com áudio para manter.");
 
   const partes = trechos
@@ -161,5 +188,9 @@ export function montarFilterComplex(trechos: Trecho[]): string {
     .join(";");
   const refs = trechos.map((_, i) => `[v${i}][a${i}]`).join("");
 
-  return `${partes};${refs}concat=n=${trechos.length}:v=1:a=1[v][a]`;
+  if (!altura) return `${partes};${refs}concat=n=${trechos.length}:v=1:a=1[v][a]`;
+  return (
+    `${partes};${refs}concat=n=${trechos.length}:v=1:a=1[vc][a];` +
+    `[vc]scale=-2:${altura}[v]`
+  );
 }

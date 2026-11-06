@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   duracaoFinal,
   montarFilterComplex,
+  parsearDuracao,
   parsearSilencios,
   planejarEncode,
   trechosParaManter,
@@ -136,5 +137,32 @@ describe("montarFilterComplex", () => {
 
   it("recusa vídeo sem nenhum trecho aproveitável", () => {
     expect(() => montarFilterComplex([])).toThrow(/Nenhum trecho/);
+  });
+
+  // O ffmpeg recusa filtro simples (-vf) junto com filtro complexo no mesmo
+  // stream e nem abre o arquivo de saída. O scale tem que sair daqui.
+  it("redimensiona dentro do grafo, não por -vf", () => {
+    const fc = montarFilterComplex([{ inicio: 0, fim: 6 }], 1280);
+    expect(fc).toContain("concat=n=1:v=1:a=1[vc][a];[vc]scale=-2:1280[v]");
+  });
+
+  it("mantém a resolução original quando não pedem altura", () => {
+    const fc = montarFilterComplex([{ inicio: 0, fim: 6 }]);
+    expect(fc).toContain("concat=n=1:v=1:a=1[v][a]");
+    expect(fc).not.toContain("scale");
+  });
+});
+
+describe("parsearDuracao", () => {
+  it("lê a duração da mesma saída da análise, sem precisar do ffprobe", () => {
+    expect(parsearDuracao("  Duration: 00:02:00.00, start: 0.000000, bitrate: 2863 kb/s")).toBe(120);
+  });
+
+  it("entende vídeo com mais de uma hora", () => {
+    expect(parsearDuracao("Duration: 01:30:05.50, start: 0")).toBe(5405.5);
+  });
+
+  it("devolve null quando o ffmpeg não reconheceu o arquivo", () => {
+    expect(parsearDuracao("Invalid data found when processing input")).toBeNull();
   });
 });

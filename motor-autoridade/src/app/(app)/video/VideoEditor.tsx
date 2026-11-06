@@ -22,11 +22,16 @@ const LIMITE_MB = 200;
 /** O render do ZapCap leva ~1 min; 45 tentativas de 4s dão 3 min de folga. */
 const MAX_TENTATIVAS = 45;
 
-type Estado = "idle" | "enviando" | "processando" | "pronto" | "falhou";
+type Estado = "idle" | "enviando" | "cortando" | "processando" | "pronto" | "falhou";
+
+/** Quanto o corte economizou, para mostrar ao assessor o que foi feito. */
+type Corte = { original: number; final: number; cortes: number };
 
 export function VideoEditor({ configurado }: { configurado: boolean }) {
   const [arquivo, setArquivo] = useState<File | null>(null);
+  const [cortarPausas, setCortarPausas] = useState(true);
   const [estado, setEstado] = useState<Estado>("idle");
+  const [corte, setCorte] = useState<Corte | null>(null);
   const [saida, setSaida] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const pollRef = useRef<number | null>(null);
@@ -74,6 +79,7 @@ export function VideoEditor({ configurado }: { configurado: boolean }) {
     if (!arquivo) return;
     setErro(null);
     setSaida(null);
+    setCorte(null);
     setEstado("enviando");
     try {
       const supabase = createBrowserClient();
@@ -90,8 +96,23 @@ export function VideoEditor({ configurado }: { configurado: boolean }) {
       if (up.error) throw new Error(`Falha ao enviar o vídeo: ${up.error.message}`);
 
       const assinada = await supabase.storage.from("recordings").createSignedUrl(caminho, 3600);
-      const videoUrl = assinada.data?.signedUrl;
+      let videoUrl = assinada.data?.signedUrl;
       if (!videoUrl) throw new Error("Não foi possível preparar o vídeo para edição.");
+
+      // O corte vem antes da legenda: legendar primeiro deixaria a legenda
+      // fora de sincronia com a fala depois que as pausas saíssem.
+      if (cortarPausas) {
+        setEstado("cortando");
+        const rc = await fetch("/api/video/cortar", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ path: caminho }),
+        });
+        const jc = await rc.json();
+        if (!rc.ok) throw new Error(jc.error || "Falha ao cortar as pausas.");
+        videoUrl = jc.url;
+        setCorte({ original: jc.duracao_original, final: jc.duracao_final, cortes: jc.cortes });
+      }
 
       const res = await fetch("/api/zapcap", {
         method: "POST",
@@ -107,7 +128,7 @@ export function VideoEditor({ configurado }: { configurado: boolean }) {
       setErro(e instanceof Error ? e.message : "Falha na edição do vídeo.");
       setEstado("falhou");
     }
-  }, [arquivo, acompanhar]);
+  }, [arquivo, cortarPausas, acompanhar]);
 
   const escolher = useCallback((f: File | null) => {
     setSaida(null);
@@ -129,7 +150,7 @@ export function VideoEditor({ configurado }: { configurado: boolean }) {
     );
   }
 
-  const ocupado = estado === "enviando" || estado === "processando";
+  const ocupado = estado === "enviando" || estado === "cortando" || estado === "processando";
 
   return (
     <div className="space-y-4">
@@ -157,22 +178,43 @@ export function VideoEditor({ configurado }: { configurado: boolean }) {
       </label>
 
       {arquivo && estado !== "pronto" && (
-        <button
-          type="button"
-          onClick={enviar}
-          disabled={ocupado}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-brand-700 px-5 py-3 text-sm font-medium text-sand-50 transition hover:bg-brand-800 disabled:opacity-60"
-        >
-          {ocupado && <Loader2 size={16} className="animate-spin" />}
-          {estado === "enviando"
-            ? "Enviando o vídeo…"
-            : estado === "processando"
-              ? "Gerando as legendas…"
-              : "Gerar legendas"}
-        </button>
+        <>
+          <label className="flex items-start gap-3 rounded-2xl bg-white p-4 ring-1 ring-sand-200">
+            <input
+              type="checkbox"
+              checked={cortarPausas}
+              disabled={ocupado}
+              onChange={(e) => setCortarPausas(e.target.checked)}
+              className="mt-0.5 size-4 accent-brand-700"
+            />
+            <span className="text-sm text-ink-900">
+              Cortar pausas e respiração
+              <span className="block text-xs text-ink-500">
+                Remove os silêncios longos antes de legendar. Costuma encurtar o vídeo em cerca
+                de um terço.
+              </span>
+            </span>
+          </label>
+
+          <button
+            type="button"
+            onClick={enviar}
+            disabled={ocupado}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-brand-700 px-5 py-3 text-sm font-medium text-sand-50 transition hover:bg-brand-800 disabled:opacity-60"
+          >
+            {ocupado && <Loader2 size={16} className="animate-spin" />}
+            {estado === "enviando"
+              ? "Enviando o vídeo…"
+              : estado === "cortando"
+                ? "Cortando as pausas…"
+                : estado === "processando"
+                  ? "Gerando as legendas…"
+                  : "Editar vídeo"}
+          </button>
+        </>
       )}
 
-      {estado === "processando" && (
+      {(estado === "cortando" || estado === "processando") && (
         <p className="text-center text-xs text-ink-500">
           Leva cerca de um minuto. Pode deixar esta aba aberta.
         </p>
@@ -189,8 +231,14 @@ export function VideoEditor({ configurado }: { configurado: boolean }) {
         <div className="space-y-3 rounded-2xl bg-white p-4 ring-1 ring-brand-700/20">
           <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-brand-700">
             <CheckCircle2 size={15} strokeWidth={2.2} />
-            Vídeo com legendas pronto
+            Vídeo pronto
           </p>
+          {corte && (
+            <p className="text-sm text-ink-500">
+              {corte.cortes} {corte.cortes === 1 ? "pausa removida" : "pausas removidas"} — de{" "}
+              {corte.original}s para <strong className="text-ink-900">{corte.final}s</strong>.
+            </p>
+          )}
           <video src={saida} controls playsInline className="w-full rounded-xl bg-black" />
           <a
             href={saida}
