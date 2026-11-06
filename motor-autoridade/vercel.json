@@ -3,6 +3,7 @@
   "crons": [
     { "path": "/api/cron/weekly", "schedule": "0 20 * * 5" },
     { "path": "/api/cron/expire-trials", "schedule": "0 9 * * *" },
-    { "path": "/api/cron/nudge-inativos", "schedule": "0 11 * * *" }
+    { "path": "/api/cron/nudge-inativos", "schedule": "0 11 * * *" },
+    { "path": "/api/cron/video-pendentes", "schedule": "*/5 * * * *" }
   ]
 }
