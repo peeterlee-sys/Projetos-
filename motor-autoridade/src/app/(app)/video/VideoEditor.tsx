@@ -27,9 +27,10 @@ type Estado = "idle" | "enviando" | "cortando" | "processando" | "pronto" | "fal
 /** Quanto o corte economizou, para mostrar ao assessor o que foi feito. */
 type Corte = { original: number; final: number; cortes: number };
 
-export function VideoEditor({ configurado }: { configurado: boolean }) {
+export function VideoEditor({ legendasDisponiveis }: { legendasDisponiveis: boolean }) {
   const [arquivo, setArquivo] = useState<File | null>(null);
   const [cortarPausas, setCortarPausas] = useState(true);
+  const [legendar, setLegendar] = useState(legendasDisponiveis);
   const [estado, setEstado] = useState<Estado>("idle");
   const [corte, setCorte] = useState<Corte | null>(null);
   const [saida, setSaida] = useState<string | null>(null);
@@ -96,8 +97,10 @@ export function VideoEditor({ configurado }: { configurado: boolean }) {
       if (up.error) throw new Error(`Falha ao enviar o vídeo: ${up.error.message}`);
 
       const assinada = await supabase.storage.from("recordings").createSignedUrl(caminho, 3600);
-      let videoUrl = assinada.data?.signedUrl;
-      if (!videoUrl) throw new Error("Não foi possível preparar o vídeo para edição.");
+      if (!assinada.data?.signedUrl) {
+        throw new Error("Não foi possível preparar o vídeo para edição.");
+      }
+      let videoUrl: string = assinada.data.signedUrl;
 
       // O corte vem antes da legenda: legendar primeiro deixaria a legenda
       // fora de sincronia com a fala depois que as pausas saíssem.
@@ -114,6 +117,14 @@ export function VideoEditor({ configurado }: { configurado: boolean }) {
         setCorte({ original: jc.duracao_original, final: jc.duracao_final, cortes: jc.cortes });
       }
 
+      // Sem legenda o trabalho acabou aqui: o corte já devolveu o vídeo
+      // pronto, e o ZapCap é o único passo que depende de chave externa.
+      if (!legendar) {
+        setSaida(videoUrl);
+        setEstado("pronto");
+        return;
+      }
+
       const res = await fetch("/api/zapcap", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -128,7 +139,7 @@ export function VideoEditor({ configurado }: { configurado: boolean }) {
       setErro(e instanceof Error ? e.message : "Falha na edição do vídeo.");
       setEstado("falhou");
     }
-  }, [arquivo, cortarPausas, acompanhar]);
+  }, [arquivo, cortarPausas, legendar, acompanhar]);
 
   const escolher = useCallback((f: File | null) => {
     setSaida(null);
@@ -142,15 +153,8 @@ export function VideoEditor({ configurado }: { configurado: boolean }) {
     setArquivo(f);
   }, []);
 
-  if (!configurado) {
-    return (
-      <p className="rounded-2xl bg-white p-6 text-sm text-ink-500 ring-1 ring-sand-200">
-        A edição de vídeo ainda não está configurada nesta conta.
-      </p>
-    );
-  }
-
   const ocupado = estado === "enviando" || estado === "cortando" || estado === "processando";
+  const nadaMarcado = !cortarPausas && !legendar;
 
   return (
     <div className="space-y-4">
@@ -161,7 +165,7 @@ export function VideoEditor({ configurado }: { configurado: boolean }) {
       >
         <Upload size={26} className="text-brand-700" strokeWidth={1.8} />
         <span className="text-sm font-medium text-ink-900">
-          {arquivo ? arquivo.name : "Escolher o vídeo do vereador"}
+          {arquivo ? arquivo.name : "Escolher vídeo da galeria"}
         </span>
         <span className="text-xs text-ink-500">
           {arquivo
@@ -190,8 +194,29 @@ export function VideoEditor({ configurado }: { configurado: boolean }) {
             <span className="text-sm text-ink-900">
               Cortar pausas e respiração
               <span className="block text-xs text-ink-500">
-                Remove os silêncios longos antes de legendar. Costuma encurtar o vídeo em cerca
-                de um terço.
+                Remove os silêncios longos. Costuma encurtar o vídeo em cerca de um terço.
+              </span>
+            </span>
+          </label>
+
+          <label
+            className={`flex items-start gap-3 rounded-2xl bg-white p-4 ring-1 ring-sand-200 ${
+              legendasDisponiveis ? "" : "opacity-60"
+            }`}
+          >
+            <input
+              type="checkbox"
+              checked={legendar}
+              disabled={ocupado || !legendasDisponiveis}
+              onChange={(e) => setLegendar(e.target.checked)}
+              className="mt-0.5 size-4 accent-brand-700"
+            />
+            <span className="text-sm text-ink-900">
+              Queimar legendas no vídeo
+              <span className="block text-xs text-ink-500">
+                {legendasDisponiveis
+                  ? "Transcreve a fala e grava a legenda na imagem."
+                  : "Indisponível: falta configurar a chave de legendas nesta conta. O corte funciona normalmente."}
               </span>
             </span>
           </label>
@@ -199,7 +224,7 @@ export function VideoEditor({ configurado }: { configurado: boolean }) {
           <button
             type="button"
             onClick={enviar}
-            disabled={ocupado}
+            disabled={ocupado || nadaMarcado}
             className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-brand-700 px-5 py-3 text-sm font-medium text-sand-50 transition hover:bg-brand-800 disabled:opacity-60"
           >
             {ocupado && <Loader2 size={16} className="animate-spin" />}
@@ -209,7 +234,9 @@ export function VideoEditor({ configurado }: { configurado: boolean }) {
                 ? "Cortando as pausas…"
                 : estado === "processando"
                   ? "Gerando as legendas…"
-                  : "Editar vídeo"}
+                  : nadaMarcado
+                    ? "Escolha o que fazer com o vídeo"
+                    : "Editar vídeo"}
           </button>
         </>
       )}
