@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Mic } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth/session";
 import { CopiarTexto } from "./CopiarTexto";
@@ -94,7 +94,21 @@ function Leitura({ a }: { a: Atividade }) {
               {tituloDeExibicao(a.titulo, conteudo)}
             </h2>
           </div>
-          <CopiarTexto texto={conteudo} rotulo="Copiar tudo" cor={e.cor} />
+          <div className="flex shrink-0 items-center gap-2">
+            {/* Projeto de lei fica de fora: dez mil caracteres de texto
+                jurídico não se lê para a câmera. */}
+            {a.tipo !== "projeto_lei" && (
+              <Link
+                href={`/teleprompter/wa/${a.id}`}
+                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium ring-1 transition hover:opacity-80"
+                style={{ color: e.cor, borderColor: e.cor, boxShadow: `inset 0 0 0 1px ${e.cor}33` }}
+              >
+                <Mic size={13} strokeWidth={2.1} />
+                Gravar
+              </Link>
+            )}
+            <CopiarTexto texto={conteudo} rotulo="Copiar tudo" cor={e.cor} />
+          </div>
         </div>
       </header>
 

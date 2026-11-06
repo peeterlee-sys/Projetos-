@@ -1,4 +1,13 @@
-import { Sun, BookOpen, TrendingUp, History, Clapperboard, User, type LucideIcon } from "lucide-react";
+import {
+  Sun,
+  BookOpen,
+  TrendingUp,
+  History,
+  Mic,
+  Clapperboard,
+  User,
+  type LucideIcon,
+} from "lucide-react";
 import { brand } from "@/lib/brand";
 
 export type NavItem = { href: string; label: string; icon: LucideIcon };
@@ -15,11 +24,14 @@ const TAKE: NavItem[] = [
  * Assessor 24h: tudo é produzido no WhatsApp, então o app serve para consultar
  * o que já foi gerado — radar, biblioteca e metas do Take não se aplicam.
  *
- * Vídeo é a exceção que fica no painel: a Meta só envia arquivo de até 16MB,
- * e um minuto em 1080p já passa disso.
+ * Vídeo e teleprompter são a exceção, e ficam no app porque não cabem no
+ * WhatsApp: a Meta só envia arquivo de até 16MB, e um minuto em 1080p já passa
+ * disso. No celular o vereador instala como PWA e fecha o ciclo sem sair dali
+ * — pede o discurso no WhatsApp, lê na rolagem, grava, corta e legenda.
  */
 const ASSESSOR24H: NavItem[] = [
-  { href: "/atividade", label: "Atividade", icon: History },
+  { href: "/atividade", label: "Documentos", icon: History },
+  { href: "/teleprompter", label: "Gravar", icon: Mic },
   { href: "/video", label: "Vídeo", icon: Clapperboard },
   { href: "/perfil", label: "Perfil", icon: User },
 ];
