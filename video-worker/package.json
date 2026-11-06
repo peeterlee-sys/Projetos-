@@ -1,0 +1,17 @@
+{
+  "name": "portavoz-video-worker",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Worker de edicao de video do Porta Voz (ffmpeg + Whisper): corta respiros, legenda e junta takes.",
+  "main": "server.mjs",
+  "scripts": {
+    "start": "node server.mjs",
+    "editar": "node editar.mjs"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "@vercel/blob": "^2.8.2",
+    "express": "^4.21.2"
+  }
+}
