@@ -3,6 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Upload, Loader2, CheckCircle2, AlertCircle, Download } from "lucide-react";
 import { createClient as createBrowserClient } from "@/lib/supabase/browser";
+import {
+  estimarSegundosDeEnvio,
+  formatarDuracao,
+  subirComProgresso,
+} from "@/lib/video/upload";
 
 /**
  * Edição do vídeo que o vereador grava no celular e sobe pelo painel.
@@ -35,7 +40,10 @@ export function VideoEditor({ legendasDisponiveis }: { legendasDisponiveis: bool
   const [corte, setCorte] = useState<Corte | null>(null);
   const [saida, setSaida] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
+  const [porcento, setPorcento] = useState(0);
+  const [decorrido, setDecorrido] = useState(0);
   const pollRef = useRef<number | null>(null);
+  const relogioRef = useRef<number | null>(null);
 
   const pararPolling = useCallback(() => {
     if (pollRef.current) {
@@ -44,7 +52,20 @@ export function VideoEditor({ legendasDisponiveis }: { legendasDisponiveis: bool
     }
   }, []);
 
-  useEffect(() => () => pararPolling(), [pararPolling]);
+  const pararRelogio = useCallback(() => {
+    if (relogioRef.current) {
+      window.clearInterval(relogioRef.current);
+      relogioRef.current = null;
+    }
+  }, []);
+
+  useEffect(
+    () => () => {
+      pararPolling();
+      pararRelogio();
+    },
+    [pararPolling, pararRelogio]
+  );
 
   const acompanhar = useCallback(
     (requestId: string) => {
@@ -57,14 +78,17 @@ export function VideoEditor({ legendasDisponiveis }: { legendasDisponiveis: bool
           const j = await res.json();
           if (j.status === "ready" && j.output_url) {
             pararPolling();
+            pararRelogio();
             setSaida(j.output_url);
             setEstado("pronto");
           } else if (j.status === "failed") {
             pararPolling();
+            pararRelogio();
             setErro(j.error || "Não foi possível gerar as legendas.");
             setEstado("falhou");
           } else if (tentativas > MAX_TENTATIVAS) {
             pararPolling();
+            pararRelogio();
             setErro("A edição está demorando mais que o normal. Tente de novo em instantes.");
             setEstado("falhou");
           }
@@ -73,7 +97,7 @@ export function VideoEditor({ legendasDisponiveis }: { legendasDisponiveis: bool
         }
       }, 4000);
     },
-    [pararPolling]
+    [pararPolling, pararRelogio]
   );
 
   const enviar = useCallback(async () => {
@@ -81,20 +105,37 @@ export function VideoEditor({ legendasDisponiveis }: { legendasDisponiveis: bool
     setErro(null);
     setSaida(null);
     setCorte(null);
+    setPorcento(0);
+    setDecorrido(0);
     setEstado("enviando");
+
+    // Relógio próprio: numa espera de minutos o vereador precisa ver que
+    // alguma coisa está andando, mesmo quando a porcentagem trava.
+    const inicio = Date.now();
+    pararRelogio();
+    relogioRef.current = window.setInterval(
+      () => setDecorrido(Math.round((Date.now() - inicio) / 1000)),
+      1000
+    );
+
     try {
       const supabase = createBrowserClient();
       const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) throw new Error("Sessão expirada. Faça login novamente.");
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session?.user) throw new Error("Sessão expirada. Faça login novamente.");
 
       const ext = arquivo.name.split(".").pop()?.toLowerCase() || "mp4";
-      const caminho = `${user.id}/${Date.now()}.${ext}`;
-      const up = await supabase.storage
-        .from("recordings")
-        .upload(caminho, arquivo, { contentType: arquivo.type || "video/mp4", upsert: true });
-      if (up.error) throw new Error(`Falha ao enviar o vídeo: ${up.error.message}`);
+      const caminho = `${session.user.id}/${Date.now()}.${ext}`;
+
+      await subirComProgresso({
+        supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        accessToken: session.access_token,
+        bucket: "recordings",
+        caminho,
+        arquivo,
+        aoProgredir: (p) => setPorcento(p.porcento),
+      });
 
       const assinada = await supabase.storage.from("recordings").createSignedUrl(caminho, 3600);
       if (!assinada.data?.signedUrl) {
@@ -120,6 +161,7 @@ export function VideoEditor({ legendasDisponiveis }: { legendasDisponiveis: bool
       // Sem legenda o trabalho acabou aqui: o corte já devolveu o vídeo
       // pronto, e o ZapCap é o único passo que depende de chave externa.
       if (!legendar) {
+        pararRelogio();
         setSaida(videoUrl);
         setEstado("pronto");
         return;
@@ -136,10 +178,11 @@ export function VideoEditor({ legendasDisponiveis }: { legendasDisponiveis: bool
       setEstado("processando");
       acompanhar(j.request_id);
     } catch (e) {
+      pararRelogio();
       setErro(e instanceof Error ? e.message : "Falha na edição do vídeo.");
       setEstado("falhou");
     }
-  }, [arquivo, cortarPausas, legendar, acompanhar]);
+  }, [arquivo, cortarPausas, legendar, acompanhar, pararRelogio]);
 
   const escolher = useCallback((f: File | null) => {
     setSaida(null);
@@ -169,7 +212,9 @@ export function VideoEditor({ legendasDisponiveis }: { legendasDisponiveis: bool
         </span>
         <span className="text-xs text-ink-500">
           {arquivo
-            ? `${(arquivo.size / 1024 / 1024).toFixed(1)}MB`
+            ? `${(arquivo.size / 1024 / 1024).toFixed(0)}MB · envio de cerca de ${formatarDuracao(
+                estimarSegundosDeEnvio(arquivo.size)
+              )}`
             : `MP4 ou MOV, até ${LIMITE_MB}MB`}
         </span>
         <input
@@ -241,10 +286,36 @@ export function VideoEditor({ legendasDisponiveis }: { legendasDisponiveis: bool
         </>
       )}
 
-      {(estado === "cortando" || estado === "processando") && (
-        <p className="text-center text-xs text-ink-500">
-          Leva cerca de um minuto. Pode deixar esta aba aberta.
-        </p>
+      {ocupado && (
+        <div className="space-y-2 rounded-2xl bg-white p-4 ring-1 ring-sand-200">
+          <div className="flex items-baseline justify-between gap-3 text-xs">
+            <span className="font-medium text-ink-900">
+              {estado === "enviando"
+                ? `Enviando ${porcento}%`
+                : estado === "cortando"
+                  ? "Cortando as pausas"
+                  : "Gerando as legendas"}
+            </span>
+            <span className="tabular-nums text-ink-400">{formatarDuracao(decorrido)}</span>
+          </div>
+
+          <div className="h-1.5 overflow-hidden rounded-full bg-sand-200">
+            <div
+              className={`h-full rounded-full bg-brand-700 transition-[width] duration-300 ${
+                estado === "enviando" ? "" : "animate-pulse"
+              }`}
+              // Depois do envio não há percentual real vindo do servidor: a
+              // barra fica cheia e pulsando em vez de mentir um número.
+              style={{ width: estado === "enviando" ? `${Math.max(2, porcento)}%` : "100%" }}
+            />
+          </div>
+
+          <p className="text-xs text-ink-500">
+            {estado === "enviando"
+              ? "Mantenha o app aberto. Em rede de celular o envio é a parte mais demorada."
+              : "O vídeo já está no servidor. Agora é o processamento."}
+          </p>
+        </div>
       )}
 
       {erro && (
