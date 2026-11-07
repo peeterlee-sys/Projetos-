@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { after } from "next/server";
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getSessionUser } from "@/lib/auth/session";
 import { processarJob } from "@/lib/video/jobs";
 
@@ -65,8 +65,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Não foi possível registrar o pedido." }, { status: 500 });
   }
 
+  // O processamento NÃO pode usar o cliente da requisição: ele vive dos
+  // cookies da sessão e o token expira no meio de um trabalho de minutos,
+  // derrubando tudo com 401 — justamente no caso longo que a fila atende.
+  // O dono já foi conferido acima, na criação do registro.
   after(async () => {
-    await processarJob(supabase, job.id);
+    await processarJob(createServiceClient(), job.id);
   });
 
   return NextResponse.json({ job_id: job.id, status: "pendente" });
