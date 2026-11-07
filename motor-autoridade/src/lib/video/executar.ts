@@ -1,6 +1,7 @@
 import "server-only";
 import { execFile } from "node:child_process";
-import { mkdtemp, rm, stat, writeFile } from "node:fs/promises";
+import { constants } from "node:fs";
+import { access, chmod, copyFile, mkdtemp, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -32,24 +33,73 @@ export type Resultado = {
   excedeWhatsApp: boolean;
 };
 
-function binario(): string {
-  if (!ffmpegPath) throw new Error("ffmpeg não disponível neste ambiente.");
-  return ffmpegPath;
+/** Resolvido uma vez por contêiner; a cópia para /tmp é cara para repetir. */
+let caminhoDoBinario: string | null = null;
+
+/**
+ * Devolve um ffmpeg que realmente dá para executar.
+ *
+ * O empacotamento da função serverless costuma perder o bit de execução do
+ * binário, e aí o `execFile` falha com EACCES antes de ler um único quadro.
+ * O diretório da função é somente leitura, então não dá para corrigir no
+ * lugar: a saída é copiar para /tmp, que é gravável, e dar permissão lá.
+ *
+ * Só copia quando precisa — em máquina de desenvolvimento o binário já vem
+ * executável e o caminho original serve.
+ */
+async function binario(): Promise<string> {
+  if (caminhoDoBinario) return caminhoDoBinario;
+  if (!ffmpegPath) {
+    throw new Error("O ffmpeg não foi empacotado nesta função (veja outputFileTracingIncludes).");
+  }
+
+  try {
+    await access(ffmpegPath, constants.X_OK);
+    caminhoDoBinario = ffmpegPath;
+    return caminhoDoBinario;
+  } catch {
+    // Sem permissão de execução: segue para a cópia.
+  }
+
+  const destino = join(tmpdir(), "ffmpeg-bin");
+  try {
+    await access(destino, constants.X_OK);
+  } catch {
+    await copyFile(ffmpegPath, destino);
+    await chmod(destino, 0o755);
+  }
+  caminhoDoBinario = destino;
+  return destino;
 }
 
 /**
- * O ffmpeg sai com código diferente de zero em `-f null -`, e o que interessa
- * está no stderr de qualquer forma. Então capturamos stderr nos dois casos.
+ * Roda o ffmpeg e devolve o stderr, que é onde ele escreve tudo que interessa
+ * — inclusive em sucesso. Com `-f null -` ele ainda sai com código diferente
+ * de zero, então o stderr é lido nos dois casos.
+ *
+ * Falha de execução e falha de vídeo precisam ser distinguidas: quando o
+ * processo nem sobe (EACCES, ENOENT) o `code` vem como texto e não há stderr
+ * nenhum. Tratar isso como "vídeo ilegível" manda o vereador trocar o arquivo
+ * por causa de um problema que é de ambiente e não tem nada a ver com ele.
  */
 async function stderrDe(args: string[]): Promise<string> {
+  const bin = await binario();
   try {
-    const { stderr } = await exec(binario(), args, { maxBuffer: BUFFER });
+    const { stderr } = await exec(bin, args, { maxBuffer: BUFFER });
     return stderr;
   } catch (err) {
-    const e = err as { stderr?: string };
-    if (typeof e.stderr === "string") return e.stderr;
-    throw err;
+    const e = err as { stderr?: string; code?: string | number; message?: string };
+    if (typeof e.code === "string") {
+      throw new Error(`Não foi possível executar o ffmpeg no servidor (${e.code}).`);
+    }
+    if (typeof e.stderr === "string" && e.stderr.trim()) return e.stderr;
+    throw new Error(e.message || "O ffmpeg falhou sem informar o motivo.");
   }
+}
+
+/** Últimas linhas do ffmpeg, para a falha chegar diagnosticável ao log. */
+function cauda(saida: string, linhas = 4): string {
+  return saida.trim().split("\n").slice(-linhas).join(" | ").slice(0, 300);
 }
 
 /**
@@ -85,7 +135,11 @@ export async function cortarSilencio(entrada: Buffer): Promise<Resultado> {
     ]);
 
     const duracao = parsearDuracao(analise);
-    if (!duracao) throw new Error("Não foi possível ler o vídeo. Envie um MP4 ou MOV.");
+    if (!duracao) {
+      // Carrega o que o ffmpeg disse: sem isso a falha vira adivinhação, e o
+      // formato do celular leva a culpa por qualquer problema de servidor.
+      throw new Error(`Não foi possível ler o vídeo. ffmpeg: ${cauda(analise) || "sem saída"}`);
+    }
 
     const trechos = trechosParaManter(parsearSilencios(analise, duracao), duracao);
     if (trechos.length === 0) {
@@ -102,7 +156,7 @@ export async function cortarSilencio(entrada: Buffer): Promise<Resultado> {
     await writeFile(filtro, montarFilterComplex(trechos, plano.altura));
 
     await exec(
-      binario(),
+      await binario(),
       [
         "-hide_banner",
         "-loglevel",
