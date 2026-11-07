@@ -13,6 +13,9 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/api/video/jobs": ["./node_modules/ffmpeg-static/ffmpeg"],
     "/api/cron/video-pendentes": ["./node_modules/ffmpeg-static/ffmpeg"],
+    // O diagnóstico precisa do binário nas mesmas condições das rotas acima,
+    // senão ele mediria um ambiente diferente do que falha.
+    "/api/video/diagnostico": ["./node_modules/ffmpeg-static/ffmpeg"],
   },
   async headers() {
     return [
