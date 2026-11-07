@@ -92,6 +92,14 @@ npx web-push generate-vapid-keys
 | `ZAPCAP_TEMPLATE_ID` | id do template de legenda escolhido no ZapCap (obrigatório para ligar as legendas) |
 | `ZAPCAP_LANGUAGE` | idioma das legendas (opcional, default `pt`) |
 | `ZAPCAP_BASE_URL` | base da API (opcional, default `https://api.zapcap.ai`) |
+| `NEXT_PUBLIC_VIDEO_LIMITE_MB` | teto por vídeo enviado pelo painel (opcional, default `50`) |
+
+> **Tamanho do vídeo:** o default de 50MB existe porque é o teto fixo do plano
+> Free do Supabase Storage, que não aceita configuração. No plano Pro o teto
+> sobe (até 500GB): aumente o limite em *Storage → Settings → Global file size
+> limit* e defina `NEXT_PUBLIC_VIDEO_LIMITE_MB` com o mesmo valor. As duas
+> pontas precisam combinar — se só o app subir, o vereador espera o envio
+> inteiro para o servidor recusar no fim.
 
 > **Legendas (ZapCap):** requer também rodar a migração `0008_edit_requests.sql`
 > (cria a tabela `edit_requests` e o bucket de Storage `recordings`). Escolha um

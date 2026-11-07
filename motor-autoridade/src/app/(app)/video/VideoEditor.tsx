@@ -20,8 +20,18 @@ import { estimarSegundosDeEnvio, formatarDuracao, subirComProgresso } from "@/li
  * tela por minutos e perdia tudo se trocasse de aplicativo.
  */
 
-/** Acima disto o envio trava em rede de celular; avisa antes de tentar. */
-const LIMITE_MB = 200;
+/**
+ * Teto por arquivo do Storage. O plano Free do Supabase trava em 50MB e não
+ * deixa configurar; o Pro permite até 500GB.
+ *
+ * Fica em variável de ambiente para subir o teto na hora da troca de plano,
+ * sem mexer em código: basta definir NEXT_PUBLIC_VIDEO_LIMITE_MB e publicar.
+ *
+ * Importa recusar aqui, antes de começar: o servidor recusa o arquivo grande
+ * só depois de recebê-lo inteiro, e o vereador passa minutos olhando a barra
+ * subir para no fim não dar em nada.
+ */
+const LIMITE_MB = Number(process.env.NEXT_PUBLIC_VIDEO_LIMITE_MB) || 50;
 
 type Estado = "idle" | "enviando" | "enfileirado" | "falhou";
 
@@ -140,7 +150,12 @@ export function VideoEditor({ legendasDisponiveis }: { legendasDisponiveis: bool
     setErro(null);
     if (f && f.size > LIMITE_MB * 1024 * 1024) {
       setArquivo(null);
-      setErro(`O vídeo tem ${(f.size / 1024 / 1024).toFixed(0)}MB. O limite é ${LIMITE_MB}MB.`);
+      setErro(
+        `Este vídeo tem ${(f.size / 1024 / 1024).toFixed(0)}MB e o limite é ${LIMITE_MB}MB. ` +
+          "Grave um trecho mais curto, ou baixe a qualidade da câmera do celular " +
+          "(no iPhone: Ajustes → Câmera → Gravar Vídeo → 720p HD, 30 fps). " +
+          "Em 720p um minuto de vídeo fica em torno de 15MB."
+      );
       return;
     }
     setArquivo(f);
@@ -165,7 +180,7 @@ export function VideoEditor({ legendasDisponiveis }: { legendasDisponiveis: bool
             ? `${(arquivo.size / 1024 / 1024).toFixed(0)}MB · envio de cerca de ${formatarDuracao(
                 estimarSegundosDeEnvio(arquivo.size)
               )}`
-            : `MP4 ou MOV, até ${LIMITE_MB}MB`}
+            : `MP4 ou MOV, até ${LIMITE_MB}MB — cerca de ${Math.round(LIMITE_MB / 15)} min em 720p`}
         </span>
         <input
           type="file"
